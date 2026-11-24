@@ -31,6 +31,9 @@ jobs:
           Copy-Item ANLEITUNG.md dist/ANLEITUNG.md
           Get-Item dist/Bilderrahmen-Swiper.exe | Select-Object Name, Length
       - uses: actions/upload-artifact@v4
+        # Nur bei Pull Requests; auf main landet die .exe direkt unter Releases.
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
         with:
           name: Bilderrahmen-Swiper-Windows
           path: dist/
