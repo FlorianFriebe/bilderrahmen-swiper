@@ -18,7 +18,6 @@ pub mod sp {
     pub const L: f32 = 16.0;
     pub const XL: f32 = 24.0;
     pub const XXL: f32 = 32.0;
-    pub const XXXL: f32 = 48.0;
 }
 
 /// Eckradien.
@@ -35,8 +34,10 @@ pub mod radius {
 pub mod size {
     /// Symbol-Knopf und Zeilenhöhe in Leisten
     pub const CONTROL: f32 = 40.0;
-    /// Höhe der oberen Leiste
+    /// Höhe von Glasknöpfen und Chips am Rand
     pub const BAR: f32 = 48.0;
+    /// Höhe der kompakten oberen Leiste
+    pub const TOPBAR: f32 = 56.0;
     /// Werkzeug-Knopf mit Beschriftung
     pub const TOOL: f32 = 64.0;
     /// Höhe von „Weg“/„Behalten“

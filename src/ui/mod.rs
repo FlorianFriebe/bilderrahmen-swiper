@@ -3,12 +3,12 @@
 
 mod burst;
 mod dialogs;
-mod drawer;
 mod frame;
 mod gallery;
 mod home;
 pub mod icons;
 pub mod kit;
+mod settings;
 pub mod style;
 mod swipe;
 

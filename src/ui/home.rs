@@ -2,7 +2,9 @@
 
 use std::path::PathBuf;
 
-use egui::{pos2, vec2, Align2, Color32, Rect, Sense, Shape, Stroke, StrokeKind, TextureId, Ui};
+use egui::{
+    pos2, vec2, Align2, Color32, Id, Rect, Sense, Shape, Stroke, StrokeKind, TextureId, Ui,
+};
 
 use super::kit::{self, Tone};
 use super::style::*;
@@ -10,6 +12,7 @@ use super::{bilder, ellipsize, icons, image_cover};
 use crate::app::{Dialog, FolderInfo, SwiperApp, View};
 use crate::folders;
 use crate::imaging::Orient;
+use crate::session::{Session, SessionProgress};
 use crate::system;
 use crate::util::{fmt_int, open_folder};
 
@@ -64,48 +67,103 @@ fn pick_folders(app: &mut SwiperApp) {
     }
 }
 
+/// Höhe einer Session-Karte unter „Weitermachen“.
+const SESSION: egui::Vec2 = egui::vec2(560.0, 104.0);
+const SESSION_THUMB: f32 = 72.0;
+/// Höhe der kleinen Abschnittsüberschriften („WEITERMACHEN“).
+const LABEL_H: f32 = 18.0;
+
 pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     top_bar(app, ui, ws);
 
-    // Kopfbereich
     let header = header_lines(app);
+    let head_h = header_height(app);
+    let start_screen = app.finished.is_none();
     let cols = ((ws.width() + sp::L) / (TILE.x + sp::L))
         .floor()
         .clamp(1.0, 3.0) as usize;
     let n = app.folders.len() + 1;
     let rows = n.div_ceil(cols);
-    let footer_h = if app.finished.is_none() {
-        56.0 + sp::L + 20.0
+
+    // Weitermachen: offene Sessions
+    let sessions = if start_screen {
+        app.open_sessions()
+    } else {
+        vec![]
+    };
+    let s_cols = if ws.width() >= SESSION.x * 2.0 + sp::L {
+        2
+    } else {
+        1
+    };
+    let s_rows_max = if ws.height() > 900.0 { 2 } else { 1 };
+    let shown = sessions.len().min(s_cols * s_rows_max);
+    let s_rows = shown.div_ceil(s_cols);
+    let sessions_h = if shown > 0 {
+        LABEL_H + sp::M + s_rows as f32 * (SESSION.y + sp::L) - sp::L + sp::XXL
     } else {
         0.0
     };
-    let head_h = header_height(app);
-    let grid_max = ws.height() - 120.0 - head_h - footer_h - sp::XXXL;
+    let folders_label_h = if shown > 0 { LABEL_H + sp::M } else { 0.0 };
+
+    let footer_h = if start_screen {
+        56.0 + sp::L + 44.0
+    } else {
+        0.0
+    };
+    let content_top = ws.top() + size::TOPBAR + sp::XL;
+    let fixed = head_h + sp::XXL + sessions_h + folders_label_h;
+    let footer_total = if footer_h > 0.0 {
+        sp::XXL + footer_h
+    } else {
+        0.0
+    };
+    let grid_max = ws.bottom() - content_top - fixed - footer_total;
     let grid_h = (rows as f32 * (TILE.y + sp::L) - sp::L).min(grid_max.max(TILE.y));
-    let total = head_h
-        + sp::XXL
-        + grid_h
-        + if footer_h > 0.0 {
-            sp::XXXL + footer_h
-        } else {
-            0.0
-        };
-    let top = (ws.center().y - total / 2.0).max(ws.top() + 88.0);
+    let total = fixed + grid_h + footer_total;
+    let top = (ws.center().y - total / 2.0).max(content_top);
 
     let mut y = top;
     header.draw(app, ui, ws, &mut y);
     y += sp::XXL;
 
+    if shown > 0 {
+        let used = shown.min(s_cols) as f32;
+        let w = used * SESSION.x + (used - 1.0) * sp::L;
+        let x0 = ws.center().x - w / 2.0;
+        section_label(ui, pos2(x0 + sp::XS, y), "WEITERMACHEN");
+        y += LABEL_H + sp::M;
+        for (i, (s, prog)) in sessions.iter().take(shown).enumerate() {
+            let r = Rect::from_min_size(
+                pos2(
+                    x0 + (i % s_cols) as f32 * (SESSION.x + sp::L),
+                    y + (i / s_cols) as f32 * (SESSION.y + sp::L),
+                ),
+                SESSION,
+            );
+            session_card(app, ui, r, s, *prog);
+            if app.view != View::Home {
+                return;
+            }
+        }
+        y += s_rows as f32 * (SESSION.y + sp::L) - sp::L + sp::XXL;
+    }
+
     let used = n.min(cols) as f32;
     let grid_w = used * TILE.x + (used - 1.0) * sp::L;
-    let grid = Rect::from_min_size(pos2(ws.center().x - grid_w / 2.0, y), vec2(grid_w, grid_h));
+    let gx = ws.center().x - grid_w / 2.0;
+    if shown > 0 {
+        section_label(ui, pos2(gx + sp::XS, y), "NEUE AUSWAHL");
+        y += LABEL_H + sp::M;
+    }
+    let grid = Rect::from_min_size(pos2(gx, y), vec2(grid_w, grid_h));
     tiles(app, ui, grid, cols);
     if app.view != View::Home {
         return;
     }
-    y = grid.bottom() + sp::XXXL;
+    y = grid.bottom() + sp::XXL;
 
-    if app.finished.is_none() {
+    if start_screen {
         let open = app.selected_open();
         let r = Rect::from_center_size(pos2(ws.center().x, y + 28.0), vec2(400.0, 56.0));
         let (glyph, label, enabled) = if app.folders.is_empty() {
@@ -113,40 +171,33 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         } else if open == 0 {
             ("", "Keine offenen Fotos ausgewählt".to_string(), false)
         } else {
-            (
-                icons::PLAY,
-                format!("{} Fotos durchgehen", fmt_int(open)),
-                true,
-            )
+            (icons::PLAY, format!("{} durchgehen", fotos(open)), true)
         };
-        if kit::cta(ui, r, glyph, &label, enabled).clicked() {
+        let resp = kit::cta(ui, r, glyph, &label, enabled);
+        let resp = if app.folders.is_empty() {
+            resp
+        } else {
+            resp.on_hover_text("Startet eine neue Session mit den ausgewählten Ordnern. Doppelklick auf einen Ordner startet nur diesen.")
+        };
+        if resp.clicked() {
             if app.folders.is_empty() {
                 pick_folders(app);
             } else {
                 app.start_session();
             }
         }
-        let frame = match app.frame_res() {
-            Some((w, h)) => format!("Rahmen {w} × {h}"),
-            None => format!(
-                "Quer {}  ·  Hochkant {}",
-                app.ratio_label(Orient::Quer),
-                app.ratio_label(Orient::Hochkant)
-            ),
-        };
-        let info = format!(
-            "Doppelklick startet nur einen Ordner  ·  Ziel: {}  ·  {frame}",
-            short_path(&app.cfg.target)
-        );
-        let g = ui
-            .painter()
-            .layout(info, font(ts::SMALL, W::Regular), dim(), ws.width() * 0.8);
-        ui.painter().galley(
-            pos2(ws.center().x - g.size().x / 2.0, r.bottom() + sp::L),
-            g,
-            dim(),
-        );
+        settings_summary(app, ui, pos2(ws.center().x, r.bottom() + sp::L));
     }
+}
+
+fn section_label(ui: &Ui, at: egui::Pos2, label: &str) {
+    ui.painter().text(
+        at + vec2(0.0, LABEL_H / 2.0),
+        Align2::LEFT_CENTER,
+        label,
+        font(ts::CAPTION, W::Semibold),
+        muted(),
+    );
 }
 
 /// Die letzten zwei Ordner eines Pfads, z. B. „Bilder\Bilderrahmen“.
@@ -165,24 +216,45 @@ fn short_path(p: &std::path::Path) -> String {
 
 fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let p = ui.painter().clone();
-    let menu = Rect::from_min_size(ws.min, vec2(size::BAR, size::BAR));
-    kit::glass(&p, menu, radius::L);
-    app.spots.menu = Some(menu);
-    if kit::icon_button(ui, menu.shrink(sp::XS), icons::MENU, true)
-        .on_hover_text("Einstellungen (Strg+B)")
+    let pad = sp::S;
+    let h = size::CONTROL;
+    let gap = sp::XS;
+    let sep = sp::M * 2.0 + 1.0;
+    let set_w = kit::bar_button_width(ui, "Einstellungen");
+    let kept = (app.total_kept > 0).then(|| format!("{} behalten", fmt_int(app.total_kept)));
+    let kept_w = kept.as_ref().map(|k| kit::pill_width(ui, k)).unwrap_or(0.0);
+    let mut total = pad * 2.0 + set_w + sep + h;
+    if kept.is_some() {
+        total += sep + kept_w + gap + h + gap + h;
+    }
+    let bar = Rect::from_center_size(
+        pos2(ws.center().x, ws.top() + size::TOPBAR / 2.0),
+        vec2(total, size::TOPBAR),
+    );
+    kit::glass(&p, bar, radius::XL - 2);
+    app.spots.menu = Some(bar);
+    let cy = bar.center().y;
+    let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, cy - h / 2.0), vec2(w, h));
+    let mut x = bar.left() + pad;
+
+    if kit::bar_button(ui, row(x, set_w), icons::GEAR, "Einstellungen")
+        .on_hover_text("Rahmen, Format, Text, Zielordner und Tasten (Strg+B)")
         .clicked()
     {
-        app.drawer = !app.drawer;
+        app.dialog = Some(Dialog::Settings);
     }
-
-    let mut right = ws.right();
-    if app.total_kept > 0 {
-        let gr = Rect::from_min_size(
-            pos2(right - size::BAR, ws.top()),
-            vec2(size::BAR, size::BAR),
-        );
-        kit::glass(&p, gr, radius::L);
-        if kit::icon_button(ui, gr.shrink(sp::XS), icons::GALLERY, true)
+    x += set_w + sp::M;
+    if let Some(kept) = kept {
+        kit::vsep(&p, x, cy);
+        x += 1.0 + sp::M;
+        if kit::pill(ui, row(x, kept_w), icons::HEART, &kept, Tone::Keep)
+            .on_hover_text("Behaltene Bilder ansehen")
+            .clicked()
+        {
+            app.view = View::Gallery;
+        }
+        x += kept_w + gap;
+        if kit::icon_button(ui, row(x, h), icons::GALLERY, true)
             .on_hover_text(format!(
                 "Behaltene Bilder ansehen ({})",
                 app.key_label("gallery")
@@ -191,31 +263,338 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         {
             app.view = View::Gallery;
         }
-        right = gr.left() - sp::S;
-        let label = format!("{} behalten", fmt_int(app.total_kept));
-        let w = kit::chip_width(ui, icons::HEART, &label);
-        let cr = Rect::from_min_size(pos2(right - w, ws.top()), vec2(w, size::BAR));
-        if kit::chip(ui, cr, icons::HEART, true, &label, Tone::Keep)
-            .on_hover_text("Behaltene Bilder ansehen")
+        x += h + gap;
+        if kit::icon_button(ui, row(x, h), icons::USB, true)
+            .on_hover_text("Auf USB-Stick / SD-Karte kopieren")
             .clicked()
         {
-            app.view = View::Gallery;
+            app.dialog = Some(Dialog::Copy);
         }
-        right = cr.left() - sp::S;
+        x += h + sp::M;
     }
+    kit::vsep(&p, x, cy);
+    x += 1.0 + sp::M;
+    if kit::icon_button(ui, row(x, h), icons::KEYBOARD, true)
+        .on_hover_text("Tastenkürzel (F1)")
+        .clicked()
+    {
+        app.dialog = Some(Dialog::Shortcuts);
+    }
+
     let update = app.update.lock().unwrap().clone();
     if let Some(v) = update {
         let label = format!("Version {v} laden");
         let w = kit::chip_width(ui, icons::DOWNLOAD, &label);
-        let r = Rect::from_min_size(pos2(right - w, ws.top()), vec2(w, size::BAR));
-        if kit::chip(ui, r, icons::DOWNLOAD, false, &label, Tone::Accent)
-            .on_hover_text(
-                "Öffnet die Download-Seite. Einfach die alte .exe durch die neue ersetzen.",
-            )
-            .clicked()
+        let r = Rect::from_min_size(
+            pos2(ws.right() - w, cy - size::BAR / 2.0),
+            vec2(w, size::BAR),
+        );
+        if r.left() > bar.right() + sp::L
+            && kit::chip(ui, r, icons::DOWNLOAD, false, &label, Tone::Accent)
+                .on_hover_text(
+                    "Öffnet die Download-Seite. Einfach die alte .exe durch die neue ersetzen.",
+                )
+                .clicked()
         {
             system::open_url(system::RELEASE_PAGE);
         }
+    }
+}
+
+// ------------------------------------------------------------------ Weitermachen
+
+#[derive(Clone, Default)]
+struct Rename {
+    id: u64,
+    text: String,
+    focused: bool,
+}
+
+fn session_card(app: &mut SwiperApp, ui: &mut Ui, r: Rect, s: &Session, prog: SessionProgress) {
+    let mut cu = ui.new_child(
+        egui::UiBuilder::new()
+            .id_salt(("session", s.id))
+            .max_rect(r),
+    );
+    let ui = &mut cu;
+    let resp = ui
+        .interact(r, ui.make_persistent_id("card"), Sense::click())
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text("Klick: an der gespeicherten Stelle weitermachen");
+    let t = kit::anim(ui, resp.id, resp.hovered());
+    let p = ui.painter().clone();
+    kit::glass_with(&p, r, radius::XL, kit::mix(glass(), glass_hover(), t));
+
+    // Vorschau: Bild, bei dem pausiert wurde, sonst erstes Bild des ersten Ordners
+    let th = Rect::from_min_size(
+        r.min + vec2(sp::L, (r.height() - SESSION_THUMB) / 2.0),
+        vec2(SESSION_THUMB, SESSION_THUMB),
+    );
+    let first = s
+        .folders
+        .iter()
+        .find_map(|f| app.folders.iter().find(|i| &i.path == f))
+        .and_then(|f| f.first.clone());
+    let tex = s
+        .image
+        .as_ref()
+        .and_then(|i| app.thumb(i))
+        .or_else(|| first.as_ref().and_then(|f| app.thumb(f)));
+    if s.folders.len() > 1 {
+        // angedeuteter Stapel bei mehreren Ordnern
+        p.rect_filled(th.translate(vec2(5.0, -5.0)), radius::M, field());
+    }
+    match tex {
+        Some((id, size)) => image_cover(ui, th, radius::M, id, size, Color32::WHITE),
+        None => {
+            p.rect_filled(th, radius::M, field());
+            kit::icon(&p, th.center(), icons::IMAGE, 24.0, dim());
+        }
+    }
+
+    // rechts: Weiter und Löschen
+    let trash = Rect::from_center_size(
+        pos2(r.right() - sp::L - 18.0, r.center().y),
+        vec2(36.0, 36.0),
+    );
+    let go = Rect::from_min_size(
+        pos2(trash.left() - sp::S - 124.0, r.center().y - 22.0),
+        vec2(124.0, 44.0),
+    );
+
+    let tx = th.right() + sp::L;
+    let text_w = go.left() - sp::M - tx;
+    let title = app.session_title(s);
+    let title_y = r.top() + 26.0;
+    let rename_id = Id::unique("session_rename");
+    let mut rename: Option<Rename> = ui.ctx().data(|d| d.get_temp(rename_id));
+    let mut action: Option<SessionAction> = None;
+
+    if rename.as_ref().is_some_and(|rn| rn.id == s.id) {
+        let rn = rename.as_mut().unwrap();
+        let er = Rect::from_min_size(pos2(tx - 4.0, title_y - 15.0), vec2(text_w, 30.0));
+        let te = ui.put(
+            er,
+            egui::TextEdit::singleline(&mut rn.text)
+                .font(font(ts::BUTTON, W::Semibold))
+                .hint_text(title.clone())
+                .margin(vec2(4.0, 4.0)),
+        );
+        if !rn.focused {
+            te.request_focus();
+            rn.focused = true;
+        }
+        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+            rename = None;
+        } else if te.lost_focus() {
+            action = Some(SessionAction::Rename(rn.text.clone()));
+            rename = None;
+        }
+        ui.ctx().data_mut(|d| match &rename {
+            Some(rn) => {
+                d.insert_temp(rename_id, rn.clone());
+            }
+            None => d.remove::<Rename>(rename_id),
+        });
+    } else {
+        let nf = font(ts::BUTTON, W::Semibold);
+        let mut name = title.clone();
+        let mut keep = name.chars().count();
+        while keep > 4 && kit::text_size(ui, &name, nf.clone()).x > text_w - 32.0 {
+            keep -= 1;
+            name = ellipsize(&title, keep);
+        }
+        let nw = kit::text_size(ui, &name, nf.clone()).x;
+        p.text(pos2(tx, title_y), Align2::LEFT_CENTER, name, nf, text());
+        let pr = Rect::from_center_size(pos2(tx + nw + 18.0, title_y), vec2(26.0, 26.0));
+        let pen = ui
+            .interact(pr, ui.make_persistent_id("pen"), Sense::click())
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .on_hover_text("Umbenennen");
+        let pc = if pen.hovered() {
+            p.rect_filled(pr, radius::S, glass_hover());
+            text()
+        } else {
+            kit::mix(dim(), muted(), t)
+        };
+        kit::icon(&p, pr.center(), icons::PENCIL, 15.0, pc);
+        if pen.clicked() {
+            let rn = Rename {
+                id: s.id,
+                text: s.name.clone(),
+                focused: false,
+            };
+            ui.ctx().data_mut(|d| d.insert_temp(rename_id, rn));
+        }
+    }
+
+    let folders_txt = if s.folders.len() == 1 {
+        String::new()
+    } else {
+        format!("{} Ordner  ·  ", s.folders.len())
+    };
+    p.text(
+        pos2(tx, title_y + 24.0),
+        Align2::LEFT_CENTER,
+        format!(
+            "{folders_txt}{} von {}  ·  {} behalten",
+            fmt_int(prog.done),
+            fotos(prog.total),
+            fmt_int(prog.kept)
+        ),
+        font(ts::SMALL, W::Regular),
+        text_soft(),
+    );
+    let when = crate::session::when_label(s.updated);
+    let wf = font(ts::CAPTION, W::Regular);
+    let when_w = if when.is_empty() {
+        0.0
+    } else {
+        kit::text_size(ui, &when, wf.clone()).x + sp::M
+    };
+    let bar_w = (text_w - when_w).clamp(40.0, 220.0);
+    let bar = Rect::from_min_size(pos2(tx, title_y + 42.0), vec2(bar_w, 4.0));
+    let frac = if prog.total > 0 {
+        prog.done as f32 / prog.total as f32
+    } else {
+        0.0
+    };
+    kit::progress(&p, bar, frac);
+    if !when.is_empty() {
+        p.text(
+            pos2(bar.right() + sp::M, bar.center().y),
+            Align2::LEFT_CENTER,
+            when,
+            wf,
+            dim(),
+        );
+    }
+
+    if kit::cta(ui, go, icons::PLAY, "Weiter", true).clicked() {
+        action = Some(SessionAction::Resume);
+    }
+    let del = ui
+        .interact(trash, ui.make_persistent_id("trash"), Sense::click())
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text("Aus dem Verlauf entfernen (behaltene Bilder bleiben im Zielordner)");
+    if del.hovered() {
+        p.rect_filled(trash, radius::S, skip_soft());
+    }
+    kit::icon(
+        &p,
+        trash.center(),
+        icons::TRASH,
+        18.0,
+        if del.hovered() { skip() } else { muted() },
+    );
+    if del.clicked() {
+        action = Some(SessionAction::Delete);
+    } else if resp.clicked() && action.is_none() {
+        action = Some(SessionAction::Resume);
+    }
+
+    match action {
+        Some(SessionAction::Resume) => app.resume_session(s.id),
+        Some(SessionAction::Delete) => {
+            app.delete_session(s.id);
+            app.toast(format!("„{title}“ aus dem Verlauf entfernt."));
+        }
+        Some(SessionAction::Rename(n)) => app.rename_session(s.id, n),
+        None => {}
+    }
+}
+
+enum SessionAction {
+    Resume,
+    Delete,
+    Rename(String),
+}
+
+// ------------------------------------------------------------------ Einstellungen im Überblick
+
+/// Zeile unter dem Start-Knopf: wichtigste Einstellungen auf einen Blick,
+/// ein Klick öffnet die passende Seite der Einstellungen.
+fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
+    let frame = match app.frame_res() {
+        Some((w, h)) => format!("Rahmen {w} × {h}"),
+        None => format!(
+            "Quer {}  ·  Hochkant {}",
+            app.ratio_label(Orient::Quer),
+            app.ratio_label(Orient::Hochkant)
+        ),
+    };
+    let text_lbl = if app.cfg.text.enabled {
+        let pos = crate::app::TEXT_POS
+            .get(app.cfg.text.pos)
+            .copied()
+            .unwrap_or("");
+        format!("Text an, {pos}")
+    } else {
+        "Kein Text".to_string()
+    };
+    let mut target = format!("Ziel: {}", short_path(&app.cfg.target));
+    if app.cfg.max_mb > 0.0 {
+        target.push_str(&format!("  ·  max. {} MB", app.cfg.max_mb));
+    }
+    let items = [
+        (icons::FRAME, frame, super::settings::TAB_FRAME),
+        (icons::TEXT, text_lbl, super::settings::TAB_TEXT),
+        (icons::FOLDER_OPEN, target, super::settings::TAB_TARGET),
+    ];
+    let f = font(ts::SMALL, W::Medium);
+    let item_w: Vec<f32> = items
+        .iter()
+        .map(|(_, l, _)| kit::text_size(ui, l, f.clone()).x + 16.0 + sp::S + sp::M * 2.0)
+        .collect();
+    let change_w = kit::secondary_width(ui, icons::GEAR, "Ändern").max(112.0);
+    let h = 44.0;
+    let total =
+        sp::XS * 2.0 + item_w.iter().sum::<f32>() + (items.len() as f32 + 1.0) * sp::XS + change_w;
+    let bar = Rect::from_min_size(
+        pos2(top_center.x - total / 2.0, top_center.y),
+        vec2(total, h),
+    );
+    let p = ui.painter().clone();
+    kit::glass(&p, bar, radius::L);
+    let mut x = bar.left() + sp::XS;
+    let ir = |x: f32, w: f32| Rect::from_min_size(pos2(x, bar.top() + 4.0), vec2(w, h - 8.0));
+    for ((glyph, label, tab), w) in items.iter().zip(item_w) {
+        let r = ir(x, w);
+        let resp = ui
+            .interact(r, ui.make_persistent_id(("summary", *tab)), Sense::click())
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .on_hover_text("Ändern");
+        let t = kit::anim(ui, resp.id, resp.hovered());
+        if t > 0.0 {
+            p.rect_filled(r, radius::M, glass_hover().gamma_multiply(t));
+        }
+        let col = kit::mix(text_soft(), text(), t);
+        kit::icon(
+            &p,
+            pos2(r.left() + sp::M + 8.0, r.center().y),
+            glyph,
+            16.0,
+            muted(),
+        );
+        p.text(
+            pos2(r.left() + sp::M + 16.0 + sp::S, r.center().y),
+            Align2::LEFT_CENTER,
+            label,
+            f.clone(),
+            col,
+        );
+        if resp.clicked() {
+            app.settings_tab = *tab;
+            app.dialog = Some(Dialog::Settings);
+        }
+        x += w + sp::XS;
+    }
+    let r = ir(x, change_w);
+    if kit::secondary(ui, r, icons::GEAR, "Ändern", true)
+        .on_hover_text("Alle Einstellungen öffnen (Strg+B)")
+        .clicked()
+    {
+        app.dialog = Some(Dialog::Settings);
     }
 }
 
@@ -407,6 +786,7 @@ fn tiles(app: &mut SwiperApp, ui: &mut Ui, grid: Rect, cols: usize) {
         vec2(grid.width() + sp::L, view_h),
     );
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(view));
+    child.spacing_mut().item_spacing = egui::Vec2::ZERO;
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
         .show_rows(&mut child, TILE.y + sp::L, rows, |ui, range| {
@@ -446,6 +826,7 @@ fn tiles(app: &mut SwiperApp, ui: &mut Ui, grid: Rect, cols: usize) {
         Some(TileAction::Start(p)) => {
             app.cfg.unchecked.remove(&p);
             app.queue = vec![p.clone()];
+            app.begin_session(vec![p.clone()]);
             app.start_folder(p, None);
         }
         None => {}

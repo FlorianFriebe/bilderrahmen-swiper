@@ -21,18 +21,29 @@ use crate::util::fmt_int;
 const STRIP_H: f32 = 64.0;
 const TEXT_PANEL_W: f32 = 320.0;
 
+/// Text aufs Bild an- oder ausschalten (Text-Knopf, Taste T).
 pub fn toggle_text(app: &mut SwiperApp) {
+    app.cfg.text.enabled = !app.cfg.text.enabled;
+    app.toast(if app.cfg.text.enabled {
+        "Text aufs Bild ist an.".into()
+    } else {
+        "Text aufs Bild ist aus.".into()
+    });
+}
+
+/// Feld für Ort, Notiz und Aussehen öffnen oder schließen (Pfeil am Text-Knopf).
+pub fn toggle_text_panel(app: &mut SwiperApp) {
     app.text_panel = !app.text_panel;
     if app.text_panel {
         app.cfg.text.enabled = true;
     }
 }
 
-pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
+pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect, ws: Rect, now: f64) {
     if !top_bar(app, ui, ws) {
         return;
     }
-    let mut card_top = ws.top() + size::BAR + sp::XL;
+    let mut card_top = ws.top() + size::TOPBAR + sp::XL;
     if let Some(h) = burst_chip(app, ui, ws, card_top) {
         card_top += h + sp::M;
     }
@@ -42,14 +53,21 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
         pos2(ws.left(), dock.top() - sp::M - STRIP_H),
         pos2(ws.right(), dock.top() - sp::M),
     );
-    let panel_w = if app.text_panel {
-        TEXT_PANEL_W + sp::L
+    // Das Textfeld schwebt links neben dem Foto. Nur wenn es sonst das Foto
+    // verdecken würde, wird die Karte gleichmäßig schmaler (sie bleibt mittig).
+    let squeeze_id = Id::unique("panel_squeeze");
+    let mut squeeze: f32 = if app.text_panel {
+        ui.ctx().data(|d| d.get_temp(squeeze_id)).unwrap_or(0.0)
     } else {
         0.0
     };
     let card_area = Rect::from_min_max(
-        pos2(ws.left() + panel_w, card_top),
-        pos2(ws.right(), strip.top() - sp::L),
+        pos2(ws.left() + squeeze, card_top),
+        pos2(ws.right() - squeeze, strip.top() - sp::L),
+    );
+    let panel = Rect::from_min_size(
+        pos2(full.left() + sp::XL, card_area.top()),
+        vec2(TEXT_PANEL_W, card_area.height()),
     );
 
     run_anim(app, ui, now);
@@ -73,106 +91,52 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
     }
     app.spots.card = Some(card_area);
     app.spots.strip = Some(strip);
-    card(app, ui, card_area, now);
+    let drawn = card(app, ui, card_area, now);
+    if app.text_panel {
+        if let (Some(c), true) = (drawn, app.dx.abs() < 1.0) {
+            let panel_x = (c.left() - sp::L - TEXT_PANEL_W).max(panel.left());
+            let overlap = panel_x + TEXT_PANEL_W + sp::L - c.left();
+            let max = (ws.width() / 2.0 - 160.0).max(0.0);
+            let next = (squeeze + overlap).clamp(0.0, max);
+            if (next - squeeze).abs() > 0.5 {
+                squeeze = next;
+                ui.ctx().request_repaint();
+            }
+            ui.ctx().data_mut(|d| d.insert_temp(squeeze_id, squeeze));
+            let pr = Rect::from_min_size(pos2(panel_x, panel.top()), panel.size());
+            filmstrip(app, ui, strip);
+            let dock_r = dock_ui(app, ui, dock, now, card_area.width());
+            app.spots.buttons = Some(dock_r);
+            if app.dialog.is_none() {
+                dialogs::text_panel(app, ui, pr);
+            }
+            return;
+        }
+    }
     filmstrip(app, ui, strip);
     let dock_r = dock_ui(app, ui, dock, now, card_area.width());
     app.spots.buttons = Some(dock_r);
-    shortcuts_button(app, ui, ws, dock_r);
-    if app.text_panel && !app.drawer {
-        dialogs::text_panel(
-            app,
-            ui,
-            Rect::from_min_size(
-                pos2(ws.left(), card_area.top()),
-                vec2(TEXT_PANEL_W, card_area.height()),
-            ),
-        );
-    }
 }
 
 // ------------------------------------------------------------------ obere Leiste
 
-/// Gibt `false` zurück, wenn die Ansicht gewechselt wurde.
+/// Kompakte Leiste oben in der Mitte. Gibt `false` zurück, wenn die Ansicht gewechselt wurde.
 fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     let p = ui.painter().clone();
-    let bar_y = ws.top();
-    // links: Menü und Start
-    let group = Rect::from_min_size(ws.min, vec2(size::CONTROL * 2.0 + sp::XS * 3.0, size::BAR));
-    kit::glass(&p, group, radius::L);
-    let b1 = Rect::from_min_size(
-        group.min + vec2(sp::XS, sp::XS),
-        vec2(size::CONTROL, size::CONTROL),
-    );
-    let b2 = b1.translate(vec2(size::CONTROL + sp::XS, 0.0));
-    app.spots.menu = Some(group);
-    if kit::icon_button(ui, b1, icons::MENU, true)
-        .on_hover_text("Einstellungen (Strg+B)")
-        .clicked()
-    {
-        app.drawer = !app.drawer;
-    }
-    if kit::icon_button(ui, b2, icons::HOME, true)
-        .on_hover_text("Ordner wählen")
-        .clicked()
-    {
-        app.finish_anim();
-        app.view = View::Home;
-        app.refresh_folders();
-        return false;
-    }
+    let pad = sp::S;
+    let h = size::CONTROL;
 
-    // Mitte: Quer / Hochkant
+    let pause_w = kit::bar_button_width(ui, "Pause");
     let labels = vec![
         format!("Quer {}", app.ratio_label(Orient::Quer)),
         format!("Hochkant {}", app.ratio_label(Orient::Hochkant)),
     ];
-    let sw = kit::segmented_width(ui, &labels);
-    let seg = Rect::from_center_size(
-        pos2(ws.center().x, bar_y + size::BAR / 2.0),
-        vec2(sw, size::BAR),
-    );
-    let sel = match app.orientation_now() {
-        Some(Orient::Quer) => Some(0),
-        Some(Orient::Hochkant) => Some(1),
-        None => None,
-    };
-    if let Some(i) = kit::segmented(ui, seg, &labels, sel) {
-        app.set_orientation(if i == 0 {
-            Orient::Quer
-        } else {
-            Orient::Hochkant
-        });
-    }
-    // rechts: Behalten-Zähler (öffnet die Galerie)
-    let kept = if app.cfg.goal > 0 {
-        format!(
-            "{} / {}",
-            fmt_int(app.total_kept),
-            fmt_int(app.cfg.goal as usize)
-        )
-    } else {
-        fmt_int(app.total_kept)
-    };
-    let kw = kit::chip_width(ui, icons::HEART, &kept).max(size::BAR + 8.0);
-    let kr = Rect::from_min_size(pos2(ws.right() - kw, bar_y), vec2(kw, size::BAR));
-    if kit::chip(ui, kr, icons::HEART, true, &kept, Tone::Keep)
-        .on_hover_text(format!(
-            "Behaltene Bilder ansehen ({})",
-            app.key_label("gallery")
-        ))
-        .clicked()
-    {
-        app.finish_anim();
-        app.view = View::Gallery;
-        return false;
-    }
-
-    // daneben: Ordner und Fortschritt
+    let seg_w = kit::segmented_width(ui, &labels) - sp::XS * 2.0;
     let name = app
         .folder
         .as_ref()
         .and_then(|f| app.folders.iter().find(|i| &i.path == f))
-        .map(|i| ellipsize(&i.label, 22))
+        .map(|i| ellipsize(&i.label, 20))
         .unwrap_or_default();
     let count = format!(
         "{} / {}",
@@ -183,17 +147,79 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     let cf = font(ts::BODY, W::Semibold);
     let nw = kit::text_size(ui, &name, nf.clone()).x;
     let cw = kit::text_size(ui, &count, cf.clone()).x;
-    let bar_w = 112.0;
-    let mw = sp::L + nw + sp::M + cw + sp::L + bar_w + sp::L;
-    let mr = Rect::from_min_size(pos2(kr.left() - sp::S - mw, bar_y), vec2(mw, size::BAR));
-    if mr.left() > seg.right() + sp::L {
-        kit::glass(&p, mr, radius::L);
-        let cy = mr.center().y;
-        let mut x = mr.left() + sp::L;
-        p.text(pos2(x, cy), Align2::LEFT_CENTER, &name, nf, text_soft());
-        x += nw + sp::M;
-        p.text(pos2(x, cy), Align2::LEFT_CENTER, &count, cf, text());
-        x += cw + sp::L;
+    let mini = 72.0;
+    let kept = if app.cfg.goal > 0 {
+        format!(
+            "{} / {}",
+            fmt_int(app.total_kept),
+            fmt_int(app.cfg.goal as usize)
+        )
+    } else {
+        fmt_int(app.total_kept)
+    };
+    let kept_w = kit::pill_width(ui, &kept);
+    let gap = sp::XS;
+    let sep = sp::M * 2.0 + 1.0;
+    let mut meta_w = sp::S + nw + sp::M + cw + sp::M + mini + sp::S;
+    let fixed = pad * 2.0 + pause_w + gap + h + sep + seg_w + sep + gap + kept_w + gap + h;
+    let show_name = fixed + meta_w <= ws.width();
+    if !show_name {
+        meta_w = sp::S + cw + sp::S;
+    }
+    let total = fixed + meta_w;
+    let bar = Rect::from_center_size(
+        pos2(ws.center().x, ws.top() + size::TOPBAR / 2.0),
+        vec2(total, size::TOPBAR),
+    );
+    kit::glass(&p, bar, radius::XL - 2);
+    app.spots.menu = Some(bar);
+    let cy = bar.center().y;
+    let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, cy - h / 2.0), vec2(w, h));
+    let mut x = bar.left() + pad;
+
+    if kit::bar_button(ui, row(x, pause_w), icons::PAUSE, "Pause")
+        .on_hover_text("Pausieren: Stand speichern und zum Startbildschirm")
+        .clicked()
+    {
+        app.pause();
+        return false;
+    }
+    x += pause_w + gap;
+    if kit::icon_button(ui, row(x, h), icons::GEAR, true)
+        .on_hover_text("Einstellungen (Strg+B)")
+        .clicked()
+    {
+        app.dialog = Some(Dialog::Settings);
+    }
+    x += h + sp::M;
+    kit::vsep(&p, x, cy);
+    x += 1.0 + sp::M;
+
+    let sel = match app.orientation_now() {
+        Some(Orient::Quer) => Some(0),
+        Some(Orient::Hochkant) => Some(1),
+        None => None,
+    };
+    if let Some(i) = kit::segmented_bare(ui, row(x, seg_w), &labels, sel) {
+        app.set_orientation(if i == 0 {
+            Orient::Quer
+        } else {
+            Orient::Hochkant
+        });
+    }
+    x += seg_w + sp::M;
+    kit::vsep(&p, x, cy);
+    x += 1.0 + sp::M;
+
+    // Ordner und Fortschritt
+    let mut mx = x + sp::S;
+    if show_name {
+        p.text(pos2(mx, cy), Align2::LEFT_CENTER, &name, nf, text_soft());
+        mx += nw + sp::M;
+    }
+    p.text(pos2(mx, cy), Align2::LEFT_CENTER, &count, cf, text());
+    mx += cw + sp::M;
+    if show_name {
         let f = if app.items.is_empty() {
             0.0
         } else {
@@ -201,9 +227,29 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         };
         kit::progress(
             &p,
-            Rect::from_min_size(pos2(x, cy - 2.0), vec2(bar_w, 4.0)),
+            Rect::from_min_size(pos2(mx, cy - 2.0), vec2(mini, 4.0)),
             f,
         );
+    }
+    x += meta_w + gap;
+
+    if kit::pill(ui, row(x, kept_w), icons::HEART, &kept, Tone::Keep)
+        .on_hover_text(format!(
+            "Behaltene Bilder ansehen ({})",
+            app.key_label("gallery")
+        ))
+        .clicked()
+    {
+        app.finish_anim();
+        app.view = View::Gallery;
+        return false;
+    }
+    x += kept_w + gap;
+    if kit::icon_button(ui, row(x, h).shrink(2.0), icons::KEYBOARD, true)
+        .on_hover_text("Alle Tastenkürzel (F1)")
+        .clicked()
+    {
+        app.dialog = Some(Dialog::Shortcuts);
     }
     true
 }
@@ -276,11 +322,9 @@ fn message(p: &Painter, area: Rect, glyph: &str, msg: &str) {
     );
 }
 
-fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
+fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> {
     let resp = ui.allocate_rect(area, Sense::click_and_drag());
-    let Some(path) = app.current().cloned() else {
-        return;
-    };
+    let path = app.current().cloned()?;
     let mut painter = ui.painter_at(area.expand2(vec2(sp::XXL, sp::XXL)));
     let Some((mut edit, size, tex_id)) = app.ensure_texture(ui) else {
         match app.preview() {
@@ -296,7 +340,7 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
             ),
             _ => message(&painter, area, icons::IMAGE, "Lädt …"),
         }
-        return;
+        return None;
     };
 
     let e = rise(ui, &path, now);
@@ -423,6 +467,7 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
         );
     }
     stamp(&painter, app.dx, card, angle, &tr);
+    Some(card)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -784,6 +829,7 @@ enum Act {
     Orient,
     Fill,
     Text,
+    TextPanel,
 }
 
 /// Zeichnet die Leiste und gibt ihre Fläche zurück.
@@ -791,10 +837,12 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     let loaded = matches!(app.preview(), Some(Ok(_)));
     let has_current = app.current().is_some();
     let k = |a: &str| app.key_label(a);
+    let ks = |a: &str| app.key_short(a);
     let pad = sp::M;
     let tool = size::TOOL;
+    let caret = 24.0;
     let (skip_w, keep_w) = (152.0, 184.0);
-    let tools_w = tool * 4.0 + sp::XS * 3.0;
+    let tools_w = tool * 4.0 + caret + sp::XS * 3.0;
     let w =
         pad + tool + pad + 1.0 + pad + skip_w + sp::S + keep_w + pad + 1.0 + pad + tools_w + pad;
     let dock = Rect::from_center_size(area.center(), vec2(w, size::DOCK));
@@ -812,14 +860,18 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     let mut clicked = None;
     let mut x = dock.left() + pad;
 
+    let undo_key = ks("undo");
     let r = row(x, tool);
     if kit::tool_button(
         ui,
         r,
-        icons::UNDO,
-        "Zurück",
-        false,
-        !app.status.verlauf.is_empty(),
+        kit::Tool {
+            glyph: icons::UNDO,
+            label: "Zurück",
+            key: &undo_key,
+            active: false,
+            enabled: !app.status.verlauf.is_empty(),
+        },
     )
     .on_hover_text(format!("Letzte Entscheidung rückgängig ({})", k("undo")))
     .clicked()
@@ -831,7 +883,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     x += 1.0 + pad;
 
     let r = row(x, skip_w);
-    if kit::primary_button(ui, r, Primary::Skip, "Weg", &k("skip"), has_current)
+    if kit::primary_button(ui, r, Primary::Skip, "Weg", &ks("skip"), has_current)
         .on_hover_text(format!(
             "Überspringen ({}) oder Foto nach links ziehen",
             k("skip")
@@ -842,7 +894,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     }
     x = r.right() + sp::S;
     let r = row(x, keep_w);
-    if kit::primary_button(ui, r, Primary::Keep, "Behalten", &k("keep"), loaded)
+    if kit::primary_button(ui, r, Primary::Keep, "Behalten", &ks("keep"), loaded)
         .on_hover_text(format!(
             "Für den Rahmen speichern ({}) oder nach rechts ziehen",
             k("keep")
@@ -855,13 +907,11 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     divider_at(x);
     x += 1.0 + pad;
 
-    let fill_on = app.current_fill();
-    let text_on = app.text_panel
-        || (app.cfg.text.enabled && app.current().and_then(|p| app.overlay_for(p)).is_some());
     let tools = [
         (
             icons::ROTATE,
             "Drehen",
+            "rot_r",
             format!("Drehen ({}, andersherum {})", k("rot_r"), k("rot_l")),
             false,
             Act::Rotate,
@@ -869,6 +919,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         (
             icons::SWAP,
             "Format",
+            "orient",
             format!("Quer / Hochkant wechseln ({})", k("orient")),
             false,
             Act::Orient,
@@ -876,30 +927,66 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         (
             icons::FILL,
             "Ganz",
+            "fill",
             format!(
                 "Ganzes Foto auf unscharfem Hintergrund statt zuschneiden ({})",
                 k("fill")
             ),
-            fill_on,
+            app.current_fill(),
             Act::Fill,
         ),
-        (
-            icons::TEXT,
-            "Text",
-            format!("Datum, Ort oder Notiz aufs Bild ({})", k("text")),
-            text_on,
-            Act::Text,
-        ),
     ];
-    for (glyph, label, tip, active, act) in tools {
+    for (glyph, label, action, tip, active, act) in tools {
+        let key = ks(action);
         let r = row(x, tool);
-        if kit::tool_button(ui, r, glyph, label, active, loaded)
-            .on_hover_text(tip)
-            .clicked()
+        if kit::tool_button(
+            ui,
+            r,
+            kit::Tool {
+                glyph,
+                label,
+                key: &key,
+                active,
+                enabled: loaded,
+            },
+        )
+        .on_hover_text(tip)
+        .clicked()
         {
             clicked = Some(act);
         }
         x += tool + sp::XS;
+    }
+
+    // Text: Klick schaltet an/aus, der Pfeil daneben öffnet das Feld
+    let text_on = app.cfg.text.enabled;
+    let r = row(x, tool);
+    let text_key = ks("text");
+    if kit::tool_button(
+        ui,
+        r,
+        kit::Tool {
+            glyph: icons::TEXT,
+            label: "Text",
+            key: &text_key,
+            active: text_on,
+            enabled: loaded,
+        },
+    )
+    .on_hover_text(format!(
+        "Datum, Ort oder Notiz aufs Bild: an / aus ({})",
+        k("text")
+    ))
+    .clicked()
+    {
+        clicked = Some(Act::Text);
+    }
+    let cr = Rect::from_min_size(pos2(r.right(), r.top()), vec2(caret, tool));
+    if kit::caret_button(ui, cr, app.text_panel, loaded)
+        .on_hover_text("Ort, Notiz und Aussehen einstellen")
+        .clicked()
+    {
+        clicked = Some(Act::TextPanel);
     }
 
     match clicked {
@@ -910,25 +997,8 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         Some(Act::Orient) => app.toggle_orientation(),
         Some(Act::Fill) => app.toggle_fill(),
         Some(Act::Text) => toggle_text(app),
+        Some(Act::TextPanel) => toggle_text_panel(app),
         None => {}
     }
     dock
-}
-
-/// Kleines Tastatur-Symbol unten rechts: zeigt alle Tastenkürzel.
-fn shortcuts_button(app: &mut SwiperApp, ui: &Ui, ws: Rect, dock: Rect) {
-    let r = Rect::from_center_size(
-        pos2(ws.right() - size::BAR / 2.0, dock.center().y),
-        vec2(size::BAR, size::BAR),
-    );
-    if r.left() < dock.right() + sp::L {
-        return;
-    }
-    kit::glass(ui.painter(), r, radius::L);
-    if kit::icon_button(ui, r.shrink(sp::XS), icons::KEYBOARD, true)
-        .on_hover_text("Tastenkürzel (F1)")
-        .clicked()
-    {
-        app.dialog = Some(Dialog::Shortcuts);
-    }
 }

@@ -1,7 +1,5 @@
 //! Symbole aus dem Phosphor-Icon-Set (MIT-Lizenz), als Schriftzeichen.
 
-pub const MENU: &str = "\u{E2F0}";
-pub const HOME: &str = "\u{E2C2}";
 pub const GALLERY: &str = "\u{E464}";
 pub const UNDO: &str = "\u{E08A}";
 pub const X: &str = "\u{E4F6}";
@@ -24,3 +22,9 @@ pub const TRASH: &str = "\u{E4A6}";
 pub const WARNING: &str = "\u{E4E0}";
 pub const INFO: &str = "\u{E2CE}";
 pub const DOWNLOAD: &str = "\u{E20C}";
+pub const PAUSE: &str = "\u{E39E}";
+pub const GEAR: &str = "\u{E272}";
+pub const CARET_DOWN: &str = "\u{E136}";
+pub const CARET_UP: &str = "\u{E13C}";
+pub const PENCIL: &str = "\u{E3B4}";
+pub const FRAME: &str = "\u{E626}";

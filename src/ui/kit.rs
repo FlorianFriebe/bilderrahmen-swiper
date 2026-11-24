@@ -166,14 +166,23 @@ pub fn icon_button(ui: &Ui, r: Rect, glyph: &str, enabled: bool) -> Response {
 }
 
 /// Werkzeug mit Symbol und kleiner Beschriftung darunter.
-pub fn tool_button(
-    ui: &Ui,
-    r: Rect,
-    glyph: &str,
-    label: &str,
-    active: bool,
-    enabled: bool,
-) -> Response {
+pub struct Tool<'a> {
+    pub glyph: &'a str,
+    pub label: &'a str,
+    /// aktuell belegte Taste, klein oben rechts
+    pub key: &'a str,
+    pub active: bool,
+    pub enabled: bool,
+}
+
+pub fn tool_button(ui: &Ui, r: Rect, t: Tool<'_>) -> Response {
+    let Tool {
+        glyph,
+        label,
+        key,
+        active,
+        enabled,
+    } = t;
     let resp = clickable(ui, r, ("tool_btn", label), enabled);
     let t = anim(ui, resp.id, resp.hovered() && enabled);
     let a = anim(ui, resp.id.with("on"), active);
@@ -198,7 +207,114 @@ pub fn tool_button(
             disabled()
         },
     );
+    key_hint(p, r, key, if a > 0.5 { accent() } else { muted() });
     resp
+}
+
+/// Schmaler Pfeil-Knopf neben einem Werkzeug (öffnet dessen Einstellungen).
+pub fn caret_button(ui: &Ui, r: Rect, open: bool, enabled: bool) -> Response {
+    let resp = clickable(ui, r, ("caret", r.min.x as i32), enabled);
+    let t = anim(ui, resp.id, resp.hovered() && enabled);
+    let o = anim(ui, resp.id.with("open"), open);
+    let p = ui.painter();
+    p.rect_filled(
+        r.shrink2(vec2(0.0, 8.0)),
+        radius::S,
+        mix(
+            mix(Color32::TRANSPARENT, glass_hover(), t),
+            accent_soft(),
+            o,
+        ),
+    );
+    let col = if enabled {
+        mix(mix(muted(), text(), t), accent(), o)
+    } else {
+        disabled()
+    };
+    icon(
+        p,
+        r.center(),
+        if open {
+            icons::CARET_UP
+        } else {
+            icons::CARET_DOWN
+        },
+        14.0,
+        col,
+    );
+    resp
+}
+
+/// Blasse Tastenbeschriftung oben rechts in einem Knopf.
+pub fn key_hint(p: &Painter, r: Rect, key: &str, col: Color32) {
+    if key.is_empty() {
+        return;
+    }
+    p.text(
+        pos2(r.right() - 7.0, r.top() + 6.0),
+        Align2::RIGHT_TOP,
+        key,
+        font(10.0, W::Semibold),
+        col.gamma_multiply(0.7),
+    );
+}
+
+/// Knopf in einer Leiste: Symbol und Text auf leichter Fläche.
+pub fn bar_button(ui: &Ui, r: Rect, glyph: &str, label: &str) -> Response {
+    let resp = clickable(ui, r, ("bar_btn", label), true);
+    let t = anim(ui, resp.id, resp.hovered());
+    let p = ui.painter();
+    p.rect_filled(r, radius::M, mix(field(), glass_hover(), t));
+    let f = font(ts::BODY, W::Medium);
+    let lw = text_size(ui, label, f.clone()).x;
+    let x = r.center().x - (18.0 + sp::S + lw) / 2.0;
+    let col = mix(text_soft(), text(), t);
+    icon(p, pos2(x + 9.0, r.center().y), glyph, 18.0, col);
+    p.text(
+        pos2(x + 18.0 + sp::S, r.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        f,
+        col,
+    );
+    resp
+}
+
+pub fn bar_button_width(ui: &Ui, label: &str) -> f32 {
+    text_size(ui, label, font(ts::BODY, W::Medium)).x + 18.0 + sp::S + sp::M * 2.0
+}
+
+/// Flacher, farbiger Chip ohne Schatten (in Leisten).
+pub fn pill(ui: &Ui, r: Rect, glyph: &str, label: &str, tone: Tone) -> Response {
+    let resp = clickable(ui, r, ("pill", label), true);
+    let t = anim(ui, resp.id, resp.hovered());
+    let (fill, _, fg) = tone_colors(tone);
+    let p = ui.painter();
+    p.rect_filled(r, radius::M, mix(fill, fill.gamma_multiply(1.7), t));
+    let f = font(ts::BODY, W::Semibold);
+    let lw = text_size(ui, label, f.clone()).x;
+    let x = r.center().x - (16.0 + sp::S - 2.0 + lw) / 2.0;
+    icon_filled(p, pos2(x + 8.0, r.center().y), glyph, 16.0, fg);
+    p.text(
+        pos2(x + 16.0 + sp::S - 2.0, r.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        f,
+        fg,
+    );
+    resp
+}
+
+pub fn pill_width(ui: &Ui, label: &str) -> f32 {
+    text_size(ui, label, font(ts::BODY, W::Semibold)).x + 16.0 + sp::S + sp::M * 2.0
+}
+
+/// Senkrechter Trennstrich in Leisten.
+pub fn vsep(p: &Painter, x: f32, cy: f32) {
+    p.line_segment(
+        [pos2(x, cy - 14.0), pos2(x, cy + 14.0)],
+        Stroke::new(1.0, divider()),
+    );
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -396,11 +512,14 @@ pub fn secondary_width(ui: &Ui, glyph: &str, label: &str) -> f32 {
 
 // ------------------------------------------------------------------ Segmente und Chips
 
-/// Umschalter mit gleitender Markierung (z. B. Quer / Hochkant).
-pub fn segmented(ui: &Ui, r: Rect, labels: &[String], selected: Option<usize>) -> Option<usize> {
+/// Umschalter mit gleitender Markierung (z. B. Quer / Hochkant in der Leiste).
+pub fn segmented_bare(
+    ui: &Ui,
+    inner: Rect,
+    labels: &[String],
+    selected: Option<usize>,
+) -> Option<usize> {
     let p = ui.painter();
-    glass(p, r, radius::L);
-    let inner = r.shrink(sp::XS);
     let f = font(ts::BODY, W::Medium);
     let widths: Vec<f32> = labels
         .iter()

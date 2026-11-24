@@ -46,7 +46,7 @@ pub const ACTIONS: &[(&str, &str, &[&str])] = &[
     ("rot_l", "Drehen (links herum)", &["L"]),
     ("orient", "Quer / Hochkant", &["H"]),
     ("fill", "Unscharfer Hintergrund", &["F"]),
-    ("text", "Text aufs Bild", &["T"]),
+    ("text", "Text aufs Bild an / aus", &["T"]),
     ("burst", "Serie vergleichen", &["S"]),
     ("zoom_in", "Hineinzoomen", &["Plus", "Equals"]),
     ("zoom_out", "Herauszoomen", &["Minus"]),
@@ -130,6 +130,8 @@ pub struct Config {
     /// 0 wie Windows, 1 dunkel, 2 hell
     pub theme: u8,
     pub copy_keep_folders: bool,
+    /// Verlauf: pausierte Sessions
+    pub sessions: Vec<crate::session::Session>,
 }
 
 impl Default for Config {
@@ -156,6 +158,7 @@ impl Default for Config {
             ui_scale: 1.0,
             theme: 0,
             copy_keep_folders: true,
+            sessions: vec![],
         }
     }
 }
@@ -211,7 +214,8 @@ pub struct Spots {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Dialog {
-    Keys,
+    /// Einstellungs-Karte
+    Settings,
     Copy,
     /// Übersicht der Tastenkürzel
     Shortcuts,
@@ -223,7 +227,10 @@ pub struct SwiperApp {
     pub tree: Vec<Node>,
     pub folders: Vec<FolderInfo>,
     pub view: View,
-    pub drawer: bool,
+    /// laufende Session im Verlauf
+    pub active_session: Option<u64>,
+    /// gewählter Bereich der Einstellungs-Karte
+    pub settings_tab: usize,
 
     // aktuelle Sitzung
     pub queue: Vec<PathBuf>,
@@ -296,7 +303,8 @@ impl SwiperApp {
             tree: vec![],
             folders: vec![],
             view: View::Home,
-            drawer: false,
+            active_session: None,
+            settings_tab: 0,
             queue: vec![],
             folder: None,
             items: vec![],
@@ -471,6 +479,7 @@ impl SwiperApp {
             .map(|f| f.path.clone())
             .collect();
         if let Some(first) = self.queue.first().cloned() {
+            self.begin_session(self.queue.clone());
             self.start_folder(first, None);
         }
     }
@@ -566,6 +575,8 @@ impl SwiperApp {
         self.finished = self.folder.clone();
         self.view = View::Home;
         self.refresh_folders();
+        self.sync_session();
+        self.drop_finished_sessions();
     }
 
     // ------------------------------------------------------------------ Fortschritt
@@ -1015,6 +1026,19 @@ impl SwiperApp {
             .unwrap_or_else(|| "–".into())
     }
 
+    /// Sehr kurze Beschriftung der ersten Taste für die Knöpfe unten, z. B. "⌫" oder "R".
+    pub fn key_short(&self, action: &str) -> String {
+        use egui::Key::*;
+        match self.keys_for(action).first() {
+            None => String::new(),
+            Some(Backspace) => "⌫".into(),
+            Some(Delete) => "⌦".into(),
+            Some(Space) => "␣".into(),
+            Some(Enter) => "↵".into(),
+            Some(k) => key_name(*k),
+        }
+    }
+
     /// Taste für eine Aktion setzen (Platz 0 oder 1); eine doppelte Belegung wird entfernt.
     pub fn bind(&mut self, action: &str, slot: usize, key: Option<egui::Key>) {
         let mut cur: Vec<Option<egui::Key>> = self.keys_for(action).into_iter().map(Some).collect();
@@ -1357,6 +1381,9 @@ impl eframe::App for SwiperApp {
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        if self.view != View::Home {
+            self.sync_session();
+        }
         eframe::set_value(storage, eframe::APP_KEY, &self.cfg);
         self.flush_status();
     }

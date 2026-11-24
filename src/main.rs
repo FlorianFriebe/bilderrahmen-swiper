@@ -3,6 +3,7 @@
 mod app;
 mod folders;
 mod imaging;
+mod session;
 mod system;
 mod ui;
 mod util;

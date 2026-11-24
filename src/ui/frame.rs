@@ -6,7 +6,7 @@ use egui::{pos2, vec2, Align2, Color32, Id, Key, Pos2, Rect, Stroke, StrokeKind,
 
 use super::kit;
 use super::style::{self, *};
-use super::{burst, dialogs, drawer, gallery, home, swipe};
+use super::{burst, dialogs, gallery, home, settings, swipe};
 use crate::app::{Dialog, SwiperApp, View};
 
 /// Wie lange eine Meldung stehen bleibt (Sekunden).
@@ -28,6 +28,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     let ws =
         Rect::from_center_size(full.center(), vec2(w, full.height())).shrink2(vec2(sp::XL, sp::XL));
 
+    dialogs::capture_key(app, ui);
     handle_keys(app, ui, now, ws.width());
 
     let bg_tex = match app.view {
@@ -42,12 +43,11 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     view_ui.multiply_opacity(fade);
     match app.view {
         View::Home => home::show(app, &mut view_ui, ws),
-        View::Swipe => swipe::show(app, &mut view_ui, ws, now),
+        View::Swipe => swipe::show(app, &mut view_ui, full, ws, now),
         View::Gallery => gallery::show(app, &mut view_ui, ws),
         View::Burst => burst::show(app, &mut view_ui, ws),
     }
 
-    drawer::show(app, ui, full, ws);
     if app.view == View::Swipe
         && !app.cfg.intro_done
         && app.intro_step.is_none()
@@ -59,7 +59,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         dialogs::intro(app, ui, full);
     }
     match app.dialog {
-        Some(Dialog::Keys) => dialogs::keys(app, ui),
+        Some(Dialog::Settings) => settings::show(app, ui, full),
         Some(Dialog::Copy) => dialogs::copy(app, ui, now),
         Some(Dialog::Shortcuts) => dialogs::shortcuts(app, ui),
         None => {}
@@ -217,9 +217,7 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         return;
     }
     if k(Key::Escape) {
-        if app.drawer {
-            app.drawer = false;
-        } else if app.text_panel {
+        if app.text_panel {
             app.text_panel = false;
         } else if matches!(app.view, View::Gallery | View::Burst) {
             app.view = if app.view == View::Burst || app.folder.is_some() && app.current().is_some()
@@ -232,7 +230,7 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         return;
     }
     if m.command && k(Key::B) {
-        app.drawer = !app.drawer;
+        app.dialog = Some(Dialog::Settings);
         return;
     }
     if !m.command && k(Key::F1) {

@@ -23,6 +23,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Ordner (auch mehrere, inklusive Unterordner) per Dialog oder Drag-and-drop hinzufügen
 - Fotos nach Aufnahmedatum sortiert durchgehen; der Fortschritt pro Ordner bleibt gespeichert
 - Behalten oder Weg per Ziehen, Knopf oder Taste; Rückgängig auch nach einem Neustart
+- Pause mit Verlauf: eine Auswahl von Ordnern lässt sich unterbrechen und später an derselben Stelle mit denselben Einstellungen fortsetzen; Einträge lassen sich umbenennen und entfernen
 - Filmstreifen mit den Nachbarbildern; ein Klick springt zu einem Bild oder ändert eine Entscheidung
 - Serien (Aufnahmen höchstens 2 Sekunden auseinander) werden erkannt und lassen sich nebeneinander vergleichen
 - Galerie der behaltenen Bilder; einzelne Bilder lassen sich wieder entfernen
@@ -42,7 +43,8 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Kopieren auf USB-Stick oder SD-Karte mit Platzprüfung; schon vorhandene Dateien werden übersprungen
 
 **Bedienung**
-- Alle Tasten frei belegbar, Übersicht der Kürzel mit F1
+- Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit F1
+- Einstellungen als Karte mit Seiten für Rahmen und Format, Text, Zielordner, Darstellung und Tasten; die wichtigsten stehen auch auf dem Startbildschirm
 - Heller und dunkler Modus (folgt Windows), Schriftgröße mit Strg + und Strg −
 - Kurze Einführung beim ersten Start
 
@@ -87,6 +89,7 @@ nächste Foto wird vorgeladen.
 src/
   main.rs        Start, Fenster, Grafik-Ausweichweg
   app.rs         Zustand und Logik: Ordner, Entscheidungen, Rückgängig, Serien, Tasten
+  session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   imaging.rs     Laden (EXIF-Drehung), Zuschnitt, unscharfer Hintergrund, Text, JPEG-Export
   workers.rs     Hintergrund-Threads: Vorladen, Speichern, Vorschaubilder, Aufnahmedaten
   folders.rs     Ordnerbaum, natürliche Sortierung, Fortschrittsdatei
@@ -98,7 +101,7 @@ src/
     kit.rs       Bausteine: Glasflächen, Knöpfe, Umschalter, Chips, Meldungen
     icons.rs     Symbole (Phosphor)
     frame.rs     Ablauf eines Frames: Darstellung, Tasten, Hintergrund, Übergänge
-    home.rs, swipe.rs, gallery.rs, burst.rs, drawer.rs, dialogs.rs   je eine Ansicht
+    home.rs, swipe.rs, gallery.rs, burst.rs, settings.rs, dialogs.rs   je eine Ansicht
 assets/fonts/    Inter und Phosphor (Lizenzen in LIZENZEN.md)
 ```
 

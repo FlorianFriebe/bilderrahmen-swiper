@@ -61,9 +61,10 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
             }),
         },
         Step {
-            title: "Alles Weitere",
-            body: "Hinter dem Menü oben links findest du Zielordner, Rahmen-Profil, Text aufs Bild, Tastenbelegung, \
-                   hellen Modus und Schriftgröße. Alle Tastenkürzel zeigt das Tastatur-Symbol unten rechts (F1)."
+            title: "Pause und Einstellungen",
+            body: "Mit „Pause“ oben speicherst du deinen Stand und machst später auf dem Startbildschirm \
+                   unter „Weitermachen“ weiter. Das Zahnrad öffnet die Einstellungen (Rahmen, Text, \
+                   Zielordner, Tasten). Alle Tastenkürzel zeigt das Tastatur-Symbol daneben (F1)."
                 .into(),
             spot: app.spots.menu,
         },
@@ -183,97 +184,82 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
 
 // ------------------------------------------------------------------ Tastenbelegung
 
-pub fn keys(app: &mut SwiperApp, ui: &mut Ui) {
-    // gewartete Taste übernehmen
-    if let Some((action, slot)) = app.capture {
-        let key = ui.input(|i| {
-            i.events.iter().find_map(|e| match e {
-                egui::Event::Key {
-                    key, pressed: true, ..
-                } => Some(*key),
-                _ => None,
-            })
-        });
-        if let Some(k) = key {
-            if k != egui::Key::Escape {
-                app.bind(action, slot, Some(k));
-            }
-            app.capture = None;
-        }
-    }
-    let resp = egui::Modal::new(ui.make_persistent_id("keys_modal")).show(ui.ctx(), |ui| {
-        ui.set_width(470.0);
-        ui.label(egui::RichText::new("Tastenbelegung").font(bold(19.0)));
-        ui.add_space(2.0);
-        ui.colored_label(
-            muted(),
-            egui::RichText::new(
-                "Klick auf ein Feld und drück die neue Taste. Rechtsklick leert das Feld, Esc bricht ab.",
-            )
-            .size(12.5),
-        );
-        ui.add_space(10.0);
-        egui::Grid::new("keys_grid")
-            .num_columns(3)
-            .spacing(vec2(12.0, 8.0))
-            .show(ui, |ui| {
-                for (id, label, _) in ACTIONS {
-                    ui.label(*label);
-                    let keys = app.keys_for(id);
-                    for slot in 0..2 {
-                        let waiting = app.capture == Some((id, slot));
-                        let text = if waiting {
-                            "Taste drücken …".to_string()
-                        } else {
-                            keys.get(slot).map(|k| key_name(*k)).unwrap_or_else(|| "(frei)".into())
-                        };
-                        let mut b = egui::Button::new(text).min_size(vec2(120.0, 28.0));
-                        if waiting {
-                            b = b.fill(BLUE_DARK);
-                        }
-                        let r = ui.add(b);
-                        if r.clicked() {
-                            app.capture = Some((id, slot));
-                        }
-                        if r.secondary_clicked() {
-                            app.bind(id, slot, None);
-                        }
-                    }
-                    ui.end_row();
-                }
-            });
-        ui.add_space(8.0);
-        ui.colored_label(
-            muted(),
-            egui::RichText::new(
-                "Fest belegt: Strg+Z rückgängig · Strg+B Menü · Strg +/− Schriftgröße · F1 Tastenkürzel · F11 Vollbild · Esc zurück",
-            )
-            .size(11.5),
-        );
-        ui.add_space(10.0);
-        let mut close = false;
-        ui.horizontal(|ui| {
-            if ui.button("Standard wiederherstellen").clicked() {
-                app.cfg.keys.clear();
-                app.capture = None;
-            }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui
-                    .add(
-                        egui::Button::new(egui::RichText::new("Fertig").color(Color32::WHITE))
-                            .fill(BLUE_DARK)
-                            .min_size(vec2(100.0, 30.0)),
-                    )
-                    .clicked()
-                {
-                    close = true;
-                }
-            });
-        });
-        close
+/// Wartende Tastenbelegung übernehmen (vor dem Zeichnen aufrufen).
+pub fn capture_key(app: &mut SwiperApp, ui: &Ui) {
+    let Some((action, slot)) = app.capture else {
+        return;
+    };
+    let key = ui.input(|i| {
+        i.events.iter().find_map(|e| match e {
+            egui::Event::Key {
+                key, pressed: true, ..
+            } => Some(*key),
+            _ => None,
+        })
     });
-    if resp.inner || (resp.should_close() && app.capture.is_none()) {
-        app.dialog = None;
+    if let Some(k) = key {
+        if k != egui::Key::Escape {
+            app.bind(action, slot, Some(k));
+        }
+        app.capture = None;
+    }
+}
+
+/// Tastenbelegung bearbeiten (Bereich „Tasten“ der Einstellungen).
+pub fn keys_editor(app: &mut SwiperApp, ui: &mut Ui) {
+    ui.colored_label(
+        muted(),
+        egui::RichText::new(
+            "Klick auf ein Feld und drück die neue Taste. Rechtsklick leert das Feld, Esc bricht ab.",
+        )
+        .size(12.5),
+    );
+    ui.add_space(sp::M);
+    egui::Grid::new("keys_grid")
+        .num_columns(3)
+        .spacing(vec2(sp::M, sp::S))
+        .show(ui, |ui| {
+            for (id, label, _) in ACTIONS {
+                ui.label(*label);
+                let keys = app.keys_for(id);
+                for slot in 0..2 {
+                    let waiting = app.capture == Some((id, slot));
+                    let text = if waiting {
+                        "Taste drücken …".to_string()
+                    } else {
+                        keys.get(slot)
+                            .map(|k| key_name(*k))
+                            .unwrap_or_else(|| "(frei)".into())
+                    };
+                    let mut b = egui::Button::new(text).min_size(vec2(120.0, 28.0));
+                    if waiting {
+                        b = b.fill(BLUE_DARK);
+                    }
+                    let r = ui.add(b);
+                    if r.clicked() {
+                        app.capture = Some((id, slot));
+                    }
+                    if r.secondary_clicked() {
+                        app.bind(id, slot, None);
+                    }
+                }
+                ui.end_row();
+            }
+        });
+    ui.add_space(sp::S);
+    ui.colored_label(
+        muted(),
+        egui::RichText::new(
+            "Fest belegt: Strg+Z rückgängig · Strg+B Einstellungen · Strg +/− Schriftgröße · F1 Tastenkürzel · F11 Vollbild · Esc zurück",
+        )
+        .size(11.5),
+    );
+    ui.add_space(sp::M);
+    if ui
+        .add(egui::Button::new("Standard wiederherstellen").min_size(vec2(0.0, 32.0)))
+        .clicked()
+    {
+        app.cfg.keys.clear();
         app.capture = None;
     }
 }
@@ -647,7 +633,8 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
         close
     });
     if change {
-        app.dialog = Some(Dialog::Keys);
+        app.settings_tab = super::settings::TAB_KEYS;
+        app.dialog = Some(Dialog::Settings);
     } else if resp.inner || resp.should_close() {
         app.dialog = None;
     }
