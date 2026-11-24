@@ -138,6 +138,8 @@ pub struct Config {
     pub sessions: Vec<crate::session::Session>,
     /// nur Fotos aus diesem Zeitraum (None = alle)
     pub date_filter: Option<crate::daterange::DateRange>,
+    /// Reihenfolge beim Kopieren (system::COPY_ORDERS)
+    pub copy_order: u8,
     /// eigene Textstile
     pub text_styles: Vec<crate::textstyle::TextLook>,
     /// Textstil, der nur für einen Ordner gilt
@@ -170,6 +172,7 @@ impl Default for Config {
             copy_keep_folders: true,
             sessions: vec![],
             date_filter: None,
+            copy_order: 0,
             text_styles: vec![],
             folder_looks: HashMap::new(),
         }
@@ -312,6 +315,8 @@ pub struct SwiperApp {
     pub copy_dest: Option<PathBuf>,
     pub stats: Option<(f64, Stats)>,
     pub update: Arc<Mutex<Option<String>>>,
+    /// laufendes Ein-Klick-Update
+    pub updater: Option<crate::update::Handle>,
     pub custom_frame: bool,
 }
 
@@ -381,6 +386,7 @@ impl SwiperApp {
             copy_dest: None,
             stats: None,
             update: system::check_update(ctx.clone()),
+            updater: None,
             custom_frame: false,
         };
         app.custom_frame =
@@ -1240,11 +1246,24 @@ impl SwiperApp {
         self.flush_status();
         // Speichern abwarten wäre schöner, reicht aber auch so: offene Aufträge sind selten
         self.copy_dest = Some(dest.clone());
+        // Ordnername der Quelle je gespeichertem Bild (für „Nach Ordner“)
+        let folder_of = self
+            .status
+            .bilder
+            .iter()
+            .filter_map(|(src, e)| {
+                let out = e.out.as_ref()?.file_name()?.to_str()?.to_string();
+                let folder = src.parent().map(folders::file_name).unwrap_or_default();
+                Some((out, folder))
+            })
+            .collect();
         self.copy = Some(system::start_copy(
             self.ctx.clone(),
             self.cfg.target.clone(),
             dest,
             self.cfg.copy_keep_folders,
+            self.cfg.copy_order,
+            folder_of,
         ));
     }
 

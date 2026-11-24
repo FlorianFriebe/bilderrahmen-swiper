@@ -5,7 +5,7 @@ mod burst;
 mod dialogs;
 mod frame;
 mod gallery;
-mod home;
+pub mod home;
 pub mod icons;
 pub mod kit;
 mod settings;

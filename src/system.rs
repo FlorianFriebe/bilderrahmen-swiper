@@ -339,33 +339,116 @@ pub struct CopyProgress {
 
 /// Fertige Bilder auf einen Stick/eine Karte kopieren. Schon vorhandene Dateien gleicher
 /// Größe werden übersprungen.
+/// Reihenfolge auf dem Rahmen beim Kopieren.
+pub const COPY_ORDERS: [(&str, &str); 3] = [
+    ("Nach Datum", "Wie aufgenommen, die Dateinamen beginnen mit dem Datum."),
+    ("Zufällig", "Gut gemischt, damit nicht alle Urlaubsfotos am Stück kommen."),
+    ("Nach Ordner", "Ordner für Ordner, darin nach Datum."),
+];
+
+/// „0012_2024-07-15_…jpg“ -> „2024-07-15_…jpg“ (Nummer für die Reihenfolge entfernen)
+pub fn strip_order(name: &str) -> &str {
+    let b = name.as_bytes();
+    if b.len() > 5 && b[..4].iter().all(|c| c.is_ascii_digit()) && b[4] == b'_' {
+        &name[5..]
+    } else {
+        name
+    }
+}
+
+/// Dateinamen in der gewünschten Reihenfolge (je Zielordner durchnummeriert).
+/// `files`: (Datei, Ordnername der Quelle)
+pub fn ordered_names(mut files: Vec<(String, String)>, order: u8, seed: u64) -> Vec<(String, String)> {
+    match order {
+        1 => {
+            // einfaches Mischen (xorshift), reicht für Bilder
+            let mut s = seed | 1;
+            for i in (1..files.len()).rev() {
+                s ^= s << 13;
+                s ^= s >> 7;
+                s ^= s << 17;
+                files.swap(i, (s % (i as u64 + 1)) as usize);
+            }
+        }
+        2 => files.sort_by(|a, b| a.1.cmp(&b.1).then(a.0.cmp(&b.0))),
+        _ => {
+            files.sort();
+            return files.into_iter().map(|(n, _)| (n.clone(), n)).collect();
+        }
+    }
+    files
+        .into_iter()
+        .enumerate()
+        .map(|(i, (n, _))| (n.clone(), format!("{:04}_{n}", i + 1)))
+        .collect()
+}
+
 pub fn start_copy(
     ctx: egui::Context,
     target: PathBuf,
     dest: PathBuf,
     keep_folders: bool,
+    order: u8,
+    folder_of: std::collections::HashMap<String, String>,
 ) -> Arc<Mutex<CopyProgress>> {
     let prog = Arc::new(Mutex::new(CopyProgress::default()));
     let p2 = prog.clone();
     std::thread::spawn(move || {
-        let mut files = vec![];
+        // je Zielordner: (Quelle, Größe, Ziel)
+        let mut groups: Vec<(PathBuf, Vec<(PathBuf, u64)>)> = vec![];
         for sub in ["Quer", "Hochkant"] {
-            for (f, len) in jpgs(&target.join(sub)) {
-                let to = if keep_folders {
-                    dest.join(sub)
-                } else {
-                    dest.clone()
-                };
-                files.push((f, len, to));
+            let to = if keep_folders {
+                dest.join(sub)
+            } else {
+                dest.clone()
+            };
+            let list = jpgs(&target.join(sub));
+            match groups.iter_mut().find(|g| g.0 == to) {
+                Some(g) => g.1.extend(list),
+                None => groups.push((to, list)),
+            }
+        }
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(7);
+        let mut files = vec![];
+        for (to, list) in groups {
+            let names: Vec<(String, String)> = list
+                .iter()
+                .filter_map(|(f, _)| {
+                    let n = f.file_name()?.to_str()?.to_string();
+                    let folder = folder_of.get(&n).cloned().unwrap_or_default();
+                    Some((n, folder))
+                })
+                .collect();
+            let sizes: std::collections::HashMap<String, (PathBuf, u64)> = list
+                .into_iter()
+                .filter_map(|(f, len)| Some((f.file_name()?.to_str()?.to_string(), (f, len))))
+                .collect();
+            // schon vorhandene Bilder (auch mit alter Nummer) wiederverwenden
+            let existing: std::collections::HashMap<String, (PathBuf, u64)> = jpgs(&to)
+                .into_iter()
+                .filter_map(|(p, len)| {
+                    let n = p.file_name()?.to_str()?.to_string();
+                    Some((strip_order(&n).to_string(), (p, len)))
+                })
+                .collect();
+            for (orig, name) in ordered_names(names, order, seed) {
+                if let Some((src, len)) = sizes.get(&orig) {
+                    files.push((src.clone(), *len, to.clone(), name, existing.get(&orig).cloned()));
+                }
             }
         }
         p2.lock().unwrap().total = files.len();
         let mut err = None;
-        for (f, len, to) in files {
-            let name = f.file_name().unwrap_or_default();
-            let out = to.join(name);
-            let same = fs::metadata(&out).map(|m| m.len() == len).unwrap_or(false);
-            if same {
+        for (f, len, to, name, have) in files {
+            let out = to.join(&name);
+            let reuse = have.filter(|(_, l)| *l == len);
+            if let Some((old, _)) = reuse {
+                if old != out {
+                    let _ = fs::rename(&old, &out);
+                }
                 p2.lock().unwrap().skipped += 1;
             } else if let Err(e) = fs::create_dir_all(&to).and_then(|_| fs::copy(&f, &out)) {
                 log(&format!(
@@ -413,6 +496,18 @@ pub fn check_update(ctx: egui::Context) -> Arc<Mutex<Option<String>>> {
             return;
         };
         let name = json.get("name").and_then(|n| n.as_str()).unwrap_or("");
+        if let Some(size) = json
+            .get("assets")
+            .and_then(|a| a.as_array())
+            .and_then(|a| {
+                a.iter()
+                    .find(|x| x.get("name").and_then(|n| n.as_str()) == Some("Bilderrahmen-Swiper.exe"))
+            })
+            .and_then(|x| x.get("size"))
+            .and_then(|s| s.as_u64())
+        {
+            crate::update::ASSET_SIZE.store(size, std::sync::atomic::Ordering::Relaxed);
+        }
         let Some(v) = name.split_whitespace().find_map(parse_version) else {
             return;
         };
@@ -456,5 +551,26 @@ mod cache_tests {
         assert!(f.exists(), "nicht gespeichert: {}", f.display());
         let b = super::cached_thumb(src, 360).unwrap();
         assert_eq!(a.dimensions(), b.dimensions());
+    }
+}
+
+#[cfg(test)]
+mod order_tests {
+    use super::*;
+
+    #[test]
+    fn order_prefix_roundtrip() {
+        let files = vec![
+            ("2024-07-15_a.jpg".to_string(), "Urlaub".to_string()),
+            ("2023-01-02_b.jpg".to_string(), "Familie".to_string()),
+        ];
+        let d = ordered_names(files.clone(), 0, 1);
+        assert_eq!(d[0].1, "2023-01-02_b.jpg");
+        let f = ordered_names(files.clone(), 2, 1);
+        assert_eq!(f[0].1, "0001_2023-01-02_b.jpg");
+        assert_eq!(strip_order(&f[1].1), "2024-07-15_a.jpg");
+        assert_eq!(strip_order("2024-07-15_a.jpg"), "2024-07-15_a.jpg");
+        let r = ordered_names(files, 1, 42);
+        assert!(r.iter().all(|(o, n)| strip_order(n) == o));
     }
 }

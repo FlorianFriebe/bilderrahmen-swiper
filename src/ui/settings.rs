@@ -180,7 +180,7 @@ fn nav_item(ui: &Ui, r: Rect, glyph: &str, label: &str, on: bool) -> egui::Respo
     resp
 }
 
-fn footer(app: &SwiperApp, ui: &mut Ui, r: Rect) {
+fn footer(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(r));
     let ui = &mut child;
     ui.colored_label(
@@ -195,19 +195,22 @@ fn footer(app: &SwiperApp, ui: &mut Ui, r: Rect) {
         {
             system::open_file(&system::log_path());
         }
-        if let Some(v) = app.update.lock().unwrap().clone() {
+        let update = app.update.lock().unwrap().clone();
+        if let Some(v) = update {
+            let label = if crate::update::supported() {
+                format!("Version {v} installieren")
+            } else {
+                format!("Version {v} laden")
+            };
             if ui
                 .add(
-                    egui::Button::new(
-                        egui::RichText::new(format!("Version {v} laden"))
-                            .size(11.5)
-                            .color(accent()),
-                    )
-                    .frame(false),
+                    egui::Button::new(egui::RichText::new(label).size(11.5).color(accent()))
+                        .frame(false),
                 )
                 .clicked()
             {
-                system::open_url(system::RELEASE_PAGE);
+                app.dialog = None;
+                super::home::update_click(app, ui);
             }
         }
     });

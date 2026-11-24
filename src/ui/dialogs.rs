@@ -457,6 +457,28 @@ pub fn copy(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
                     app.start_copy(dir);
                 }
             }
+            ui.add_space(sp::M);
+            ui.label(
+                egui::RichText::new(format!("{}  Reihenfolge auf dem Rahmen", icons::SHUFFLE))
+                    .font(bold(14.0)),
+            );
+            ui.horizontal(|ui| {
+                for (i, (label, _)) in system::COPY_ORDERS.iter().enumerate() {
+                    ui.selectable_value(&mut app.cfg.copy_order, i as u8, *label);
+                }
+            });
+            let (_, hint) = system::COPY_ORDERS[(app.cfg.copy_order as usize).min(2)];
+            ui.colored_label(muted(), egui::RichText::new(hint).size(11.5));
+            if app.cfg.copy_order > 0 {
+                ui.colored_label(
+                    muted(),
+                    egui::RichText::new(
+                        "Dafür bekommen die Dateien eine Nummer vorne, z. B. 0001_2024-07-15_…jpg. \
+                         Die meisten Rahmen zeigen Bilder nach Dateinamen sortiert.",
+                    )
+                    .size(11.5),
+                );
+            }
             ui.add_space(8.0);
             ui.checkbox(
                 &mut app.cfg.copy_keep_folders,

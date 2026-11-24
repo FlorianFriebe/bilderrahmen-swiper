@@ -5,6 +5,7 @@ mod folders;
 mod imaging;
 mod daterange;
 mod textstyle;
+mod update;
 mod session;
 mod system;
 mod ui;
@@ -60,6 +61,10 @@ fn run(renderer: eframe::Renderer, args: Vec<PathBuf>) -> eframe::Result {
 
 fn main() {
     system::install_panic_hook();
+    if std::env::args().any(|a| a == update::AFTER_UPDATE) {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+    }
+    update::cleanup();
     let args: Vec<PathBuf> = std::env::args_os()
         .skip(1)
         .map(PathBuf::from)
