@@ -258,33 +258,98 @@ pub fn load_preview(path: &Path, max_side: u32) -> Result<(RgbImage, NaiveDateTi
 }
 
 pub fn capture_time(path: &Path) -> NaiveDateTime {
-    if let Ok(f) = fs::File::open(path) {
-        let mut r = BufReader::new(f);
-        if let Ok(ex) = exif::Reader::new().read_from_container(&mut r) {
-            for tag in [
-                exif::Tag::DateTimeOriginal,
-                exif::Tag::DateTimeDigitized,
-                exif::Tag::DateTime,
-            ] {
-                if let Some(field) = ex.get_field(tag, exif::In::PRIMARY) {
-                    if let exif::Value::Ascii(ref v) = field.value {
-                        if let Some(s) = v.first() {
-                            let s = String::from_utf8_lossy(s);
-                            if let Ok(t) =
-                                NaiveDateTime::parse_from_str(s.trim(), "%Y:%m:%d %H:%M:%S")
-                            {
-                                return t;
-                            }
-                        }
+    capture_info(path).0
+}
+
+fn read_exif(path: &Path) -> Option<exif::Exif> {
+    let f = fs::File::open(path).ok()?;
+    exif::Reader::new()
+        .read_from_container(&mut BufReader::new(f))
+        .ok()
+}
+
+fn exif_date(ex: &exif::Exif) -> Option<NaiveDateTime> {
+    for tag in [
+        exif::Tag::DateTimeOriginal,
+        exif::Tag::DateTimeDigitized,
+        exif::Tag::DateTime,
+    ] {
+        if let Some(field) = ex.get_field(tag, exif::In::PRIMARY) {
+            if let exif::Value::Ascii(ref v) = field.value {
+                if let Some(s) = v.first() {
+                    let s = String::from_utf8_lossy(s);
+                    if let Ok(t) = NaiveDateTime::parse_from_str(s.trim(), "%Y:%m:%d %H:%M:%S") {
+                        return Some(t);
                     }
                 }
             }
         }
     }
+    None
+}
+
+fn file_time(path: &Path) -> NaiveDateTime {
     fs::metadata(path)
         .and_then(|m| m.modified())
         .map(|t| DateTime::<Local>::from(t).naive_local())
         .unwrap_or_default()
+}
+
+/// Aufnahmezeit und ob sie wirklich aus den EXIF-Daten stammt.
+pub fn capture_info(path: &Path) -> (NaiveDateTime, bool) {
+    match read_exif(path).as_ref().and_then(exif_date) {
+        Some(t) => (t, true),
+        None => (file_time(path), false),
+    }
+}
+
+/// Kleines Vorschaubild: wenn möglich das in der Kamera eingebettete, sonst verkleinert.
+pub fn load_thumb(path: &Path, side: u32) -> Result<RgbImage, String> {
+    if let Some(ex) = read_exif(path) {
+        let off = ex
+            .get_field(exif::Tag::JPEGInterchangeFormat, exif::In::THUMBNAIL)
+            .and_then(|f| f.value.get_uint(0));
+        let len = ex
+            .get_field(exif::Tag::JPEGInterchangeFormatLength, exif::In::THUMBNAIL)
+            .and_then(|f| f.value.get_uint(0));
+        if let (Some(off), Some(len)) = (off, len) {
+            let buf = ex.buf();
+            let (off, len) = (off as usize, len as usize);
+            if off + len <= buf.len() && len > 100 {
+                if let Ok(img) = image::load_from_memory(&buf[off..off + len]) {
+                    let orient = ex
+                        .get_field(exif::Tag::Orientation, exif::In::PRIMARY)
+                        .and_then(|f| f.value.get_uint(0))
+                        .and_then(|v| image::metadata::Orientation::from_exif(v as u8));
+                    let mut img = img;
+                    if let Some(o) = orient {
+                        img.apply_orientation(o);
+                    }
+                    let rgb = img.into_rgb8();
+                    if rgb.width().max(rgb.height()) >= side / 2 {
+                        return Ok(shrink(rgb, side));
+                    }
+                }
+            }
+        }
+    }
+    let d = decode(path)?;
+    Ok(shrink(to_rgb(d.img), side))
+}
+
+fn shrink(rgb: RgbImage, side: u32) -> RgbImage {
+    let (w, h) = rgb.dimensions();
+    let s = (side as f32 / w.max(h) as f32).min(1.0);
+    if s < 1.0 {
+        resize(
+            &rgb,
+            ((w as f32 * s).round() as u32).max(1),
+            ((h as f32 * s).round() as u32).max(1),
+            true,
+        )
+    } else {
+        rgb
+    }
 }
 
 // ------------------------------------------------------------------ Speichern

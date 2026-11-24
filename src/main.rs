@@ -4,8 +4,10 @@ mod app;
 mod folders;
 mod imaging;
 mod theme;
+mod views;
 #[cfg(windows)]
 mod wic;
+mod widgets;
 mod workers;
 
 use std::path::PathBuf;
@@ -28,6 +30,13 @@ fn options(renderer: eframe::Renderer) -> eframe::NativeOptions {
         .with_inner_size([1280.0, 820.0])
         .with_min_inner_size([820.0, 560.0])
         .with_drag_and_drop(true);
+    // nur zum Testen: Fenstergröße vorgeben, z. B. BRS_SIZE=2560x1080
+    if let Some((w, h)) = std::env::var("BRS_SIZE").ok().and_then(|s| {
+        let (w, h) = s.split_once('x')?;
+        Some((w.parse::<f32>().ok()?, h.parse::<f32>().ok()?))
+    }) {
+        vp = vp.with_inner_size([w, h]).with_position([0.0, 0.0]);
+    }
     if let Some(i) = icon() {
         vp = vp.with_icon(std::sync::Arc::new(i));
     }

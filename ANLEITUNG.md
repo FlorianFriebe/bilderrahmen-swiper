@@ -11,45 +11,55 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    Das liegt nur daran, dass das Programm nicht signiert ist:
    **„Weitere Informationen“ → „Trotzdem ausführen“.**
 
-## In 4 Schritten zum fertigen Ordner
+## In 3 Schritten zum fertigen Ordner
 
-1. **Ordner wählen:** Links auf **„+ Ordner“** klicken (mehrere auf einmal möglich) oder
-   Ordner einfach aus dem Explorer ins Fenster ziehen. Unterordner erscheinen als Baum –
-   mit den Häkchen schaltest du einzelne Ordner an oder aus.
-2. **Format wählen:** z. B. *Quer 16:9* und *Hochkant 9:16*. Über „Eigenes Format …“
-   kannst du auch Werte wie `1280x800` eintippen (die Auflösung deines Rahmens).
-3. **Größe begrenzen (optional):** Auflösung (z. B. Full HD) und/oder maximale
-   Dateigröße in MB. Zu große Bilder werden stärker komprimiert und notfalls verkleinert.
-4. **Losswipen.** Fertige Bilder landen im **Zielordner** in den Unterordnern
-   **`Quer`** und **`Hochkant`**, z. B. `2024-07-15_143012_IMG_1234.jpg`
-   (Aufnahmedatum vorne, damit der Rahmen chronologisch sortiert).
+1. **Ordner wählen:** Auf dem Startbildschirm **„+ Ordner hinzufügen“** anklicken (mehrere
+   auf einmal möglich) oder Ordner aus dem Explorer ins Fenster ziehen. Jeder Ordner ist
+   eine Kachel mit Vorschaubild und Fortschritt. Klick = an-/abwählen,
+   **Doppelklick = direkt diesen Ordner starten**.
+2. **Losswipen:** „▶ … Fotos durchgehen“. Die Fotos kommen **nach Aufnahmedatum** sortiert.
+3. **Fertig:** Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in den
+   Unterordnern **`Quer`** und **`Hochkant`**, z. B. `2024-07-15_143012_IMG_1234.jpg`.
+   Ist ein Ordner durch, schlägt das Programm den nächsten vor.
+
+**Einstellungen** (Zielordner, Format z. B. 16:9 oder eigenes wie `1280x800`, Auflösung,
+max. MB, Ziel-Anzahl) findest du hinter **☰** oben links in der Swipe-Ansicht.
 
 ## Bedienung
 
 | Aktion | Maus | Taste |
 |---|---|---|
 | Behalten | nach rechts ziehen oder ♥ | **→** oder D |
-| Weg | nach links ziehen oder ✕ | **←** oder A |
-| Rückgängig | ↶ | **Rücktaste** oder Strg+Z |
+| Weg | nach links ziehen oder × | **←** oder A |
+| Rückgängig (auch nach Neustart) | ↶ | **Rücktaste** oder Strg+Z |
 | Bild drehen | ⟳ | **R** (Umschalt+R andersherum) |
 | Quer ↔ Hochkant schneiden | ⇄ oder oben auf das Format klicken | **H** |
 | Ausschnitt verschieben | **rechte Maustaste** gedrückt halten und ziehen | – |
 | Hinein-/Herauszoomen | **Mausrad** | + / − |
 | Ausschnitt zurücksetzen | Doppelklick aufs Bild | 0 |
-| Seitenleiste ein/aus | ☰ | Strg+B |
+| Serie vergleichen | gelber Hinweis „Serie“ | **S** |
+| Einstellungen | ☰ | Strg+B |
+| Zurück zum Start | ⌂ | – |
 | Vollbild | – | F11 |
 
-Der helle Rahmen zeigt, was gespeichert wird; der abgedunkelte Rand wird abgeschnitten.
-Ob ein Bild in `Quer` oder `Hochkant` landet, wird automatisch erkannt – mit **H** kannst
-du es pro Bild umstellen.
+## Neu in Version 2
+
+- **Mittige Arbeitsfläche:** passt sich der Fensterhöhe an, ideal auch für 21:9-Monitore.
+- **Filmstreifen** unter dem Bild: grün = behalten, rot = weg. Ein Klick springt zu einem
+  Bild und macht seine Entscheidung rückgängig.
+- **Behaltene ansehen:** Klick auf das grüne **♥ Zahl** oben rechts zeigt alle
+  behaltenen Bilder. Dort kannst du einzelne wieder **rauswerfen** oder den Zielordner öffnen.
+- **Serien:** Mehrere Fotos kurz hintereinander (≤ 2 Sekunden) erkennt das Programm.
+  Mit **S** siehst du sie nebeneinander, klickst die besten an und behältst nur diese.
+- **Ziel-Zähler:** z. B. „Ziel: 300 Fotos“. Das Programm meldet sich, wenn du es erreichst.
 
 ## Gut zu wissen
 
-- **Pause machen:** Einfach schließen. Beim nächsten Start geht es dort weiter, wo du
-  aufgehört hast (der Fortschritt steht in der versteckten Datei
-  `.bilderrahmen_status.json` im Zielordner). Bereits bewertete Bilder werden übersprungen.
+- **Pause machen:** Einfach schließen. Beim nächsten Start geht es genau dort weiter,
+  und auch **Rückgängig** funktioniert noch (Fortschritt steht in
+  `.bilderrahmen_status.json` im Zielordner).
 - **Formate:** JPG, PNG, WebP, BMP, TIFF, GIF. **iPhone-Fotos (HEIC)** funktionieren, wenn
   in Windows die kostenlosen *HEIF-Bilderweiterungen* (und ggf. *HEVC-Videoerweiterungen*)
-  aus dem Microsoft Store installiert sind – dann kann Windows sie auch selbst anzeigen.
+  aus dem Microsoft Store installiert sind.
 - Handy-Fotos werden automatisch richtig herum gedreht.
 - Einstellungen gelten für alle Bilder, die du **ab jetzt** behältst.

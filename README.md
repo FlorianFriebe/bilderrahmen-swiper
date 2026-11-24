@@ -9,13 +9,17 @@ Auflösung und Dateigröße begrenzt und in einen Zielordner kopiert. Originale 
 
 ## Technik
 
-- `src/app.rs` – Oberfläche (Seitenleiste, Swipe-Karte, Tasten, Animation)
+- `src/app.rs` – Zustand und Logik (Ordner, Entscheidungen, Rückgängig, Serien, Ziel)
+- `src/views.rs` – Ansichten: Start-Kacheln, Swipe-Karte mit Filmstreifen, Galerie, Serien, Klapp-Leiste
+- `src/widgets.rs` – kleine Bausteine (Vektor-Icons, Knöpfe, Formatauswahl)
+- `src/theme.rs` – Farben und Schriften
 - `src/imaging.rs` – Laden (EXIF-Drehung), Zuschnitt, JPEG-Export mit Größenlimit, Dateinamen
-- `src/workers.rs` – Vorladen der nächsten Bilder und Speichern im Hintergrund
+- `src/workers.rs` – Vorladen, Speichern, kleine Vorschaubilder und Aufnahmedaten im Hintergrund
 - `src/folders.rs` – Ordnerbaum, natürliche Sortierung, Fortschrittsdatei
 - `src/wic.rs` – Windows Imaging Component als Fallback (z. B. HEIC)
 
 Bauen: `cargo build --release`. Die Windows-.exe baut GitHub Actions bei jedem Push auf
 `main` (`.github/workflows/windows.yml`) und legt sie unter *Releases → latest* ab.
 
-Zum Testen unter Linux: `BRS_RENDERER=glow` erzwingt OpenGL, `BRS_DEBUG=1` gibt Aktionen aus.
+Zum Testen unter Linux: `BRS_RENDERER=glow` erzwingt OpenGL, `BRS_DEBUG=1` gibt Aktionen aus,
+`BRS_SIZE=2560x1080` setzt die Fenstergröße.

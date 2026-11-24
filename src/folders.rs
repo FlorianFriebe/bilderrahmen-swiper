@@ -80,26 +80,6 @@ pub fn images_in(path: &Path) -> Vec<PathBuf> {
     v
 }
 
-pub fn checked_folders(nodes: &[Node], unchecked: &HashSet<PathBuf>, out: &mut Vec<PathBuf>) {
-    for n in nodes {
-        if !unchecked.contains(&n.path) && n.count > 0 {
-            out.push(n.path.clone());
-        }
-        checked_folders(&n.children, unchecked, out);
-    }
-}
-
-pub fn set_checked_recursive(n: &Node, checked: bool, unchecked: &mut HashSet<PathBuf>) {
-    if checked {
-        unchecked.remove(&n.path);
-    } else {
-        unchecked.insert(n.path.clone());
-    }
-    for c in &n.children {
-        set_checked_recursive(c, checked, unchecked);
-    }
-}
-
 /// "IMG_2.jpg" < "IMG_10.jpg"
 pub fn natural_cmp(a: &str, b: &str) -> Ordering {
     let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
@@ -153,27 +133,57 @@ pub struct Entry {
 pub struct StatusFile {
     pub version: u32,
     pub bilder: HashMap<PathBuf, Entry>,
+    /// Reihenfolge der Entscheidungen (für Rückgängig nach Neustart)
+    #[serde(default)]
+    pub verlauf: Vec<PathBuf>,
 }
 
-pub fn load_status(target: &Path) -> HashMap<PathBuf, Entry> {
+pub fn load_status(target: &Path) -> StatusFile {
     fs::read(target.join(STATUS_FILE))
         .ok()
         .and_then(|b| serde_json::from_slice::<StatusFile>(&b).ok())
-        .map(|s| s.bilder)
         .unwrap_or_default()
 }
 
-pub fn save_status(target: &Path, status: &HashMap<PathBuf, Entry>) -> std::io::Result<()> {
+pub fn save_status(target: &Path, status: &StatusFile) -> std::io::Result<()> {
     fs::create_dir_all(target)?;
     let p = target.join(STATUS_FILE);
     let tmp = target.join(format!("{STATUS_FILE}.tmp"));
-    let data = serde_json::to_vec(&StatusFile {
-        version: 1,
-        bilder: status.clone(),
-    })?;
-    fs::write(&tmp, data)?;
+    fs::write(&tmp, serde_json::to_vec(status)?)?;
     fs::rename(&tmp, &p)?;
     Ok(())
+}
+
+/// Alle Ordner mit Bildern (Baum flach gemacht), mit Anzeigenamen wie „Urlaub › Italien“.
+pub fn flatten(
+    nodes: &[Node],
+    excluded: &HashSet<PathBuf>,
+    out: &mut Vec<(PathBuf, String, usize)>,
+) {
+    fn walk(
+        n: &Node,
+        prefix: &str,
+        excluded: &HashSet<PathBuf>,
+        out: &mut Vec<(PathBuf, String, usize)>,
+    ) {
+        if excluded.contains(&n.path) {
+            return;
+        }
+        let name = if prefix.is_empty() {
+            file_name(&n.path)
+        } else {
+            format!("{prefix} › {}", n.name)
+        };
+        if n.count > 0 {
+            out.push((n.path.clone(), name.clone(), n.count));
+        }
+        for c in &n.children {
+            walk(c, &name, excluded, out);
+        }
+    }
+    for n in nodes {
+        walk(n, "", excluded, out);
+    }
 }
 
 #[cfg(test)]

@@ -4,7 +4,19 @@ use std::sync::Arc;
 
 use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, TextStyle};
 
-use crate::app::{BG, BLUE, BORDER, SIDEBAR, SURFACE, SURFACE_HI, TEXT};
+pub const BG: Color32 = Color32::from_rgb(0x12, 0x13, 0x17);
+pub const SIDEBAR: Color32 = Color32::from_rgb(0x18, 0x1a, 0x20);
+pub const SURFACE: Color32 = Color32::from_rgb(0x23, 0x25, 0x2d);
+pub const SURFACE_HI: Color32 = Color32::from_rgb(0x2c, 0x2f, 0x39);
+pub const CARD: Color32 = Color32::from_rgb(0x1c, 0x1e, 0x25);
+pub const BORDER: Color32 = Color32::from_rgb(0x2a, 0x2d, 0x38);
+pub const TEXT: Color32 = Color32::from_rgb(0xe8, 0xe8, 0xee);
+pub const MUTED: Color32 = Color32::from_rgb(0x7d, 0x81, 0x91);
+pub const DIM: Color32 = Color32::from_rgb(0x6b, 0x6f, 0x7e);
+pub const GREEN: Color32 = Color32::from_rgb(0x22, 0xc5, 0x5e);
+pub const RED: Color32 = Color32::from_rgb(0xef, 0x44, 0x44);
+pub const BLUE: Color32 = Color32::from_rgb(0x3b, 0x82, 0xf6);
+pub const AMBER: Color32 = Color32::from_rgb(0xf5, 0x9e, 0x0b);
 
 fn first_existing(cands: &[&str]) -> Option<Vec<u8>> {
     cands.iter().find_map(|p| std::fs::read(p).ok())

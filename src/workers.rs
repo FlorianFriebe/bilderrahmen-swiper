@@ -217,3 +217,174 @@ impl Saver {
         self.take_results()
     }
 }
+
+// ------------------------------------------------------------------ Kleine Vorschaubilder
+
+pub const THUMB_SIDE: u32 = 360;
+
+#[derive(Default)]
+struct ThumbState {
+    /// zuletzt angefragt = zuerst geladen
+    queue: Vec<PathBuf>,
+    requested: HashSet<PathBuf>,
+    done: Vec<(PathBuf, Option<egui::ColorImage>)>,
+    stop: bool,
+}
+
+pub struct ThumbLoader {
+    state: Arc<(Mutex<ThumbState>, Condvar)>,
+    threads: Vec<JoinHandle<()>>,
+}
+
+impl ThumbLoader {
+    pub fn new(ctx: egui::Context, workers: usize) -> Self {
+        let state = Arc::new((Mutex::new(ThumbState::default()), Condvar::new()));
+        let threads = (0..workers)
+            .map(|_| {
+                let state = state.clone();
+                let ctx = ctx.clone();
+                std::thread::spawn(move || loop {
+                    let path = {
+                        let (lock, cv) = &*state;
+                        let mut s = lock.lock().unwrap();
+                        loop {
+                            if s.stop {
+                                return;
+                            }
+                            if let Some(p) = s.queue.pop() {
+                                break p;
+                            }
+                            s = cv.wait(s).unwrap();
+                        }
+                    };
+                    let img = imaging::load_thumb(&path, THUMB_SIDE).ok().map(|rgb| {
+                        egui::ColorImage::from_rgb(
+                            [rgb.width() as usize, rgb.height() as usize],
+                            rgb.as_raw(),
+                        )
+                    });
+                    state.0.lock().unwrap().done.push((path, img));
+                    ctx.request_repaint();
+                })
+            })
+            .collect();
+        Self { state, threads }
+    }
+
+    /// Fordert ein Vorschaubild an (nur einmal pro Pfad, bis `forget`).
+    pub fn request(&self, path: &Path) {
+        let (lock, cv) = &*self.state;
+        let mut s = lock.lock().unwrap();
+        if s.requested.insert(path.to_path_buf()) {
+            s.queue.push(path.to_path_buf());
+            cv.notify_one();
+        } else if let Some(i) = s.queue.iter().position(|p| p == path) {
+            // nach vorne holen
+            let p = s.queue.remove(i);
+            s.queue.push(p);
+        }
+    }
+
+    pub fn take_done(&self) -> Vec<(PathBuf, Option<egui::ColorImage>)> {
+        std::mem::take(&mut self.state.0.lock().unwrap().done)
+    }
+
+    pub fn forget(&self, path: &Path) {
+        let mut s = self.state.0.lock().unwrap();
+        s.requested.remove(path);
+        s.queue.retain(|p| p != path);
+    }
+
+    /// Wartende Aufträge verwerfen, die nicht mehr gebraucht werden.
+    pub fn retain_queue(&self, keep: impl Fn(&Path) -> bool) {
+        let mut s = self.state.0.lock().unwrap();
+        let mut dropped = vec![];
+        s.queue.retain(|p| {
+            let k = keep(p);
+            if !k {
+                dropped.push(p.clone());
+            }
+            k
+        });
+        for p in dropped {
+            s.requested.remove(&p);
+        }
+    }
+
+    pub fn shutdown(&mut self) {
+        {
+            let (lock, cv) = &*self.state;
+            lock.lock().unwrap().stop = true;
+            cv.notify_all();
+        }
+        for t in self.threads.drain(..) {
+            let _ = t.join();
+        }
+    }
+}
+
+// ------------------------------------------------------------------ Aufnahmedaten einlesen
+
+pub struct DateScan {
+    progress: Arc<Mutex<(usize, usize)>>,
+    rx: crossbeam_channel::Receiver<Vec<(PathBuf, NaiveDateTime, bool)>>,
+}
+
+impl DateScan {
+    pub fn start(ctx: egui::Context, files: Vec<PathBuf>) -> Self {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let progress = Arc::new(Mutex::new((0, files.len())));
+        let prog = progress.clone();
+        std::thread::spawn(move || {
+            // mehrere Threads, damit auch langsame Laufwerke flott sind
+            let chunks: Vec<Vec<PathBuf>> = files
+                .chunks(files.len().div_ceil(4).max(1))
+                .map(|c| c.to_vec())
+                .collect();
+            let handles: Vec<_> = chunks
+                .into_iter()
+                .map(|chunk| {
+                    let prog = prog.clone();
+                    let ctx = ctx.clone();
+                    std::thread::spawn(move || {
+                        let mut out = Vec::with_capacity(chunk.len());
+                        for (i, p) in chunk.into_iter().enumerate() {
+                            let (t, exif) = imaging::capture_info(&p);
+                            out.push((p, t, exif));
+                            if i % 20 == 19 {
+                                prog.lock().unwrap().0 += 20;
+                                ctx.request_repaint();
+                            }
+                        }
+                        out
+                    })
+                })
+                .collect();
+            let all: Vec<_> = handles
+                .into_iter()
+                .flat_map(|h| h.join().unwrap_or_default())
+                .collect();
+            let _ = tx.send(all);
+            ctx.request_repaint();
+        });
+        Self { progress, rx }
+    }
+
+    pub fn progress(&self) -> (usize, usize) {
+        *self.progress.lock().unwrap()
+    }
+
+    pub fn try_take(&self) -> Option<Vec<(PathBuf, NaiveDateTime, bool)>> {
+        self.rx.try_recv().ok()
+    }
+}
+
+impl ThumbLoader {
+    /// Alles vergessen (z. B. wenn der Textur-Speicher geleert wurde).
+    pub fn reset(&self) {
+        let mut s = self.state.0.lock().unwrap();
+        s.queue.clear();
+        s.requested.clear();
+        s.done.clear();
+    }
+}
