@@ -111,8 +111,10 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     } else {
         0.0
     };
+    let date_bar = start_screen && !app.folders.is_empty();
+    let date_h = if date_bar { sp::L + DATE_H } else { 0.0 };
     let content_top = ws.top() + size::TOPBAR + sp::XL;
-    let fixed = head_h + sp::XXL + sessions_h + folders_label_h;
+    let fixed = head_h + date_h + sp::XXL + sessions_h + folders_label_h;
     let footer_total = if footer_h > 0.0 {
         sp::XXL + footer_h
     } else {
@@ -125,6 +127,11 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
 
     let mut y = top;
     header.draw(app, ui, ws, &mut y);
+    if date_bar {
+        y += sp::L;
+        date_filter_bar(app, ui, pos2(ws.center().x, y));
+        y += DATE_H;
+    }
     y += sp::XXL;
 
     if shown > 0 {
@@ -165,14 +172,24 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
 
     if start_screen {
         let open = app.selected_open();
-        let r = Rect::from_center_size(pos2(ws.center().x, y + 28.0), vec2(400.0, 56.0));
+        let range = app.cfg.date_filter.map(|r| r.label());
         let (glyph, label, enabled) = if app.folders.is_empty() {
             (icons::FOLDER_PLUS, "Ordner hinzufügen".to_string(), true)
         } else if open == 0 {
-            ("", "Keine offenen Fotos ausgewählt".to_string(), false)
+            let l = match &range {
+                Some(r) => format!("Keine offenen Fotos aus {r}"),
+                None => "Keine offenen Fotos ausgewählt".to_string(),
+            };
+            ("", l, false)
         } else {
-            (icons::PLAY, format!("{} durchgehen", fotos(open)), true)
+            let l = match &range {
+                Some(r) => format!("{} aus {r} durchgehen", fotos(open)),
+                None => format!("{} durchgehen", fotos(open)),
+            };
+            (icons::PLAY, l, true)
         };
+        let w = (kit::text_size(ui, &label, font(ts::BUTTON, W::Semibold)).x + 120.0).max(400.0);
+        let r = Rect::from_center_size(pos2(ws.center().x, y + 28.0), vec2(w, 56.0));
         let resp = kit::cta(ui, r, glyph, &label, enabled);
         let resp = if app.folders.is_empty() {
             resp
@@ -428,11 +445,14 @@ fn session_card(app: &mut SwiperApp, ui: &mut Ui, r: Rect, s: &Session, prog: Se
         }
     }
 
-    let folders_txt = if s.folders.len() == 1 {
+    let mut folders_txt = if s.folders.len() == 1 {
         String::new()
     } else {
         format!("{} Ordner  ·  ", s.folders.len())
     };
+    if let Some(r) = s.settings.date_filter {
+        folders_txt.push_str(&format!("{}  ·  ", r.label()));
+    }
     p.text(
         pos2(tx, title_y + 24.0),
         Align2::LEFT_CENTER,
@@ -770,6 +790,7 @@ impl Header {
 // ------------------------------------------------------------------ Kacheln
 
 enum TileAction {
+    Peek(PathBuf),
     Toggle(PathBuf),
     Start(PathBuf),
     Remove(PathBuf),
@@ -823,6 +844,16 @@ fn tiles(app: &mut SwiperApp, ui: &mut Ui, grid: Rect, cols: usize) {
         }
         Some(TileAction::Remove(p)) => app.remove_folder(&p),
         Some(TileAction::Add) => pick_folders(app),
+        Some(TileAction::Peek(p)) => {
+            let files: Vec<PathBuf> = folders::images_in(&p).into_iter().take(60).collect();
+            let label = app
+                .folders
+                .iter()
+                .find(|f| f.path == p)
+                .map(|f| format!("{}  ·  {}", f.label, fotos(f.total)))
+                .unwrap_or_default();
+            app.peek(files, 0, label);
+        }
         Some(TileAction::Start(p)) => {
             app.cfg.unchecked.remove(&p);
             app.queue = vec![p.clone()];
@@ -892,6 +923,7 @@ fn dashed_round_rect(p: &egui::Painter, r: Rect, rad: f32, col: Color32) {
 fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction> {
     let f = &app.folders[i];
     let sel = app.is_selected(&f.path);
+    let empty = f.total == 0 && app.cfg.date_filter.is_some();
     let finished = f.open() == 0;
     let resp = ui
         .interact(r, ui.make_persistent_id(("tile", &f.path)), Sense::click())
@@ -908,7 +940,13 @@ fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction
             StrokeKind::Inside,
         );
     }
-    let alpha = if finished && !sel { 0.55 } else { 1.0 };
+    let alpha = if empty {
+        0.4
+    } else if finished && !sel {
+        0.55
+    } else {
+        1.0
+    };
     let th = Rect::from_min_size(r.min + vec2(sp::L, (r.height() - THUMB.y) / 2.0), THUMB);
     match f.first.as_ref().and_then(|first| app.thumb(first)) {
         Some((id, size)) => image_cover(
@@ -926,26 +964,44 @@ fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction
     }
     let tx = th.right() + sp::L;
     let right = r.right() - sp::L;
-    let top = th.top() + 6.0;
+    let top = th.top() - 1.0;
     let cb = Rect::from_min_size(pos2(tx, top), vec2(18.0, 18.0));
     kit::checkmark(p, cb, sel);
     let name_x = cb.right() + sp::S;
     let name_w = right - name_x - if resp.hovered() { 28.0 } else { 0.0 };
+    // eigentlicher Ordnername vollständig, übergeordnete Ordner klein darunter
+    let (parent, leaf) = match f.label.rsplit_once(" › ") {
+        Some((a, b)) => (a.to_string(), b.to_string()),
+        None => (String::new(), f.label.clone()),
+    };
     let nf = font(ts::BUTTON, W::Semibold);
-    let mut name = f.label.clone();
-    let mut keep_chars = name.chars().count();
-    while keep_chars > 4 && kit::text_size(ui, &name, nf.clone()).x > name_w {
-        keep_chars -= 1;
-        name = ellipsize(&f.label, keep_chars);
-    }
     p.text(
         pos2(name_x, cb.center().y),
         Align2::LEFT_CENTER,
-        name,
+        fit_end(ui, &leaf, nf.clone(), name_w),
         nf,
         text().gamma_multiply(alpha),
     );
-    let info = if finished {
+    let sf = font(ts::CAPTION, W::Regular);
+    let parent = if parent.is_empty() {
+        f.path
+            .parent()
+            .map(|p| folders::file_name(p))
+            .unwrap_or_default()
+    } else {
+        parent
+    };
+    p.text(
+        pos2(tx, cb.bottom() + 9.0),
+        Align2::LEFT_CENTER,
+        fit_start(ui, &parent, sf.clone(), right - tx),
+        sf,
+        muted().gamma_multiply(alpha),
+    );
+    let info = if empty {
+        let r = app.cfg.date_filter.map(|r| r.label()).unwrap_or_default();
+        format!("keine Fotos aus {r}")
+    } else if finished {
         format!(
             "{}  ·  fertig  ·  {} behalten",
             fotos(f.total),
@@ -961,14 +1017,15 @@ fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction
             fmt_int(f.kept)
         )
     };
+    let inf = font(ts::SMALL, W::Regular);
     p.text(
-        pos2(tx, cb.bottom() + sp::S + 8.0),
+        pos2(tx, cb.bottom() + 28.0),
         Align2::LEFT_CENTER,
-        info,
-        font(ts::SMALL, W::Regular),
+        fit_end(ui, &info, inf.clone(), right - tx),
+        inf,
         text_soft().gamma_multiply(alpha),
     );
-    let bar = Rect::from_min_max(pos2(tx, th.bottom() - 10.0), pos2(right, th.bottom() - 6.0));
+    let bar = Rect::from_min_max(pos2(tx, th.bottom() - 5.0), pos2(right, th.bottom() - 1.0));
     let frac = if f.total > 0 {
         f.done as f32 / f.total as f32
     } else {
@@ -991,14 +1048,241 @@ fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction
         }
     }
     let resp = resp.on_hover_text(format!(
-        "{}\nKlick: auswählen  ·  Doppelklick: nur diesen Ordner starten",
+        "{}\nKlick: auswählen  ·  Doppelklick: nur diesen Ordner starten\nRechte Maustaste halten: Vorschau, Mausrad blättert",
         f.path.display()
     ));
-    if resp.double_clicked() {
+    if kit::peek_pressed(ui, &resp) {
+        Some(TileAction::Peek(f.path.clone()))
+    } else if resp.double_clicked() {
         Some(TileAction::Start(f.path.clone()))
     } else if resp.clicked() {
         Some(TileAction::Toggle(f.path.clone()))
     } else {
         None
+    }
+}
+
+/// Text hinten kürzen („2021_08_12_Russl…“), bis er in `w` passt.
+fn fit_end(ui: &Ui, s: &str, f: egui::FontId, w: f32) -> String {
+    if kit::text_size(ui, s, f.clone()).x <= w {
+        return s.to_string();
+    }
+    let chars: Vec<char> = s.chars().collect();
+    let mut n = chars.len();
+    while n > 3 {
+        n -= 1;
+        let t = format!("{}…", chars[..n].iter().collect::<String>());
+        if kit::text_size(ui, &t, f.clone()).x <= w {
+            return t;
+        }
+    }
+    s.to_string()
+}
+
+/// Text vorne kürzen („…Bilder › 2021“), bis er in `w` passt.
+fn fit_start(ui: &Ui, s: &str, f: egui::FontId, w: f32) -> String {
+    let mut n = s.chars().count();
+    let mut t = s.to_string();
+    while n > 4 && kit::text_size(ui, &t, f.clone()).x > w {
+        n -= 1;
+        t = ellipsize(s, n);
+    }
+    t
+}
+
+// ------------------------------------------------------------------ Zeitraum
+
+const DATE_H: f32 = 40.0;
+
+/// Zeitraum-Auswahl unter der Überschrift: Alle, die letzten Jahre, eigener Zeitraum.
+fn date_filter_bar(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
+    use crate::daterange::DateRange;
+    let cur = app.cfg.date_filter;
+    let custom = cur.filter(|r| {
+        r.is_year()
+            .is_none_or(|y| !app.years.iter().take(4).any(|(yy, _)| *yy == y))
+    });
+    // (Beschriftung, Ziel, aktiv, Symbol)
+    let mut segs: Vec<(String, Option<Option<DateRange>>, bool, &str)> =
+        vec![("Alle Fotos".into(), Some(None), cur.is_none(), "")];
+    for (y, _) in app.years.iter().take(4) {
+        let r = DateRange::year(*y);
+        segs.push((y.to_string(), Some(Some(r)), cur == Some(r), ""));
+    }
+    let custom_label = match custom {
+        Some(r) => r.label(),
+        None => "Eigener Zeitraum …".into(),
+    };
+    segs.push((custom_label, None, custom.is_some(), icons::CALENDAR_BLANK));
+
+    let f = font(ts::SMALL, W::Medium);
+    let lead = "Zeitraum";
+    let lead_w = 16.0 + sp::S + kit::text_size(ui, lead, f.clone()).x + sp::M * 2.0;
+    let widths: Vec<f32> = segs
+        .iter()
+        .map(|(l, _, _, g)| {
+            kit::text_size(ui, l, f.clone()).x
+                + sp::M * 2.0
+                + if g.is_empty() { 0.0 } else { 16.0 + sp::XS }
+        })
+        .collect();
+    let progress = app.library_scan_progress();
+    let prog_label = progress.map(|p| format!("Aufnahmedaten werden gelesen … {} %", (p * 100.0) as u32));
+    let prog_w = prog_label
+        .as_ref()
+        .map(|l| kit::text_size(ui, l, font(ts::CAPTION, W::Regular)).x + sp::M * 2.0)
+        .unwrap_or(0.0);
+    let total = sp::XS * 2.0 + lead_w + widths.iter().sum::<f32>() + segs.len() as f32 * 2.0 + prog_w;
+    let bar = Rect::from_min_size(
+        pos2(top_center.x - total / 2.0, top_center.y),
+        vec2(total, DATE_H),
+    );
+    let p = ui.painter().clone();
+    kit::glass(&p, bar, radius::L);
+    let mut x = bar.left() + sp::XS;
+    kit::icon(
+        &p,
+        pos2(x + sp::M + 8.0, bar.center().y),
+        icons::CALENDAR,
+        16.0,
+        muted(),
+    );
+    p.text(
+        pos2(x + sp::M + 16.0 + sp::S, bar.center().y),
+        Align2::LEFT_CENTER,
+        lead,
+        f.clone(),
+        muted(),
+    );
+    x += lead_w;
+    let mut custom_rect = bar;
+    for ((label, target, active, glyph), w) in segs.iter().zip(&widths) {
+        let r = Rect::from_min_size(pos2(x, bar.top() + 4.0), vec2(*w, DATE_H - 8.0));
+        let resp = ui
+            .interact(r, ui.make_persistent_id(("range", label.as_str())), Sense::click())
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        let t = kit::anim(ui, resp.id, resp.hovered());
+        if *active {
+            p.rect_filled(r, radius::M, accent_soft());
+        } else if t > 0.0 {
+            p.rect_filled(r, radius::M, glass_hover().gamma_multiply(t));
+        }
+        let col = if *active {
+            accent()
+        } else {
+            kit::mix(text_soft(), text(), t)
+        };
+        let mut tx = r.left() + sp::M;
+        if !glyph.is_empty() {
+            kit::icon(&p, pos2(tx + 8.0, r.center().y), glyph, 16.0, col);
+            tx += 16.0 + sp::XS;
+        }
+        p.text(pos2(tx, r.center().y), Align2::LEFT_CENTER, label, f.clone(), col);
+        if resp.clicked() {
+            match target {
+                Some(t) => {
+                    app.range_draft = None;
+                    app.set_date_filter(*t);
+                }
+                None => {
+                    app.range_draft = Some(cur.unwrap_or_else(|| {
+                        use chrono::Datelike;
+                        let y = app
+                            .years
+                            .first()
+                            .map(|(y, _)| *y)
+                            .unwrap_or_else(|| chrono::Local::now().year());
+                        DateRange::year(y)
+                    }));
+                }
+            }
+        }
+        if target.is_none() {
+            custom_rect = r;
+        }
+        x += w + 2.0;
+    }
+    if let Some(l) = prog_label {
+        p.text(
+            pos2(x + sp::M, bar.center().y),
+            Align2::LEFT_CENTER,
+            l,
+            font(ts::CAPTION, W::Regular),
+            muted(),
+        );
+    }
+    if app.range_draft.is_some() {
+        range_popup(app, ui, custom_rect);
+    }
+}
+
+/// Feld zum Wählen eines eigenen Zeitraums (Monat und Jahr, von–bis).
+fn range_popup(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect) {
+    use crate::daterange::MONTHS;
+    let Some(mut d) = app.range_draft else {
+        return;
+    };
+    let w = 320.0;
+    let pos = pos2(anchor.center().x - w / 2.0, anchor.bottom() + sp::S + 4.0);
+    let mut apply = false;
+    let mut cancel = ui.input(|i| i.key_pressed(egui::Key::Escape));
+    egui::Area::new(Id::unique("range_popup"))
+        .order(egui::Order::Middle)
+        .fixed_pos(pos)
+        .show(ui.ctx(), |ui| {
+            egui::Frame::new()
+                .fill(panel())
+                .stroke(Stroke::new(1.0, glass_stroke()))
+                .corner_radius(radius::XL)
+                .shadow(egui::Shadow {
+                    offset: [0, 12],
+                    blur: 40,
+                    spread: 0,
+                    color: Color32::from_black_alpha(if is_dark() { 120 } else { 36 }),
+                })
+                .inner_margin(egui::Margin::same(sp::L as i8))
+                .show(ui, |ui| {
+                    ui.set_width(w - sp::L * 2.0);
+                    ui.label(
+                        egui::RichText::new("Eigener Zeitraum").font(font(ts::BUTTON, W::Semibold)),
+                    );
+                    ui.add_space(sp::S);
+                    let row = |ui: &mut Ui, label: &str, v: &mut (i32, u32), id: &str| {
+                        ui.horizontal(|ui| {
+                            ui.add_sized([40.0, 24.0], egui::Label::new(label));
+                            egui::ComboBox::from_id_salt(id)
+                                .width(130.0)
+                                .selected_text(MONTHS[(v.1 as usize).clamp(1, 12) - 1])
+                                .show_ui(ui, |ui| {
+                                    for (i, m) in MONTHS.iter().enumerate() {
+                                        ui.selectable_value(&mut v.1, i as u32 + 1, *m);
+                                    }
+                                });
+                            ui.add(egui::DragValue::new(&mut v.0).range(1900..=2100).speed(0.1));
+                        });
+                    };
+                    row(ui, "Von", &mut d.from, "range_from");
+                    row(ui, "Bis", &mut d.to, "range_to");
+                    ui.add_space(sp::M);
+                    let (row, _) =
+                        ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::hover());
+                    let half = (row.width() - sp::S) / 2.0;
+                    let a = Rect::from_min_size(row.min, vec2(half, row.height()));
+                    let b = Rect::from_min_size(pos2(a.right() + sp::S, row.top()), a.size());
+                    if kit::secondary(ui, a, "", "Abbrechen", true).clicked() {
+                        cancel = true;
+                    }
+                    if kit::cta(ui, b, "", "Übernehmen", true).clicked() {
+                        apply = true;
+                    }
+                });
+        });
+    if cancel {
+        app.range_draft = None;
+    } else if apply {
+        app.range_draft = None;
+        app.set_date_filter(Some(d));
+    } else {
+        app.range_draft = Some(d);
     }
 }

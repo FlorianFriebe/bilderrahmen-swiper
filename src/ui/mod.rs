@@ -11,6 +11,7 @@ pub mod kit;
 mod settings;
 pub mod style;
 mod swipe;
+pub mod viewer;
 
 pub use frame::frame;
 

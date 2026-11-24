@@ -21,6 +21,7 @@ pub struct SessionSettings {
     pub res_idx: usize,
     pub max_mb: f32,
     pub text: TextCfg,
+    pub date_filter: Option<crate::daterange::DateRange>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -65,6 +66,7 @@ impl SwiperApp {
             res_idx: self.cfg.res_idx,
             max_mb: self.cfg.max_mb,
             text: self.cfg.text.clone(),
+            date_filter: self.cfg.date_filter,
         }
     }
 
@@ -75,6 +77,10 @@ impl SwiperApp {
         self.cfg.res_idx = s.res_idx;
         self.cfg.max_mb = s.max_mb;
         self.cfg.text = s.text.clone();
+        if self.cfg.date_filter != s.date_filter {
+            self.cfg.date_filter = s.date_filter;
+            self.refresh_folders();
+        }
     }
 
     /// Neue Session für diese Ordner beginnen (oder eine mit genau denselben Ordnern weiterführen).
@@ -135,7 +141,7 @@ impl SwiperApp {
         }
     }
 
-    /// Pausieren: Stand merken und zum Startbildschirm.
+    /// Zum Startbildschirm: Stand merken (Haus-Knopf).
     pub fn pause(&mut self) {
         self.finish_anim();
         self.sync_session();
@@ -144,7 +150,7 @@ impl SwiperApp {
         self.text_panel = false;
         self.refresh_folders();
         self.drop_finished_sessions();
-        self.toast("Pausiert. Unter „Weitermachen“ geht es später weiter.".into());
+        self.toast("Gespeichert. Unter „Weitermachen“ geht es später weiter.".into());
     }
 
     pub fn resume_session(&mut self, id: u64) {
@@ -181,10 +187,20 @@ impl SwiperApp {
 
     pub fn session_progress(&self, s: &Session) -> SessionProgress {
         let mut p = SessionProgress::default();
-        for f in self.folders.iter().filter(|f| s.folders.contains(&f.path)) {
-            p.total += f.total;
-            p.done += f.done;
-            p.kept += f.kept;
+        let filter = s.settings.date_filter;
+        for files in s.folders.iter().filter_map(|f| self.folder_files.get(f)) {
+            for f in files {
+                if !self.in_range_of(filter, f) {
+                    continue;
+                }
+                p.total += 1;
+                if let Some(e) = self.status.bilder.get(f) {
+                    p.done += 1;
+                    if e.d == "keep" {
+                        p.kept += 1;
+                    }
+                }
+            }
         }
         p
     }

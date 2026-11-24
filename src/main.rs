@@ -3,6 +3,7 @@
 mod app;
 mod folders;
 mod imaging;
+mod daterange;
 mod session;
 mod system;
 mod ui;

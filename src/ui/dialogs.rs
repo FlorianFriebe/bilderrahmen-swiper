@@ -19,56 +19,96 @@ fn bold(size: f32) -> egui::FontId {
 // ------------------------------------------------------------------ Einführung
 
 struct Step {
+    kicker: &'static str,
     title: &'static str,
-    body: String,
+    /// (Symbol, Text, Taste)
+    bullets: Vec<(&'static str, String, String)>,
     spot: Option<Rect>,
 }
 
 fn steps(app: &SwiperApp) -> Vec<Step> {
     let k = |a: &str| app.key_label(a);
+    let b = |g: &'static str, t: &str, key: String| (g, t.to_string(), key);
     vec![
         Step {
-            title: "Wischen wie bei Tinder",
-            body: format!(
-                "Zieh das Foto nach rechts, um es für den Rahmen zu behalten, oder nach links, \
-                 um es zu überspringen. Mit den Tasten {} und {} geht es noch schneller.",
-                k("keep"),
-                k("skip")
-            ),
-            spot: app.spots.card,
+            kicker: "WILLKOMMEN",
+            title: "Aus vielen Fotos die besten für deinen Rahmen wählen",
+            bullets: vec![
+                b(icons::HEART, "Behalten: Foto nach rechts ziehen", k("keep")),
+                b(icons::X, "Weg: Foto nach links ziehen", k("skip")),
+                b(
+                    icons::CROP,
+                    "Ausschnitt: rechte Maustaste halten und ziehen, Mausrad zoomt",
+                    String::new(),
+                ),
+                b(icons::UNDO, "Vertan? Die letzte Entscheidung zurücknehmen", k("undo")),
+                b(
+                    icons::FOLDER_OPEN,
+                    "Behaltene Fotos landen zugeschnitten im Zielordner, deine Originale bleiben unverändert",
+                    String::new(),
+                ),
+            ],
+            spot: None,
         },
         Step {
-            title: "Ausschnitt anpassen",
-            body: format!(
-                "Der helle Rahmen zeigt, was gespeichert wird. Rechte Maustaste gedrückt halten und \
-                 ziehen verschiebt ihn, das Mausrad zoomt. Mit {} kommt stattdessen das ganze Foto \
-                 auf einen unscharfen Hintergrund, mit {} schreibst du Datum, Ort oder eine Notiz drauf.",
-                k("fill"),
-                k("text")
-            ),
-            spot: app.spots.card,
-        },
-        Step {
-            title: "Vertan? Kein Problem",
-            body: format!(
-                "„Zurück“ oder {} nimmt die letzte Entscheidung zurück, auch nach einem Neustart. \
-                 Im Filmstreifen siehst du, was du entschieden hast: grün = behalten, rot = weg.",
-                k("undo")
-            ),
+            kicker: "LEISTE UNTEN",
+            title: "Alles für das aktuelle Foto",
+            bullets: vec![
+                b(icons::ROTATE, "Drehen, falls das Foto schief liegt", k("rot_r")),
+                b(icons::SWAP, "Quer oder hochkant zuschneiden", k("orient")),
+                b(icons::FILL, "Ganzes Foto auf unscharfem Hintergrund", k("fill")),
+                b(
+                    icons::TEXT,
+                    "Text an oder aus, der kleine Pfeil öffnet Ort, Notiz und Stil",
+                    k("text"),
+                ),
+                b(icons::EYE, "Vorschau, genau wie später auf dem Rahmen", k("preview")),
+                b(
+                    icons::IMAGE,
+                    "Filmstreifen: grün behalten, rot weg. Rechte Maustaste halten zeigt ein Foto groß",
+                    String::new(),
+                ),
+            ],
             spot: app.spots.buttons.map(|b| match app.spots.strip {
-                Some(s) => b.union(s),
+                Some(s) => Rect::from_min_max(pos2(b.left(), s.top().min(b.top())), b.max),
                 None => b,
             }),
         },
         Step {
-            title: "Pause und Einstellungen",
-            body: "Mit „Pause“ oben speicherst du deinen Stand und machst später auf dem Startbildschirm \
-                   unter „Weitermachen“ weiter. Das Zahnrad öffnet die Einstellungen (Rahmen, Text, \
-                   Zielordner, Tasten). Alle Tastenkürzel zeigt das Tastatur-Symbol daneben (F1)."
-                .into(),
+            kicker: "LEISTE OBEN",
+            title: "Pausieren und einstellen",
+            bullets: vec![
+                b(
+                    icons::HOME,
+                    "Haus: zurück zum Start. Dein Stand wird gespeichert und steht unter „Weitermachen“",
+                    String::new(),
+                ),
+                b(
+                    icons::GEAR,
+                    "Einstellungen: Rahmen, Text, Zielordner und Tasten",
+                    String::new(),
+                ),
+                b(icons::KEYBOARD, "Alle Tastenkürzel auf einen Blick", "F1".into()),
+            ],
             spot: app.spots.menu,
         },
     ]
+}
+
+/// Kleine Tastenbeschriftung wie eine Taste.
+fn kbd(p: &egui::Painter, ui: &Ui, right_center: egui::Pos2, key: &str) -> f32 {
+    let f = font(ts::CAPTION, W::Semibold);
+    let w = kit::text_size(ui, key, f.clone()).x.max(10.0) + sp::S * 2.0;
+    let r = Rect::from_min_size(right_center - vec2(w, 12.0), vec2(w, 24.0));
+    p.rect(
+        r,
+        6,
+        field(),
+        Stroke::new(1.0, glass_stroke()),
+        StrokeKind::Inside,
+    );
+    p.text(r.center(), Align2::CENTER_CENTER, key, f, text_soft());
+    w
 }
 
 pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
@@ -90,8 +130,8 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
         .fixed_pos(full.min)
         .show(ui.ctx(), |ui| {
             ui.allocate_rect(full, Sense::click());
-            let p = ui.painter();
-            let shade = Color32::from_black_alpha(175);
+            let p = ui.painter().clone();
+            let shade = Color32::from_black_alpha(if step.spot.is_some() { 175 } else { 200 });
             match step.spot {
                 Some(s) => {
                     let s = s.expand(sp::S);
@@ -117,20 +157,52 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
                     p.rect_filled(full, 0.0, shade);
                 }
             }
-            // Erklär-Kasten: unter, über oder mitten in der hervorgehobenen Fläche
-            let bw = 400.0;
-            let pad = sp::XL;
-            let body = p.layout(
-                step.body.clone(),
-                font(ts::BODY, W::Regular),
-                text_soft(),
-                bw - pad * 2.0,
-            );
-            let bh = pad + 24.0 + sp::M + body.size().y + sp::XL + 40.0 + pad;
+            let welcome = step.spot.is_none();
+            let bw: f32 = if welcome { 560.0 } else { 480.0 };
+            let pad = if welcome { sp::XXL } else { sp::XL };
+            let inner = bw - pad * 2.0;
+            let title_font = font(if welcome { ts::DISPLAY * 0.8 } else { ts::TITLE }, W::Bold);
+            let title = p.layout(step.title.to_string(), title_font, text(), inner);
+            // Stichpunkte vorab setzen, um die Höhe zu kennen
+            let row_icon = 32.0;
+            let bullets: Vec<_> = step
+                .bullets
+                .iter()
+                .map(|(g, t, key)| {
+                    let key_w = if key.is_empty() {
+                        0.0
+                    } else {
+                        kit::text_size(ui, key, font(ts::CAPTION, W::Semibold)).x + sp::S * 2.0 + sp::M
+                    };
+                    let g2 = p.layout(
+                        t.clone(),
+                        font(ts::BODY, W::Regular),
+                        text_soft(),
+                        inner - row_icon - sp::M - key_w,
+                    );
+                    (*g, g2, key.clone())
+                })
+                .collect();
+            let rows_h: f32 = bullets
+                .iter()
+                .map(|(_, g, _)| g.size().y.max(row_icon) + sp::M)
+                .sum::<f32>()
+                - sp::M;
+            let bh = pad
+                + 16.0
+                + sp::S
+                + title.size().y
+                + sp::XL
+                + rows_h
+                + sp::XL
+                + 40.0
+                + pad;
             let spot = step.spot.unwrap_or(full);
             let x =
                 (spot.center().x - bw / 2.0).clamp(full.left() + sp::L, full.right() - bw - sp::L);
-            let pos = if spot.bottom() + bh + sp::XL < full.bottom() {
+            let pos = if welcome {
+                full.center() - vec2(bw / 2.0, bh / 2.0)
+            } else if spot.bottom() + bh + sp::XL < full.bottom() {
                 pos2(x, spot.bottom() + sp::L)
             } else if spot.top() - bh - sp::XL > full.top() {
                 pos2(x, spot.top() - bh - sp::L)
@@ -138,34 +210,53 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
                 spot.center() - vec2(bw / 2.0, bh / 2.0)
             };
             let br = Rect::from_min_size(pos, vec2(bw, bh));
-            kit::glass_with(p, br, radius::XL, panel());
+            kit::shadow(&p, br, radius::CARD, 48, 16, Color32::from_black_alpha(90));
+            kit::glass_with(&p, br, radius::CARD, panel());
+            let left = br.left() + pad;
             let mut y = br.top() + pad;
             p.text(
-                pos2(br.left() + pad, y + 12.0),
+                pos2(left, y + 8.0),
                 Align2::LEFT_CENTER,
-                step.title,
-                font(ts::TITLE, W::Semibold),
-                text(),
+                step.kicker,
+                font(ts::CAPTION, W::Semibold),
+                accent(),
             );
-            p.text(
-                pos2(br.right() - pad, y + 12.0),
-                Align2::RIGHT_CENTER,
-                format!("{} / {n}", i + 1),
-                font(ts::SMALL, W::Medium),
-                muted(),
-            );
-            y += 24.0 + sp::M;
-            let body_h = body.size().y;
-            p.galley(pos2(br.left() + pad, y), body, text_soft());
-            y += body_h + sp::XL;
-            let label = if i + 1 == n { "Los geht's" } else { "Weiter" };
-            let b1 = Rect::from_min_size(pos2(br.right() - pad - 132.0, y), vec2(132.0, 40.0));
+            y += 16.0 + sp::S;
+            let th = title.size().y;
+            p.galley(pos2(left, y), title, text());
+            y += th + sp::XL;
+            for (g, gal, key) in bullets {
+                let h = gal.size().y.max(row_icon);
+                let ir = Rect::from_min_size(pos2(left, y + (h - row_icon) / 2.0), vec2(row_icon, row_icon));
+                p.rect_filled(ir, radius::S, accent_soft());
+                kit::icon(&p, ir.center(), g, 16.0, accent());
+                let gh = gal.size().y;
+                p.galley(pos2(ir.right() + sp::M, y + (h - gh) / 2.0), gal, text_soft());
+                if !key.is_empty() {
+                    kbd(&p, ui, pos2(br.right() - pad, y + h / 2.0), &key);
+                }
+                y += h + sp::M;
+            }
+            y += sp::XL - sp::M;
+            // Punkte für den Fortschritt
+            let dots_y = y + 20.0;
+            let dw = 8.0;
+            let dots_w = n as f32 * dw + (n as f32 - 1.0) * sp::S + 8.0;
+            let mut dx = br.center().x - dots_w / 2.0;
+            for j in 0..n {
+                let w = if j == i { dw + 8.0 } else { dw };
+                let r = Rect::from_min_size(pos2(dx, dots_y - 4.0), vec2(w, 8.0));
+                p.rect_filled(r, 4, if j == i { accent() } else { dim() });
+                dx += w + sp::S;
+            }
+            let label = if i + 1 == n { "Los geht’s" } else { "Weiter" };
+            let b1 = Rect::from_min_size(pos2(br.right() - pad - 140.0, y), vec2(140.0, 40.0));
             if kit::cta(ui, b1, "", label, true).clicked() {
                 next = true;
             }
             if i + 1 < n {
                 let w = kit::secondary_width(ui, "", "Überspringen");
-                let b2 = Rect::from_min_size(pos2(br.left() + pad, y), vec2(w, 40.0));
+                let b2 = Rect::from_min_size(pos2(left, y), vec2(w, 40.0));
                 if kit::secondary(ui, b2, "", "Überspringen", true).clicked() {
                     skip = true;
                 }

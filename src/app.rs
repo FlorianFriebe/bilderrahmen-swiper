@@ -47,6 +47,7 @@ pub const ACTIONS: &[(&str, &str, &[&str])] = &[
     ("orient", "Quer / Hochkant", &["H"]),
     ("fill", "Unscharfer Hintergrund", &["F"]),
     ("text", "Text aufs Bild an / aus", &["T"]),
+    ("preview", "Vorschau wie auf dem Rahmen", &["V"]),
     ("burst", "Serie vergleichen", &["S"]),
     ("zoom_in", "Hineinzoomen", &["Plus", "Equals"]),
     ("zoom_out", "Herauszoomen", &["Minus"]),
@@ -132,6 +133,8 @@ pub struct Config {
     pub copy_keep_folders: bool,
     /// Verlauf: pausierte Sessions
     pub sessions: Vec<crate::session::Session>,
+    /// nur Fotos aus diesem Zeitraum (None = alle)
+    pub date_filter: Option<crate::daterange::DateRange>,
 }
 
 impl Default for Config {
@@ -159,6 +162,7 @@ impl Default for Config {
             theme: 0,
             copy_keep_folders: true,
             sessions: vec![],
+            date_filter: None,
         }
     }
 }
@@ -241,6 +245,14 @@ pub struct SwiperApp {
     /// pro Bild: (Start, Länge) der Serie
     pub groups: Vec<(usize, usize)>,
     pub scan: Option<DateScan>,
+    /// Aufnahmedaten aller Ordner (für den Zeitraum-Filter)
+    pub lib_scan: Option<DateScan>,
+    /// Jahre mit Fotos in den Ordnern (neueste zuerst)
+    pub years: Vec<(i32, usize)>,
+    /// Bilder je Ordner aus dem letzten Einlesen (für den Fortschritt der Sessions)
+    pub folder_files: HashMap<PathBuf, Vec<PathBuf>>,
+    /// offenes Feld „Eigener Zeitraum“ mit dem Entwurf
+    pub range_draft: Option<crate::daterange::DateRange>,
     pub pending_jump: Option<PathBuf>,
     pub finished: Option<PathBuf>,
 
@@ -267,6 +279,8 @@ pub struct SwiperApp {
     pub dy: f32,
     pub swiping: bool,
     pub toast: Option<(String, f64)>,
+    /// Meldung mit „Rückgängig“-Knopf (nach „Weg“)
+    pub toast_undo: bool,
     pub custom_quer: bool,
     pub custom_hoch: bool,
     pub burst_sel: HashSet<PathBuf>,
@@ -275,6 +289,8 @@ pub struct SwiperApp {
     pub notes: HashMap<PathBuf, String>,
     pub text_panel: bool,
     pub dialog: Option<Dialog>,
+    /// Großansicht (Vorschau, Diashow, rechte Maustaste)
+    pub viewer: Option<crate::ui::viewer::Viewer>,
     /// Tastenbelegung: gerade wird eine Taste für (Aktion, Platz) erwartet
     pub capture: Option<(&'static str, usize)>,
     pub intro_step: Option<usize>,
@@ -309,7 +325,11 @@ impl SwiperApp {
             folder: None,
             items: vec![],
             pos: 0,
-            dates: HashMap::new(),
+            dates: crate::daterange::load_cache(),
+            lib_scan: None,
+            range_draft: None,
+            folder_files: HashMap::new(),
+            years: vec![],
             groups: vec![],
             scan: None,
             pending_jump: None,
@@ -334,6 +354,8 @@ impl SwiperApp {
             dy: 0.0,
             swiping: false,
             toast: None,
+            toast_undo: false,
+            viewer: None,
             burst_sel: HashSet::new(),
             notes: HashMap::new(),
             text_panel: false,
@@ -408,21 +430,52 @@ impl SwiperApp {
             }
         }
         let mut infos = vec![];
+        let mut all_files = vec![];
+        let mut by_folder = HashMap::new();
         for (path, label, total) in flat {
             if path.starts_with(&target) {
                 continue;
             }
-            let (d, k) = done.get(path.as_path()).copied().unwrap_or_default();
-            infos.push(FolderInfo {
-                first: folders::images_in(&path).into_iter().next(),
-                path,
-                label,
-                total,
-                done: d.min(total),
-                kept: k,
-            });
+            let files = folders::images_in(&path);
+            let info = if self.cfg.date_filter.is_some() {
+                let inside: Vec<&PathBuf> = files.iter().filter(|p| self.in_range(p)).collect();
+                let mut d = 0;
+                let mut k = 0;
+                for p in &inside {
+                    if let Some(e) = self.status.bilder.get(*p) {
+                        d += 1;
+                        if e.d == "keep" {
+                            k += 1;
+                        }
+                    }
+                }
+                FolderInfo {
+                    first: inside.first().map(|p| (*p).clone()),
+                    path,
+                    label,
+                    total: inside.len(),
+                    done: d,
+                    kept: k,
+                }
+            } else {
+                let (d, k) = done.get(path.as_path()).copied().unwrap_or_default();
+                FolderInfo {
+                    first: files.first().cloned(),
+                    path,
+                    label,
+                    total,
+                    done: d.min(total),
+                    kept: k,
+                }
+            };
+            infos.push(info);
+            all_files.extend(files.iter().cloned());
+            by_folder.insert(infos.last().map(|i: &FolderInfo| i.path.clone()).unwrap_or_default(), files);
         }
+        self.years = self.years_from(&all_files);
+        self.start_library_scan(&all_files);
         self.folders = infos;
+        self.folder_files = by_folder;
         self.total_kept = self
             .status
             .bilder
@@ -491,7 +544,7 @@ impl SwiperApp {
         debug(&format!("Ordner {}", path.display()));
         self.finished = None;
         self.folder = Some(path.clone());
-        self.items = folders::images_in(&path);
+        self.items = crate::daterange::filtered(self, &path);
         self.pos = 0;
         self.groups = vec![(0, 1); self.items.len()];
         self.pending_jump = jump;
@@ -514,6 +567,10 @@ impl SwiperApp {
     }
 
     fn sort_items(&mut self) {
+        if self.cfg.date_filter.is_some() {
+            let items = std::mem::take(&mut self.items);
+            self.items = items.into_iter().filter(|p| self.in_range(p)).collect();
+        }
         let dates = &self.dates;
         self.items.sort_by(|a, b| {
             let da = dates.get(a).map(|d| d.0).unwrap_or_default();
@@ -567,6 +624,7 @@ impl SwiperApp {
                 self.dates.insert(p, (t, exif));
             }
             self.scan = None;
+            crate::daterange::save_cache(&self.dates);
             self.sort_items();
         }
     }
@@ -694,6 +752,13 @@ impl SwiperApp {
 
     pub fn toast(&mut self, msg: String) {
         self.toast = Some((msg, 0.0));
+        self.toast_undo = false;
+    }
+
+    /// Meldung mit „Rückgängig“-Knopf.
+    pub fn toast_with_undo(&mut self, msg: String) {
+        self.toast = Some((msg, 0.0));
+        self.toast_undo = true;
     }
 
     pub fn update_preload(&self) {
@@ -806,6 +871,9 @@ impl SwiperApp {
         self.record(&path, keep);
         self.dx = 0.0;
         self.dy = 0.0;
+        if !keep {
+            self.toast_with_undo("Foto aussortiert".into());
+        }
         self.advance();
     }
 
@@ -840,6 +908,10 @@ impl SwiperApp {
             return;
         };
         debug(&format!("undo {}", path.display()));
+        if self.toast_undo {
+            self.toast = None;
+            self.toast_undo = false;
+        }
         self.revert(&path);
         self.dx = 0.0;
         self.dy = 0.0;
@@ -1077,7 +1149,53 @@ impl SwiperApp {
     }
 
     pub fn modal_open(&self) -> bool {
-        self.dialog.is_some() || self.intro_step.is_some()
+        self.dialog.is_some() || self.intro_step.is_some() || self.viewer.is_some()
+    }
+
+    // ------------------------------------------------------------------ Großansicht
+
+    /// Vorschau „wie auf dem Rahmen“: aktuelles Bild fertig verarbeitet (V),
+    /// oder mit `slideshow` die behaltenen Bilder als Diashow.
+    pub fn open_frame_preview(&mut self, slideshow: bool) {
+        use crate::ui::viewer::{Mode, Source, Viewer};
+        let (items, title) = if slideshow {
+            let items: Vec<Source> = self
+                .kept_list()
+                .into_iter()
+                .rev()
+                .map(|(_, out)| Source::File(out))
+                .collect();
+            (items, "Diashow wie auf dem Rahmen".to_string())
+        } else {
+            let Some(path) = self.current().cloned() else {
+                return;
+            };
+            let edit = self.edits.get(&path).copied().unwrap_or_default();
+            let item = Source::Render {
+                overlay: self.overlay_for(&path),
+                cfg: self.output_settings(),
+                edit,
+                path,
+            };
+            (vec![item], "Vorschau wie auf dem Rahmen".to_string())
+        };
+        if items.is_empty() {
+            return;
+        }
+        let mut v = Viewer::new(items, 0, Mode::Frame, title);
+        v.frame = self.frame_res();
+        v.playing = slideshow;
+        self.viewer = Some(v);
+    }
+
+    /// Kurze Vorschau (rechte Maustaste gedrückt halten).
+    pub fn peek(&mut self, files: Vec<PathBuf>, idx: usize, title: String) {
+        use crate::ui::viewer::{Mode, Source, Viewer};
+        if files.is_empty() {
+            return;
+        }
+        let items = files.into_iter().map(Source::File).collect();
+        self.viewer = Some(Viewer::new(items, idx, Mode::Peek, title));
     }
 
     // ------------------------------------------------------------------ Abschluss und Kopieren

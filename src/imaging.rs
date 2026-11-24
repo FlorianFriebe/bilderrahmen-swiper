@@ -441,13 +441,13 @@ pub struct Rendered {
     pub when: NaiveDateTime,
 }
 
-pub fn render(
+/// Fertiges Bild (Zuschnitt, Größe, Text) ohne JPEG-Kodierung, z. B. für die Vorschau.
+pub fn render_image(
     path: &Path,
     edit: &Edit,
     cfg: &OutputSettings,
     overlay: Option<&Overlay>,
-) -> Result<Rendered, String> {
-    let when = capture_time(path);
+) -> Result<(RgbImage, Orient, Option<Vec<u8>>), String> {
     let d = decode(path)?;
     let icc = d.icc;
     let img = rotate(to_rgb(d.img), edit.rot);
@@ -477,6 +477,17 @@ pub fn render(
     if let Some(o) = overlay {
         draw_overlay(&mut img, o);
     }
+    Ok((img, orient, icc))
+}
+
+pub fn render(
+    path: &Path,
+    edit: &Edit,
+    cfg: &OutputSettings,
+    overlay: Option<&Overlay>,
+) -> Result<Rendered, String> {
+    let when = capture_time(path);
+    let (mut img, orient, icc) = render_image(path, edit, cfg, overlay)?;
 
     let exif = exif_block(when);
     let mut q = cfg.quality;

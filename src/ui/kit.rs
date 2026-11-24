@@ -17,6 +17,12 @@ use super::style::{self as pal, *};
 // ------------------------------------------------------------------ Grundlagen
 
 /// Sanfter Übergang 0..1 für Hover- und Aktiv-Zustände.
+/// Rechte Maustaste wurde gerade über dieser Fläche gedrückt (für die Vorschau).
+pub fn peek_pressed(ui: &Ui, resp: &Response) -> bool {
+    resp.contains_pointer()
+        && ui.input(|i| i.pointer.button_pressed(egui::PointerButton::Secondary))
+}
+
 pub fn anim(ui: &Ui, id: Id, on: bool) -> f32 {
     ui.ctx().animate_bool_with_time(id, on, motion::FAST)
 }
@@ -211,38 +217,82 @@ pub fn tool_button(ui: &Ui, r: Rect, t: Tool<'_>) -> Response {
     resp
 }
 
-/// Schmaler Pfeil-Knopf neben einem Werkzeug (öffnet dessen Einstellungen).
-pub fn caret_button(ui: &Ui, r: Rect, open: bool, enabled: bool) -> Response {
-    let resp = clickable(ui, r, ("caret", r.min.x as i32), enabled);
-    let t = anim(ui, resp.id, resp.hovered() && enabled);
-    let o = anim(ui, resp.id.with("open"), open);
+/// Werkzeug mit angehängtem Pfeil (z. B. Text): beide teilen sich eine Fläche,
+/// die bei „an“ gemeinsam hervorgehoben wird. Gibt (Werkzeug, Pfeil) zurück.
+pub fn split_tool(ui: &Ui, r: Rect, caret_w: f32, t: Tool<'_>, open: bool) -> (Response, Response) {
+    let main = Rect::from_min_max(r.min, pos2(r.right() - caret_w, r.bottom()));
+    let cr = Rect::from_min_max(pos2(main.right(), r.top()), r.max);
+    let enabled = t.enabled;
+    let rm = clickable(ui, main, ("split_main", t.label), enabled);
+    let rc = clickable(ui, cr, ("split_caret", t.label), enabled);
+    let hm = anim(ui, rm.id, rm.hovered() && enabled);
+    let hc = anim(ui, rc.id, rc.hovered() && enabled);
+    let a = anim(ui, rm.id.with("on"), t.active);
+    let o = anim(ui, rc.id.with("open"), open);
     let p = ui.painter();
-    p.rect_filled(
-        r.shrink2(vec2(0.0, 8.0)),
-        radius::S,
-        mix(
-            mix(Color32::TRANSPARENT, glass_hover(), t),
-            accent_soft(),
-            o,
-        ),
+    // gemeinsame Fläche: aktiv = blau über beide Teile
+    p.rect_filled(r, radius::L, accent_soft().gamma_multiply(a));
+    if hm > 0.0 {
+        p.rect_filled(
+            main,
+            corners(true, false, true, false, radius::L),
+            glass_hover().gamma_multiply(hm),
+        );
+    }
+    if hc > 0.0 || o > 0.0 {
+        p.rect_filled(
+            cr,
+            corners(false, true, false, true, radius::L),
+            mix(
+                glass_hover().gamma_multiply(hc),
+                accent_soft().gamma_multiply(0.8),
+                o,
+            ),
+        );
+    }
+    // feine Trennlinie zwischen Werkzeug und Pfeil
+    p.line_segment(
+        [
+            pos2(cr.left(), r.top() + 18.0),
+            pos2(cr.left(), r.bottom() - 18.0),
+        ],
+        Stroke::new(1.0, mix(divider(), accent().gamma_multiply(0.35), a)),
     );
-    let col = if enabled {
-        mix(mix(muted(), text(), t), accent(), o)
-    } else {
+    let col = if !enabled {
         disabled()
+    } else {
+        mix(mix(text_soft(), text(), hm), accent(), a)
+    };
+    icon(p, main.center() - vec2(0.0, 8.0), t.glyph, 22.0, col);
+    p.text(
+        main.center() + vec2(0.0, 16.0),
+        Align2::CENTER_CENTER,
+        t.label,
+        font(ts::CAPTION, W::Medium),
+        if enabled {
+            mix(muted(), col, a.max(hm))
+        } else {
+            disabled()
+        },
+    );
+    key_hint(p, main, t.key, if a > 0.5 { accent() } else { muted() });
+    let ccol = if !enabled {
+        disabled()
+    } else {
+        mix(mix(muted(), text(), hc), accent(), a.max(o))
     };
     icon(
         p,
-        r.center(),
+        cr.center(),
         if open {
             icons::CARET_UP
         } else {
             icons::CARET_DOWN
         },
         14.0,
-        col,
+        ccol,
     );
-    resp
+    (rm, rc)
 }
 
 /// Blasse Tastenbeschriftung oben rechts in einem Knopf.
@@ -708,36 +758,107 @@ pub fn corners(nw: bool, ne: bool, sw: bool, se: bool, r: u8) -> CornerRadius {
     }
 }
 
-/// Meldung unten in der Mitte (blendet ein und aus).
-pub fn toast(ui: &Ui, bottom_center: Pos2, msg: &str, alpha: f32) {
+/// Kleine Meldung unter der oberen Leiste, optional mit einem Knopf
+/// (z. B. „Rückgängig“). Gibt `true` zurück, wenn der Knopf geklickt wurde.
+pub fn toast(
+    ui: &Ui,
+    top_center: Pos2,
+    msg: &str,
+    alpha: f32,
+    glyph: (&str, Color32),
+    action: Option<(&str, &str)>,
+) -> bool {
     if alpha <= 0.01 {
-        return;
+        return false;
     }
-    let p = ui.painter();
-    let f = font(ts::BODY, W::Medium);
-    let g = p.layout(msg.to_string(), f, text(), 560.0);
-    let size = g.size() + vec2(sp::XL * 2.0 + 22.0, sp::M * 2.0);
-    let r = Rect::from_center_size(
-        bottom_center - vec2(0.0, size.y / 2.0) + vec2(0.0, (1.0 - alpha) * 12.0),
-        size,
+    let f = font(ts::SMALL + 0.5, W::Medium);
+    let g = ui.painter().layout(msg.to_string(), f, text(), 520.0);
+    let h = (g.size().y + sp::M * 2.0).max(40.0);
+    let af = font(ts::SMALL, W::Semibold);
+    let action_w = action
+        .map(|(label, key)| {
+            text_size(ui, label, af.clone()).x
+                + 16.0
+                + sp::S
+                + if key.is_empty() {
+                    0.0
+                } else {
+                    text_size(ui, key, font(10.0, W::Semibold)).x + sp::S
+                }
+                + sp::M * 2.0
+        })
+        .unwrap_or(0.0);
+    let w = sp::M + 16.0 + sp::S + g.size().x + sp::L
+        + if action.is_some() {
+            action_w + sp::XS
+        } else {
+            0.0
+        };
+    let r = Rect::from_min_size(
+        top_center - vec2(w / 2.0, (1.0 - alpha) * 8.0),
+        vec2(w, h),
     );
-    let p = p.clone().with_layer_id(egui::LayerId::new(
-        egui::Order::Tooltip,
-        Id::unique("toast"),
-    ));
-    let mut pa = p.clone();
-    pa.set_opacity(alpha);
-    glass_with(&pa, r, radius::L, panel());
-    icon(
-        &pa,
-        pos2(r.left() + sp::XL, r.center().y),
-        icons::INFO,
-        18.0,
-        accent(),
-    );
-    pa.galley(
-        pos2(r.left() + sp::XL + 22.0, r.center().y - g.size().y / 2.0),
-        g,
-        text(),
-    );
+    let mut clicked = false;
+    egui::Area::new(Id::unique("toast_area"))
+        .order(egui::Order::Tooltip)
+        .fixed_pos(r.min)
+        .interactable(action.is_some())
+        .show(ui.ctx(), |ui| {
+            let mut p = ui.painter().clone();
+            p.set_opacity(alpha);
+            shadow(&p, r, radius::L, 24, 8, pal::shadow());
+            p.rect(
+                r,
+                radius::L,
+                panel(),
+                Stroke::new(1.0, glass_stroke()),
+                StrokeKind::Inside,
+            );
+            icon(
+                &p,
+                pos2(r.left() + sp::M + 8.0, r.center().y),
+                glyph.0,
+                16.0,
+                glyph.1,
+            );
+            p.galley(
+                pos2(
+                    r.left() + sp::M + 16.0 + sp::S,
+                    r.center().y - g.size().y / 2.0,
+                ),
+                g,
+                text(),
+            );
+            if let Some((label, key)) = action {
+                let br = Rect::from_min_size(
+                    pos2(r.right() - sp::XS - 2.0 - action_w, r.top() + 5.0),
+                    vec2(action_w, h - 10.0),
+                );
+                let resp = ui
+                    .interact(br, Id::unique("toast_action"), Sense::click())
+                    .on_hover_cursor(egui::CursorIcon::PointingHand);
+                let t = anim(ui, resp.id, resp.hovered());
+                p.rect_filled(br, radius::M, mix(field(), glass_hover(), t));
+                let x = br.left() + sp::M;
+                icon(&p, pos2(x + 8.0, br.center().y), icons::UNDO, 15.0, text());
+                p.text(
+                    pos2(x + 16.0 + sp::S, br.center().y),
+                    Align2::LEFT_CENTER,
+                    label,
+                    af.clone(),
+                    text(),
+                );
+                if !key.is_empty() {
+                    p.text(
+                        pos2(br.right() - sp::M, br.center().y),
+                        Align2::RIGHT_CENTER,
+                        key,
+                        font(10.0, W::Semibold),
+                        muted(),
+                    );
+                }
+                clicked = resp.clicked();
+            }
+        });
+    clicked
 }

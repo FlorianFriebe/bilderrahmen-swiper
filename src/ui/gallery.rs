@@ -42,6 +42,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let th = tw * 0.66;
     let rows = list.len().div_ceil(cols);
     let mut discard = None;
+    let mut peek = None;
     let mut visible = vec![];
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(area));
     egui::ScrollArea::vertical()
@@ -58,8 +59,10 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                         row_rect.min + vec2(c as f32 * (tw + gap), 0.0),
                         vec2(tw, th),
                     );
-                    if tile(app, ui, r, i, src, out) {
-                        discard = Some(src.clone());
+                    match tile(app, ui, r, i, src, out) {
+                        Some(true) => discard = Some(src.clone()),
+                        Some(false) => peek = Some(i),
+                        None => {}
                     }
                 }
             }
@@ -69,6 +72,10 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         .retain_queue(|p| vis.contains(p) || !p.starts_with(&app.cfg.target));
     if let Some(src) = discard {
         app.discard_kept(&src);
+    }
+    if let Some(i) = peek {
+        let files: Vec<PathBuf> = list.iter().map(|(_, o)| o.clone()).collect();
+        app.peek(files, i, "Behaltene Bilder".into());
     }
 }
 
@@ -100,17 +107,24 @@ fn header(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, n: usize) -> bool {
         text(),
     );
     let mut right = ws.right();
-    for (glyph, label, copy) in [
-        (icons::FOLDER_OPEN, "Zielordner öffnen", false),
-        (icons::USB, "Auf Stick / SD-Karte", true),
+    for (glyph, label, act) in [
+        (icons::FOLDER_OPEN, "Zielordner öffnen", 0),
+        (icons::USB, "Auf Stick / SD-Karte", 1),
+        (icons::PLAY, "Diashow", 2),
     ] {
         let w = kit::secondary_width(ui, glyph, label);
         let r = Rect::from_min_size(pos2(right - w, ws.top()), vec2(w, size::BAR));
-        if kit::secondary(ui, r, glyph, label, true).clicked() {
-            if copy {
-                app.dialog = Some(Dialog::Copy);
-            } else {
-                open_folder(&app.cfg.target);
+        let resp = kit::secondary(ui, r, glyph, label, n > 0);
+        let resp = if act == 2 {
+            resp.on_hover_text("Behaltene Bilder im Vollbild ansehen, so wie der Rahmen sie zeigt (Leertaste: Pause, Pfeile: blättern)")
+        } else {
+            resp
+        };
+        if resp.clicked() {
+            match act {
+                0 => open_folder(&app.cfg.target),
+                1 => app.dialog = Some(Dialog::Copy),
+                _ => app.open_frame_preview(true),
             }
         }
         right = r.left() - sp::S;
@@ -118,7 +132,7 @@ fn header(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, n: usize) -> bool {
     true
 }
 
-/// Eine Kachel. Gibt `true` zurück, wenn das Bild rausgeworfen werden soll.
+/// Eine Kachel. `Some(true)`: rauswerfen, `Some(false)`: Vorschau (rechte Maustaste).
 fn tile(
     app: &SwiperApp,
     ui: &Ui,
@@ -126,8 +140,11 @@ fn tile(
     i: usize,
     src: &std::path::Path,
     out: &std::path::Path,
-) -> bool {
+) -> Option<bool> {
     let resp = ui.interact(r, ui.make_persistent_id(("g", i)), Sense::hover());
+    if kit::peek_pressed(ui, &resp) {
+        return Some(false);
+    }
     let t = kit::anim(ui, resp.id, resp.contains_pointer());
     let p = ui.painter();
     kit::glass_with(p, r, radius::L, kit::mix(glass(), glass_hover(), t));
@@ -136,7 +153,7 @@ fn tile(
         p.add(RectShape::filled(ir, radius::S, Color32::WHITE).with_texture(id, FULL_UV));
     }
     if t <= 0.01 {
-        return false;
+        return None;
     }
     let folder = if out
         .parent()
@@ -186,5 +203,5 @@ fn tile(
         lf,
         Color32::WHITE.gamma_multiply(t),
     );
-    x.clicked()
+    x.clicked().then_some(true)
 }

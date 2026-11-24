@@ -126,7 +126,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     let pad = sp::S;
     let h = size::CONTROL;
 
-    let pause_w = kit::bar_button_width(ui, "Pause");
+    let pause_w = h;
     let labels = vec![
         format!("Quer {}", app.ratio_label(Orient::Quer)),
         format!("Hochkant {}", app.ratio_label(Orient::Hochkant)),
@@ -177,8 +177,9 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, cy - h / 2.0), vec2(w, h));
     let mut x = bar.left() + pad;
 
-    if kit::bar_button(ui, row(x, pause_w), icons::PAUSE, "Pause")
-        .on_hover_text("Pausieren: Stand speichern und zum Startbildschirm")
+    p.rect_filled(row(x, pause_w), radius::M, field());
+    if kit::icon_button(ui, row(x, pause_w), icons::HOME, true)
+        .on_hover_text("Zum Startbildschirm. Dein Stand wird gespeichert und steht unter „Weitermachen“.")
         .clicked()
     {
         app.pause();
@@ -634,44 +635,81 @@ fn photo_chip(
     ));
 }
 
-/// „BEHALTEN“ / „WEG“-Stempel beim Ziehen.
+/// Beim Ziehen: leuchtender Kartenrand (grün = behalten, rot = weg) und
+/// ein kleines rundes Symbol in der oberen Ecke.
 fn stamp(painter: &Painter, dx: f32, card: Rect, angle: f32, tr: &dyn Fn(Pos2) -> Pos2) {
-    if dx.abs() <= 8.0 {
+    if dx.abs() <= 6.0 {
         return;
     }
     let keep = dx > 0.0;
-    let alpha = (dx.abs() / 140.0).min(1.0);
-    let col = if keep { GREEN } else { RED }.gamma_multiply(alpha);
-    let label = if keep { "BEHALTEN" } else { "WEG" };
-    let size_pt = (card.height() / 11.0).clamp(22.0, 48.0);
-    let g = painter.layout_no_wrap(label.into(), font(size_pt, W::Bold), col);
-    let bw = g.size().x + 40.0;
-    let bh = g.size().y + 14.0;
-    let (center, a2) = if keep {
-        (
-            pos2(card.left() + 40.0 + bw / 2.0, card.top() + 72.0 + bh / 2.0),
-            angle - 0.22,
-        )
-    } else {
-        (
-            pos2(card.right() - 40.0 - bw / 2.0, card.top() + 72.0 + bh / 2.0),
-            angle + 0.22,
-        )
-    };
-    let c = tr(center);
+    let a = ((dx.abs() - 6.0) / 150.0).clamp(0.0, 1.0);
+    let base = if keep { GREEN } else { RED };
+    let c = tr(card.center());
+    let rad = radius::CARD as f32;
+    // äußeres Leuchten: mehrere weiche Ringe
+    for k in 1..=12 {
+        let f = k as f32 / 12.0;
+        let grow = f * 26.0;
+        let alpha = (1.0 - f).powi(2) * 0.45 * a;
+        painter.add(
+            RectShape::stroke(
+                Rect::from_center_size(c, card.size() + egui::Vec2::splat(grow * 2.0)),
+                (rad + grow) as u8,
+                Stroke::new(3.0, base.gamma_multiply(alpha)),
+                StrokeKind::Middle,
+            )
+            .with_angle(angle),
+        );
+    }
+    // inneres Leuchten
+    for k in 0..8 {
+        let f = k as f32 / 8.0;
+        let inset = f * 22.0;
+        let alpha = (1.0 - f).powi(2) * 0.24 * a;
+        painter.add(
+            RectShape::stroke(
+                Rect::from_center_size(c, card.size() - egui::Vec2::splat(inset * 2.0)),
+                (rad - inset).max(4.0) as u8,
+                Stroke::new(3.0, base.gamma_multiply(alpha)),
+                StrokeKind::Middle,
+            )
+            .with_angle(angle),
+        );
+    }
+    // klare Kante
     painter.add(
-        RectShape::new(
-            Rect::from_center_size(c, vec2(bw, bh)),
-            radius::M,
-            Color32::from_black_alpha((70.0 * alpha) as u8),
-            Stroke::new(4.0, col),
+        RectShape::stroke(
+            Rect::from_center_size(c, card.size()),
+            radius::CARD,
+            Stroke::new(2.0, base.gamma_multiply(0.9 * a)),
             StrokeKind::Inside,
         )
-        .with_angle(a2),
+        .with_angle(angle),
     );
-    let r2 = Rot2::from_angle(a2);
-    let tl = c + r2 * vec2(-g.size().x / 2.0, -g.size().y / 2.0);
-    painter.add(Shape::Text(TextShape::new(tl, g, col).with_angle(a2)));
+    // rundes Symbol oben in der Ecke, zur Zugrichtung hin
+    let r = 28.0 * (0.8 + 0.2 * a);
+    let at = if keep {
+        pos2(card.right() - sp::XL - 28.0, card.top() + 72.0 + 28.0)
+    } else {
+        pos2(card.left() + sp::XL + 28.0, card.top() + 72.0 + 28.0)
+    };
+    let at = tr(at);
+    painter.circle_filled(at + vec2(0.0, 6.0), r + 4.0, Color32::from_black_alpha((60.0 * a) as u8));
+    painter.circle_filled(at, r, base.gamma_multiply(0.92 * a));
+    painter.circle_stroke(at, r, Stroke::new(1.0, Color32::from_white_alpha((70.0 * a) as u8)));
+    let glyph = if keep { icons::HEART } else { icons::X };
+    let f = if keep {
+        icon_fill_font(r * 0.95)
+    } else {
+        icon_font(r * 0.95)
+    };
+    painter.text(
+        at,
+        Align2::CENTER_CENTER,
+        glyph,
+        f,
+        Color32::WHITE.gamma_multiply(a),
+    );
 }
 
 /// Text so auf die Vorschau zeichnen, wie er später im Bild steht.
@@ -766,6 +804,7 @@ fn filmstrip(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     kit::glass(ui.painter(), pill, radius::L);
     let mut x = pill.left() + sp::S;
     let mut jump = None;
+    let mut peek = None;
     for i in lo..hi {
         let is_cur = i == app.pos;
         let (ww, hh) = if is_cur { (cw, ch) } else { (w, h) };
@@ -798,6 +837,9 @@ fn filmstrip(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
             ui.painter()
                 .rect_stroke(r, rad, stroke, StrokeKind::Outside);
         }
+        if kit::peek_pressed(ui, &resp) {
+            peek = Some(i);
+        }
         if !is_cur {
             let tip = match entry {
                 Some(true) => "Behalten  ·  Klick: nochmal entscheiden",
@@ -816,6 +858,15 @@ fn filmstrip(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     if let Some(i) = jump {
         app.jump_to(i);
     }
+    if let Some(i) = peek {
+        let title = app
+            .folder
+            .as_ref()
+            .and_then(|f| app.folders.iter().find(|i| &i.path == f))
+            .map(|f| f.label.clone())
+            .unwrap_or_default();
+        app.peek(app.items.clone(), i, title);
+    }
 }
 
 // ------------------------------------------------------------------ schwebende Leiste
@@ -830,6 +881,7 @@ enum Act {
     Fill,
     Text,
     TextPanel,
+    Preview,
 }
 
 /// Zeichnet die Leiste und gibt ihre Fläche zurück.
@@ -842,7 +894,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     let tool = size::TOOL;
     let caret = 24.0;
     let (skip_w, keep_w) = (152.0, 184.0);
-    let tools_w = tool * 4.0 + caret + sp::XS * 3.0;
+    let tools_w = tool * 5.0 + caret + sp::XS * 4.0;
     let w =
         pad + tool + pad + 1.0 + pad + skip_w + sp::S + keep_w + pad + 1.0 + pad + tools_w + pad;
     let dock = Rect::from_center_size(area.center(), vec2(w, size::DOCK));
@@ -935,6 +987,17 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
             app.current_fill(),
             Act::Fill,
         ),
+        (
+            icons::EYE,
+            "Vorschau",
+            "preview",
+            format!(
+                "So sieht es auf dem Rahmen aus: Vollbild in Rahmen-Auflösung ({})",
+                k("preview")
+            ),
+            false,
+            Act::Preview,
+        ),
     ];
     for (glyph, label, action, tip, active, act) in tools {
         let key = ks(action);
@@ -960,11 +1023,12 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
 
     // Text: Klick schaltet an/aus, der Pfeil daneben öffnet das Feld
     let text_on = app.cfg.text.enabled;
-    let r = row(x, tool);
+    let r = row(x, tool + caret);
     let text_key = ks("text");
-    if kit::tool_button(
+    let (main, arrow) = kit::split_tool(
         ui,
         r,
+        caret,
         kit::Tool {
             glyph: icons::TEXT,
             label: "Text",
@@ -972,18 +1036,19 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
             active: text_on,
             enabled: loaded,
         },
-    )
-    .on_hover_text(format!(
-        "Datum, Ort oder Notiz aufs Bild: an / aus ({})",
-        k("text")
-    ))
-    .clicked()
+        app.text_panel,
+    );
+    if main
+        .on_hover_text(format!(
+            "Datum, Ort oder Notiz aufs Bild: an / aus ({})",
+            k("text")
+        ))
+        .clicked()
     {
         clicked = Some(Act::Text);
     }
-    let cr = Rect::from_min_size(pos2(r.right(), r.top()), vec2(caret, tool));
-    if kit::caret_button(ui, cr, app.text_panel, loaded)
-        .on_hover_text("Ort, Notiz und Aussehen einstellen")
+    if arrow
+        .on_hover_text("Ort, Notiz und Text-Stil einstellen")
         .clicked()
     {
         clicked = Some(Act::TextPanel);
@@ -998,6 +1063,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         Some(Act::Fill) => app.toggle_fill(),
         Some(Act::Text) => toggle_text(app),
         Some(Act::TextPanel) => toggle_text_panel(app),
+        Some(Act::Preview) => app.open_frame_preview(false),
         None => {}
     }
     dock

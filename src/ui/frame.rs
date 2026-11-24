@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use egui::{pos2, vec2, Align2, Color32, Id, Key, Pos2, Rect, Stroke, StrokeKind, Ui};
+use egui::{pos2, vec2, Align2, Color32, Id, Key, Rect, Stroke, StrokeKind, Ui};
 
 use super::kit;
 use super::style::{self, *};
@@ -10,7 +10,7 @@ use super::{burst, dialogs, gallery, home, settings, swipe};
 use crate::app::{Dialog, SwiperApp, View};
 
 /// Wie lange eine Meldung stehen bleibt (Sekunden).
-const TOAST_SECS: f64 = 6.0;
+const TOAST_SECS: f64 = 5.0;
 
 pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     let ctx = ui.ctx().clone();
@@ -19,6 +19,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     handle_drops(app, ui);
     app.poll_saver();
     app.poll_scan();
+    app.poll_library_scan();
     app.poll_thumbs(&ctx);
     tick_toast(app, &ctx, now);
 
@@ -65,16 +66,29 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         None => {}
     }
 
-    if let Some((msg, t0)) = &app.toast {
-        let age = now - *t0;
+    if let Some(mut v) = app.viewer.take() {
+        if super::viewer::show(&mut v, ui, full) {
+            app.viewer = Some(v);
+        }
+    }
+    if let Some((msg, t0)) = app.toast.clone().filter(|_| app.viewer.is_none()) {
+        let age = now - t0;
         let alpha = (age / 0.2).min((TOAST_SECS - age) / 0.4).clamp(0.0, 1.0) as f32;
-        let anchor = toast_anchor(app, ws);
-        kit::toast(ui, anchor, msg, alpha);
+        let anchor = pos2(ws.center().x, ws.top() + size::TOPBAR + sp::S);
+        let (glyph, action) = if app.toast_undo {
+            ((super::icons::X, skip()), Some(("Rückgängig", app.key_short("undo"))))
+        } else {
+            ((super::icons::INFO, accent()), None)
+        };
+        let action = action.as_ref().map(|(l, k)| (*l, k.as_str()));
+        if kit::toast(ui, anchor, &msg, alpha, glyph, action) {
+            app.undo();
+        }
     }
     drop_overlay(ui, full);
 
     app.update_preload();
-    if app.saver.queued() > 0 || app.scan.is_some() {
+    if app.saver.queued() > 0 || app.scan.is_some() || app.lib_scan.is_some() {
         ctx.request_repaint_after(std::time::Duration::from_millis(150));
     }
     if app.status_dirty && now - app.last_flush > 2.0 {
@@ -110,14 +124,6 @@ fn tick_toast(app: &mut SwiperApp, ctx: &egui::Context, now: f64) {
         } else {
             ctx.request_repaint_after(std::time::Duration::from_millis(30));
         }
-    }
-}
-
-/// Meldungen erscheinen über der schwebenden Leiste bzw. unten in der Mitte.
-fn toast_anchor(app: &SwiperApp, ws: Rect) -> Pos2 {
-    match (app.view, app.spots.strip) {
-        (View::Swipe, Some(strip)) => pos2(ws.center().x, strip.top() - sp::M),
-        _ => pos2(ws.center().x, ws.bottom()),
     }
 }
 
@@ -270,7 +276,7 @@ fn swipe_keys(
 ) {
     let names = [
         "keep", "skip", "rot_r", "rot_l", "orient", "fill", "text", "burst", "gallery", "zoom_in",
-        "zoom_out", "reset",
+        "zoom_out", "reset", "preview",
     ];
     let hit: Vec<bool> = names.iter().map(|a| app.pressed(ctx, a)).collect();
     let on = |a: &str| {
@@ -300,6 +306,9 @@ fn swipe_keys(
     }
     if on("fill") {
         app.toggle_fill();
+    }
+    if on("preview") {
+        app.open_frame_preview(false);
     }
     if on("text") {
         swipe::toggle_text(app);
