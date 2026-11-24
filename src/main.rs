@@ -1,14 +1,14 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
+mod daterange;
 mod folders;
 mod imaging;
-mod daterange;
-mod textstyle;
-mod update;
 mod session;
 mod system;
+mod textstyle;
 mod ui;
+mod update;
 mod util;
 #[cfg(windows)]
 mod wic;

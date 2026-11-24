@@ -105,11 +105,8 @@ impl Viewer {
         for (i, r) in ready {
             match r {
                 Ok(img) => {
-                    let t = ctx.load_texture(
-                        format!("viewer_{i}"),
-                        img,
-                        egui::TextureOptions::LINEAR,
-                    );
+                    let t =
+                        ctx.load_texture(format!("viewer_{i}"), img, egui::TextureOptions::LINEAR);
                     self.tex.insert(i, t);
                 }
                 Err(e) => {
@@ -119,7 +116,8 @@ impl Viewer {
         }
         // nur das Nötigste im Speicher halten
         let keep = |k: &usize| k.abs_diff(self.idx) <= 2;
-        self.tex.retain(|k, _| keep(k) || self.prev.is_some_and(|p| p.0 == *k));
+        self.tex
+            .retain(|k, _| keep(k) || self.prev.is_some_and(|p| p.0 == *k));
         self.requested
             .retain(|k, _| keep(k) || self.tex.contains_key(k));
     }
@@ -274,7 +272,14 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
                     let r = contain(t.size_vec2(), area);
                     let rad = if v.mode == Mode::Peek { radius::L } else { 0 };
                     if v.mode == Mode::Peek {
-                        kit::shadow(p, r, rad, 48, 16, Color32::from_black_alpha((140.0 * a) as u8));
+                        kit::shadow(
+                            p,
+                            r,
+                            rad,
+                            48,
+                            16,
+                            Color32::from_black_alpha((140.0 * a) as u8),
+                        );
                     }
                     p.add(
                         RectShape::filled(r, rad, Color32::WHITE.gamma_multiply(a))
@@ -312,10 +317,7 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
                     label.push_str(&format!("  ·  {w} × {h}"));
                 }
                 if v.items.len() > 1 {
-                    label.push_str(&format!(
-                        "  ·  Diashow alle {} s",
-                        SLIDE_SECS as u32
-                    ));
+                    label.push_str(&format!("  ·  Diashow alle {} s", SLIDE_SECS as u32));
                 }
             } else if v.items.len() > 1 {
                 label.push_str(&format!("  ·  {} / {}", v.idx + 1, v.items.len()));
@@ -324,7 +326,12 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
                 Mode::Frame => full.top() + sp::XL + 6.0,
                 Mode::Peek => area.top() - sp::XL,
             };
-            tag(ui, pos2(full.center().x, tag_y), &label, v.mode == Mode::Frame);
+            tag(
+                ui,
+                pos2(full.center().x, tag_y),
+                &label,
+                v.mode == Mode::Frame,
+            );
 
             if v.mode == Mode::Frame {
                 if v.items.len() > 1 && controls(v, ui, full, now) {
@@ -345,7 +352,11 @@ fn tag(ui: &Ui, center: egui::Pos2, label: &str, esc: bool) {
     let ew = if esc { 28.0 + sp::S } else { 0.0 };
     let w = sp::M + 16.0 + sp::S + lw + ew + sp::M;
     let r = Rect::from_center_size(center, vec2(w, 34.0));
-    p.rect_filled(r, radius::M, Color32::from_rgba_unmultiplied(20, 20, 24, 170));
+    p.rect_filled(
+        r,
+        radius::M,
+        Color32::from_rgba_unmultiplied(20, 20, 24, 170),
+    );
     let col = Color32::from_white_alpha(225);
     kit::icon(
         p,
@@ -399,7 +410,11 @@ fn controls(v: &mut Viewer, ui: &Ui, full: Rect, now: f64) -> bool {
     }
     let mut p = ui.painter().clone();
     p.set_opacity(a);
-    p.rect_filled(r, radius::L, Color32::from_rgba_unmultiplied(20, 20, 24, 190));
+    p.rect_filled(
+        r,
+        radius::L,
+        Color32::from_rgba_unmultiplied(20, 20, 24, 190),
+    );
     let mut x = r.left() + sp::S;
     let row = |x: f32| Rect::from_min_size(pos2(x, r.center().y - b / 2.0), vec2(b, b));
     let mut hit = false;
@@ -411,7 +426,13 @@ fn controls(v: &mut Viewer, ui: &Ui, full: Rect, now: f64) -> bool {
             .on_hover_cursor(egui::CursorIcon::PointingHand);
         let t = kit::anim(ui, resp.id, resp.hovered());
         p.rect_filled(br, radius::M, Color32::from_white_alpha((28.0 * t) as u8));
-        kit::icon(&p, br.center(), glyph, size::ICON, Color32::from_white_alpha(220));
+        kit::icon(
+            &p,
+            br.center(),
+            glyph,
+            size::ICON,
+            Color32::from_white_alpha(220),
+        );
         if resp.clicked() {
             hit = true;
             match act {

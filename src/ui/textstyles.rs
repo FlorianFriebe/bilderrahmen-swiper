@@ -160,7 +160,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
             p.rect(
                 r,
                 radius::CARD,
-                panel(),
+                panel().to_opaque(),
                 Stroke::new(1.0, glass_stroke()),
                 StrokeKind::Inside,
             );
@@ -434,10 +434,7 @@ fn preview(app: &SwiperApp, ui: &mut Ui, ed: &mut Editor, area: Rect) {
         }
     }
     let cap = match &ed.sample {
-        Some(s) => format!(
-            "So wird „{}“ gespeichert",
-            crate::folders::file_name(s)
-        ),
+        Some(s) => format!("So wird „{}“ gespeichert", crate::folders::file_name(s)),
         None => "Beispielbild".to_string(),
     };
     p.text(
@@ -534,7 +531,10 @@ fn controls(app: &mut SwiperApp, ui: &mut Ui, ed: &mut Editor) {
             p.circle_stroke(
                 r.center(),
                 if on { 14.0 } else { 12.0 },
-                Stroke::new(if on { 2.0 } else { 1.0 }, if on { accent() } else { glass_stroke() }),
+                Stroke::new(
+                    if on { 2.0 } else { 1.0 },
+                    if on { accent() } else { glass_stroke() },
+                ),
             );
             if resp.clicked() {
                 l.color = c;
@@ -599,11 +599,7 @@ fn controls(app: &mut SwiperApp, ui: &mut Ui, ed: &mut Editor) {
                 Color32::TRANSPARENT
             };
             p.rect_filled(c, 4, fill);
-            p.circle_filled(
-                c.center(),
-                2.5,
-                if on { Color32::WHITE } else { dim() },
-            );
+            p.circle_filled(c.center(), 2.5, if on { Color32::WHITE } else { dim() });
             if resp.clicked() {
                 l.pos = i;
             }
@@ -688,7 +684,8 @@ fn bottom_bar(
         let sr = Rect::from_min_size(pos2(x, bar.top()), vec2(sw, h));
         let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
         let ok_name = !name.trim().is_empty();
-        if (kit::secondary(ui, sr, icons::CHECK, "Speichern", ok_name).clicked() || enter) && ok_name
+        if (kit::secondary(ui, sr, icons::CHECK, "Speichern", ok_name).clicked() || enter)
+            && ok_name
         {
             let mut l = ed.look.clone();
             l.name = name.trim().to_string();
@@ -714,11 +711,13 @@ fn bottom_bar(
     )
     .clicked()
     {
-        ed.naming = Some(if textstyle::presets().iter().any(|p| p.name == ed.look.name) {
-            format!("{} (eigen)", ed.look.name)
-        } else {
-            ed.look.name.clone()
-        });
+        ed.naming = Some(
+            if textstyle::presets().iter().any(|p| p.name == ed.look.name) {
+                format!("{} (eigen)", ed.look.name)
+            } else {
+                ed.look.name.clone()
+            },
+        );
     }
     x += sw + sp::S;
     let small = |ui: &Ui, x: f32, glyph: &str, tip: &str| {

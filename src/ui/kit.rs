@@ -788,16 +788,17 @@ pub fn toast(
                 + sp::M * 2.0
         })
         .unwrap_or(0.0);
-    let w = sp::M + 16.0 + sp::S + g.size().x + sp::L
+    let w = sp::M
+        + 16.0
+        + sp::S
+        + g.size().x
+        + sp::L
         + if action.is_some() {
             action_w + sp::XS
         } else {
             0.0
         };
-    let r = Rect::from_min_size(
-        top_center - vec2(w / 2.0, (1.0 - alpha) * 8.0),
-        vec2(w, h),
-    );
+    let r = Rect::from_min_size(top_center - vec2(w / 2.0, (1.0 - alpha) * 8.0), vec2(w, h));
     let mut clicked = false;
     egui::Area::new(Id::unique("toast_area"))
         .order(egui::Order::Tooltip)

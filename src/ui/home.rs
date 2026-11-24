@@ -323,7 +323,8 @@ fn update_chip(app: &SwiperApp, v: &str) -> (String, String, Tone) {
     match st {
         None if crate::update::supported() => (
             format!("Version {v} installieren"),
-            "Lädt die neue Version und startet das Programm neu. Dein Stand bleibt erhalten.".into(),
+            "Lädt die neue Version und startet das Programm neu. Dein Stand bleibt erhalten."
+                .into(),
             Tone::Accent,
         ),
         None => (
@@ -345,11 +346,7 @@ fn update_chip(app: &SwiperApp, v: &str) -> (String, String, Tone) {
             "Startet das Programm neu. Dein Stand wird vorher gespeichert.".into(),
             Tone::Keep,
         ),
-        Some(State::Failed(e)) => (
-            "Update über die Download-Seite".into(),
-            e,
-            Tone::Warn,
-        ),
+        Some(State::Failed(e)) => ("Update über die Download-Seite".into(), e, Tone::Warn),
     }
 }
 
@@ -1031,10 +1028,7 @@ fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction
     );
     let sf = font(ts::CAPTION, W::Regular);
     let parent = if parent.is_empty() {
-        f.path
-            .parent()
-            .map(|p| folders::file_name(p))
-            .unwrap_or_default()
+        f.path.parent().map(folders::file_name).unwrap_or_default()
     } else {
         parent
     };
@@ -1174,12 +1168,14 @@ fn date_filter_bar(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
         })
         .collect();
     let progress = app.library_scan_progress();
-    let prog_label = progress.map(|p| format!("Aufnahmedaten werden gelesen … {} %", (p * 100.0) as u32));
+    let prog_label =
+        progress.map(|p| format!("Aufnahmedaten werden gelesen … {} %", (p * 100.0) as u32));
     let prog_w = prog_label
         .as_ref()
         .map(|l| kit::text_size(ui, l, font(ts::CAPTION, W::Regular)).x + sp::M * 2.0)
         .unwrap_or(0.0);
-    let total = sp::XS * 2.0 + lead_w + widths.iter().sum::<f32>() + segs.len() as f32 * 2.0 + prog_w;
+    let total =
+        sp::XS * 2.0 + lead_w + widths.iter().sum::<f32>() + segs.len() as f32 * 2.0 + prog_w;
     let bar = Rect::from_min_size(
         pos2(top_center.x - total / 2.0, top_center.y),
         vec2(total, DATE_H),
@@ -1206,7 +1202,11 @@ fn date_filter_bar(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
     for ((label, target, active, glyph), w) in segs.iter().zip(&widths) {
         let r = Rect::from_min_size(pos2(x, bar.top() + 4.0), vec2(*w, DATE_H - 8.0));
         let resp = ui
-            .interact(r, ui.make_persistent_id(("range", label.as_str())), Sense::click())
+            .interact(
+                r,
+                ui.make_persistent_id(("range", label.as_str())),
+                Sense::click(),
+            )
             .on_hover_cursor(egui::CursorIcon::PointingHand);
         let t = kit::anim(ui, resp.id, resp.hovered());
         if *active {
@@ -1224,7 +1224,13 @@ fn date_filter_bar(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
             kit::icon(&p, pos2(tx + 8.0, r.center().y), glyph, 16.0, col);
             tx += 16.0 + sp::XS;
         }
-        p.text(pos2(tx, r.center().y), Align2::LEFT_CENTER, label, f.clone(), col);
+        p.text(
+            pos2(tx, r.center().y),
+            Align2::LEFT_CENTER,
+            label,
+            f.clone(),
+            col,
+        );
         if resp.clicked() {
             match target {
                 Some(t) => {

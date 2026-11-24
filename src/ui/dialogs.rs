@@ -6,9 +6,7 @@ use egui::{pos2, vec2, Align2, Color32, Rect, Sense, Stroke, StrokeKind, Ui};
 use super::icons;
 use super::kit;
 use super::style::*;
-use crate::app::{
-    key_name, Dialog, SwiperApp, View, ACTIONS, DATE_FORMATS,
-};
+use crate::app::{key_name, Dialog, SwiperApp, View, ACTIONS, DATE_FORMATS};
 use crate::system;
 use crate::util::{fmt_int, open_folder};
 
@@ -161,7 +159,14 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
             let bw: f32 = if welcome { 560.0 } else { 480.0 };
             let pad = if welcome { sp::XXL } else { sp::XL };
             let inner = bw - pad * 2.0;
-            let title_font = font(if welcome { ts::DISPLAY * 0.8 } else { ts::TITLE }, W::Bold);
+            let title_font = font(
+                if welcome {
+                    ts::DISPLAY * 0.8
+                } else {
+                    ts::TITLE
+                },
+                W::Bold,
+            );
             let title = p.layout(step.title.to_string(), title_font, text(), inner);
             // Stichpunkte vorab setzen, um die Höhe zu kennen
             let row_icon = 32.0;
@@ -172,7 +177,9 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
                     let key_w = if key.is_empty() {
                         0.0
                     } else {
-                        kit::text_size(ui, key, font(ts::CAPTION, W::Semibold)).x + sp::S * 2.0 + sp::M
+                        kit::text_size(ui, key, font(ts::CAPTION, W::Semibold)).x
+                            + sp::S * 2.0
+                            + sp::M
                     };
                     let g2 = p.layout(
                         t.clone(),
@@ -188,15 +195,7 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
                 .map(|(_, g, _)| g.size().y.max(row_icon) + sp::M)
                 .sum::<f32>()
                 - sp::M;
-            let bh = pad
-                + 16.0
-                + sp::S
-                + title.size().y
-                + sp::XL
-                + rows_h
-                + sp::XL
-                + 40.0
-                + pad;
+            let bh = pad + 16.0 + sp::S + title.size().y + sp::XL + rows_h + sp::XL + 40.0 + pad;
             let spot = step.spot.unwrap_or(full);
             let x =
                 (spot.center().x - bw / 2.0).clamp(full.left() + sp::L, full.right() - bw - sp::L);
@@ -227,11 +226,18 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
             y += th + sp::XL;
             for (g, gal, key) in bullets {
                 let h = gal.size().y.max(row_icon);
-                let ir = Rect::from_min_size(pos2(left, y + (h - row_icon) / 2.0), vec2(row_icon, row_icon));
+                let ir = Rect::from_min_size(
+                    pos2(left, y + (h - row_icon) / 2.0),
+                    vec2(row_icon, row_icon),
+                );
                 p.rect_filled(ir, radius::S, accent_soft());
                 kit::icon(&p, ir.center(), g, 16.0, accent());
                 let gh = gal.size().y;
-                p.galley(pos2(ir.right() + sp::M, y + (h - gh) / 2.0), gal, text_soft());
+                p.galley(
+                    pos2(ir.right() + sp::M, y + (h - gh) / 2.0),
+                    gal,
+                    text_soft(),
+                );
                 if !key.is_empty() {
                     kbd(&p, ui, pos2(br.right() - pad, y + h / 2.0), &key);
                 }
@@ -530,9 +536,10 @@ pub fn text_settings(app: &mut SwiperApp, ui: &mut Ui, id: &str) {
     ui.horizontal(|ui| {
         ui.add_space(74.0);
         if ui
-            .add(egui::Button::new(
-                egui::RichText::new(format!("{}  Stil bearbeiten …", icons::PENCIL)),
-            ))
+            .add(egui::Button::new(egui::RichText::new(format!(
+                "{}  Stil bearbeiten …",
+                icons::PENCIL
+            ))))
             .on_hover_text("Schrift, Größe, Farbe, Hintergrund und Position – mit Vorschau")
             .clicked()
         {

@@ -583,8 +583,10 @@ fn overlay_font(i: u8) -> Option<&'static ab_glyph::FontVec> {
         .get_or_init(|| {
             (0..4)
                 .map(|i| {
-                    ab_glyph::FontVec::try_from_vec(crate::ui::style::overlay_font_bytes(i).to_vec())
-                        .ok()
+                    ab_glyph::FontVec::try_from_vec(
+                        crate::ui::style::overlay_font_bytes(i).to_vec(),
+                    )
+                    .ok()
                 })
                 .collect()
         })
@@ -719,12 +721,16 @@ pub fn draw_overlay(img: &mut RgbImage, o: &Overlay) {
             // Glas: Bild hinter dem Text weichzeichnen und leicht abdunkeln
             let (rw, rh) = ((ix1 - ix0) as usize, (iy1 - iy0) as usize);
             let r = (px * 0.35).round().max(2.0) as usize;
-            let mut ch = [vec![0f32; rw * rh], vec![0f32; rw * rh], vec![0f32; rw * rh]];
+            let mut ch = [
+                vec![0f32; rw * rh],
+                vec![0f32; rw * rh],
+                vec![0f32; rw * rh],
+            ];
             for y in 0..rh {
                 for x in 0..rw {
                     let p = img.get_pixel((ix0 + x as i64) as u32, (iy0 + y as i64) as u32);
-                    for c in 0..3 {
-                        ch[c][y * rw + x] = p.0[c] as f32;
+                    for (c, v) in ch.iter_mut().zip(p.0) {
+                        c[y * rw + x] = v as f32;
                     }
                 }
             }
@@ -742,7 +748,11 @@ pub fn draw_overlay(img: &mut RgbImage, o: &Overlay) {
                     blend(img, gx, gy, v, a);
                     blend(img, gx, gy, shade, 0.22 * a);
                     // feiner heller Rand
-                    let edge = (cov(gx - 1, gy).min(cov(gx + 1, gy)).min(cov(gx, gy - 1)).min(cov(gx, gy + 1)) < 1.0) as u8 as f32;
+                    let edge = (cov(gx - 1, gy)
+                        .min(cov(gx + 1, gy))
+                        .min(cov(gx, gy - 1))
+                        .min(cov(gx, gy + 1))
+                        < 1.0) as u8 as f32;
                     blend(img, gx, gy, [255.0; 3], 0.18 * a * edge);
                 }
             }

@@ -490,7 +490,13 @@ impl SwiperApp {
             };
             infos.push(info);
             all_files.extend(files.iter().cloned());
-            by_folder.insert(infos.last().map(|i: &FolderInfo| i.path.clone()).unwrap_or_default(), files);
+            by_folder.insert(
+                infos
+                    .last()
+                    .map(|i: &FolderInfo| i.path.clone())
+                    .unwrap_or_default(),
+                files,
+            );
         }
         self.years = self.years_from(&all_files);
         self.start_library_scan(&all_files);

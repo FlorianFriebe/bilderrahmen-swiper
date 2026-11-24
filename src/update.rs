@@ -74,9 +74,18 @@ fn run(state: &Handle, ctx: &egui::Context, total: u64) -> Result<(), String> {
     let (exe, new, old) = paths().ok_or("Programmdatei nicht gefunden")?;
     let _ = std::fs::remove_file(&new);
     let mut cmd = std::process::Command::new("curl");
-    cmd.args(["-L", "-f", "-s", "-m", "600", "-H", "User-Agent: Bilderrahmen-Swiper", "-o"])
-        .arg(&new)
-        .arg(DOWNLOAD_URL);
+    cmd.args([
+        "-L",
+        "-f",
+        "-s",
+        "-m",
+        "600",
+        "-H",
+        "User-Agent: Bilderrahmen-Swiper",
+        "-o",
+    ])
+    .arg(&new)
+    .arg(DOWNLOAD_URL);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -151,7 +160,11 @@ mod tests {
         let dir = std::env::temp_dir().join("brs_update_test");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let (exe, new, old) = (dir.join("a.exe"), dir.join("a.neu.exe"), dir.join("a.alt.exe"));
+        let (exe, new, old) = (
+            dir.join("a.exe"),
+            dir.join("a.neu.exe"),
+            dir.join("a.alt.exe"),
+        );
         std::fs::write(&exe, b"alt").unwrap();
         std::fs::write(&new, b"neu").unwrap();
         swap(&exe, &new, &old).unwrap();

@@ -174,7 +174,8 @@ pub fn export(l: &TextLook, path: &Path) -> Result<(), String> {
 /// Stil aus einer Datei lesen.
 pub fn import(path: &Path) -> Result<TextLook, String> {
     let s = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let mut l: TextLook = serde_json::from_str(&s).map_err(|_| "Keine gültige Stil-Datei".to_string())?;
+    let mut l: TextLook =
+        serde_json::from_str(&s).map_err(|_| "Keine gültige Stil-Datei".to_string())?;
     if l.name.trim().is_empty() {
         l.name = path
             .file_stem()
@@ -192,7 +193,11 @@ pub fn file_name(l: &TextLook) -> PathBuf {
         .chars()
         .map(|c| if "<>:\"/\\|?*".contains(c) { '_' } else { c })
         .collect();
-    let n = if n.trim().is_empty() { "Textstil".into() } else { n };
+    let n = if n.trim().is_empty() {
+        "Textstil".into()
+    } else {
+        n
+    };
     PathBuf::from(format!("{n}.{EXT}"))
 }
 

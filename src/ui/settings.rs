@@ -60,7 +60,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
             p.rect(
                 r,
                 radius::CARD,
-                panel(),
+                panel().to_opaque(),
                 Stroke::new(1.0, glass_stroke()),
                 StrokeKind::Inside,
             );

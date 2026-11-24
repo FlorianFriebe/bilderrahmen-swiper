@@ -179,7 +179,9 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
 
     p.rect_filled(row(x, pause_w), radius::M, field());
     if kit::icon_button(ui, row(x, pause_w), icons::HOME, true)
-        .on_hover_text("Zum Startbildschirm. Dein Stand wird gespeichert und steht unter „Weitermachen“.")
+        .on_hover_text(
+            "Zum Startbildschirm. Dein Stand wird gespeichert und steht unter „Weitermachen“.",
+        )
         .clicked()
     {
         app.pause();
@@ -694,9 +696,17 @@ fn stamp(painter: &Painter, dx: f32, card: Rect, angle: f32, tr: &dyn Fn(Pos2) -
         pos2(card.left() + sp::XL + 28.0, card.top() + 72.0 + 28.0)
     };
     let at = tr(at);
-    painter.circle_filled(at + vec2(0.0, 6.0), r + 4.0, Color32::from_black_alpha((60.0 * a) as u8));
+    painter.circle_filled(
+        at + vec2(0.0, 6.0),
+        r + 4.0,
+        Color32::from_black_alpha((60.0 * a) as u8),
+    );
     painter.circle_filled(at, r, base.gamma_multiply(0.92 * a));
-    painter.circle_stroke(at, r, Stroke::new(1.0, Color32::from_white_alpha((70.0 * a) as u8)));
+    painter.circle_stroke(
+        at,
+        r,
+        Stroke::new(1.0, Color32::from_white_alpha((70.0 * a) as u8)),
+    );
     let glyph = if keep { icons::HEART } else { icons::X };
     let f = if keep {
         icon_fill_font(r * 0.95)

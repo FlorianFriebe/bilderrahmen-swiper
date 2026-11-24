@@ -5,6 +5,21 @@
 Copyright 2016-2023 The Inter Project Authors. SIL Open Font License 1.1 (siehe unten).
 https://github.com/rsms/inter
 
+## Playfair Display (PlayfairDisplay.ttf)
+
+Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display),
+with Reserved Font Name "Playfair Display". SIL Open Font License 1.1 (siehe unten), unverändert eingebettet.
+
+## Caveat (Caveat.ttf)
+
+Copyright 2014 The Caveat Project Authors (https://github.com/googlefonts/caveat).
+SIL Open Font License 1.1 (siehe unten).
+
+## Oswald (Oswald.ttf)
+
+Copyright 2016 The Oswald Project Authors (https://github.com/googlefonts/OswaldFont).
+SIL Open Font License 1.1 (siehe unten).
+
 ## Phosphor Icons (Phosphor*.ttf)
 
 Copyright (c) 2023 Phosphor Icons. MIT-Lizenz. https://phosphoricons.com

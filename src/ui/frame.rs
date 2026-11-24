@@ -77,7 +77,10 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         let alpha = (age / 0.2).min((TOAST_SECS - age) / 0.4).clamp(0.0, 1.0) as f32;
         let anchor = pos2(ws.center().x, ws.top() + size::TOPBAR + sp::S);
         let (glyph, action) = if app.toast_undo {
-            ((super::icons::X, skip()), Some(("Rückgängig", app.key_short("undo"))))
+            (
+                (super::icons::X, skip()),
+                Some(("Rückgängig", app.key_short("undo"))),
+            )
         } else {
             ((super::icons::INFO, accent()), None)
         };

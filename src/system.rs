@@ -341,8 +341,14 @@ pub struct CopyProgress {
 /// Größe werden übersprungen.
 /// Reihenfolge auf dem Rahmen beim Kopieren.
 pub const COPY_ORDERS: [(&str, &str); 3] = [
-    ("Nach Datum", "Wie aufgenommen, die Dateinamen beginnen mit dem Datum."),
-    ("Zufällig", "Gut gemischt, damit nicht alle Urlaubsfotos am Stück kommen."),
+    (
+        "Nach Datum",
+        "Wie aufgenommen, die Dateinamen beginnen mit dem Datum.",
+    ),
+    (
+        "Zufällig",
+        "Gut gemischt, damit nicht alle Urlaubsfotos am Stück kommen.",
+    ),
     ("Nach Ordner", "Ordner für Ordner, darin nach Datum."),
 ];
 
@@ -358,7 +364,11 @@ pub fn strip_order(name: &str) -> &str {
 
 /// Dateinamen in der gewünschten Reihenfolge (je Zielordner durchnummeriert).
 /// `files`: (Datei, Ordnername der Quelle)
-pub fn ordered_names(mut files: Vec<(String, String)>, order: u8, seed: u64) -> Vec<(String, String)> {
+pub fn ordered_names(
+    mut files: Vec<(String, String)>,
+    order: u8,
+    seed: u64,
+) -> Vec<(String, String)> {
     match order {
         1 => {
             // einfaches Mischen (xorshift), reicht für Bilder
@@ -436,7 +446,13 @@ pub fn start_copy(
                 .collect();
             for (orig, name) in ordered_names(names, order, seed) {
                 if let Some((src, len)) = sizes.get(&orig) {
-                    files.push((src.clone(), *len, to.clone(), name, existing.get(&orig).cloned()));
+                    files.push((
+                        src.clone(),
+                        *len,
+                        to.clone(),
+                        name,
+                        existing.get(&orig).cloned(),
+                    ));
                 }
             }
         }
@@ -500,8 +516,9 @@ pub fn check_update(ctx: egui::Context) -> Arc<Mutex<Option<String>>> {
             .get("assets")
             .and_then(|a| a.as_array())
             .and_then(|a| {
-                a.iter()
-                    .find(|x| x.get("name").and_then(|n| n.as_str()) == Some("Bilderrahmen-Swiper.exe"))
+                a.iter().find(|x| {
+                    x.get("name").and_then(|n| n.as_str()) == Some("Bilderrahmen-Swiper.exe")
+                })
             })
             .and_then(|x| x.get("size"))
             .and_then(|s| s.as_u64())
