@@ -1,0 +1,26 @@
+//! Symbole aus dem Phosphor-Icon-Set (MIT-Lizenz), als Schriftzeichen.
+
+pub const MENU: &str = "\u{E2F0}";
+pub const HOME: &str = "\u{E2C2}";
+pub const GALLERY: &str = "\u{E464}";
+pub const UNDO: &str = "\u{E08A}";
+pub const X: &str = "\u{E4F6}";
+pub const HEART: &str = "\u{E2A8}";
+pub const ROTATE: &str = "\u{E036}";
+pub const SWAP: &str = "\u{E0A0}";
+pub const FILL: &str = "\u{E64C}";
+pub const TEXT: &str = "\u{E6EE}";
+pub const CROP: &str = "\u{E1D4}";
+pub const IMAGE: &str = "\u{E2CC}";
+pub const CHECK: &str = "\u{E182}";
+pub const PLAY: &str = "\u{E3D0}";
+pub const FOLDER_PLUS: &str = "\u{E258}";
+pub const FOLDER_OPEN: &str = "\u{E256}";
+pub const USB: &str = "\u{E956}";
+pub const KEYBOARD: &str = "\u{E2D8}";
+pub const ARROW_LEFT: &str = "\u{E058}";
+pub const STACK: &str = "\u{E466}";
+pub const TRASH: &str = "\u{E4A6}";
+pub const WARNING: &str = "\u{E4E0}";
+pub const INFO: &str = "\u{E2CE}";
+pub const DOWNLOAD: &str = "\u{E20C}";

@@ -49,7 +49,7 @@ pub fn log(msg: &str) {
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
         let _ = writeln!(f, "{now}  {msg}");
     }
-    crate::widgets::debug(msg);
+    crate::util::debug(msg);
 }
 
 /// Abstürze ins Protokoll schreiben und unter Windows kurz melden.

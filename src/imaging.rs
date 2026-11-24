@@ -191,6 +191,8 @@ fn decode_with_image_crate(path: &Path) -> Result<Decoded, String> {
 }
 
 /// Bild vollständig laden, Handy-Drehung (EXIF) ist bereits angewendet.
+// Unter Windows gibt es im Fehlerfall weitere Versuche, sonst nicht.
+#[allow(clippy::needless_match)]
 pub fn decode(path: &Path) -> Result<Decoded, String> {
     match decode_with_image_crate(path) {
         Ok(d) => Ok(d),
@@ -558,20 +560,7 @@ fn overlay_font() -> Option<&'static ab_glyph::FontVec> {
     use std::sync::OnceLock;
     static FONT: OnceLock<Option<ab_glyph::FontVec>> = OnceLock::new();
     FONT.get_or_init(|| {
-        let win = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into());
-        let cands = [
-            format!(r"{win}\Fonts\seguisb.ttf"),
-            format!(r"{win}\Fonts\segoeui.ttf"),
-            "/usr/share/fonts/opentype/inter/Inter-SemiBold.otf".into(),
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf".into(),
-        ];
-        cands
-            .iter()
-            .find_map(|p| fs::read(p).ok())
-            .and_then(|b| ab_glyph::FontVec::try_from_vec(b).ok())
-            .or_else(|| {
-                ab_glyph::FontVec::try_from_vec(epaint_default_fonts::UBUNTU_LIGHT.to_vec()).ok()
-            })
+        ab_glyph::FontVec::try_from_vec(crate::ui::style::overlay_font_bytes().to_vec()).ok()
     })
     .as_ref()
 }
@@ -644,10 +633,8 @@ fn blend(img: &mut RgbImage, x: i64, y: i64, col: [f32; 3], a: f32) {
         return;
     }
     let p = img.get_pixel_mut(x as u32, y as u32);
-    for i in 0..3 {
-        p.0[i] = (p.0[i] as f32 * (1.0 - a) + col[i] * a)
-            .round()
-            .clamp(0.0, 255.0) as u8;
+    for (ch, c) in p.0.iter_mut().zip(col) {
+        *ch = (*ch as f32 * (1.0 - a) + c * a).round().clamp(0.0, 255.0) as u8;
     }
 }
 

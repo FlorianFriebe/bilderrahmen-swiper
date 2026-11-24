@@ -41,7 +41,7 @@ unsafe fn decode_inner(path: &Path) -> windows::core::Result<Decoded> {
     let stride = w * 3;
     let mut buf = vec![0u8; (stride as usize) * (h as usize)];
     conv.CopyPixels(std::ptr::null(), stride, &mut buf)?;
-    let img = RgbImage::from_raw(w, h, buf).ok_or_else(|| windows::core::Error::empty())?;
+    let img = RgbImage::from_raw(w, h, buf).ok_or_else(windows::core::Error::empty)?;
     Ok(Decoded {
         img: DynamicImage::ImageRgb8(img),
         icc: None,

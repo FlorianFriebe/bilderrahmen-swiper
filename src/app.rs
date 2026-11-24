@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::folders::{self, Entry, Node, StatusFile};
 use crate::imaging::{self, Edit, Orient, OutputSettings, Overlay};
 use crate::system::{self, CopyProgress, Stats};
-use crate::widgets::{debug, fmt_int, rotate_color_image, strip_unc};
+use crate::util::{debug, fmt_int, rotate_color_image, strip_unc};
 use crate::workers::{DateScan, Loader, Preview, Saver, ThumbLoader};
 
 pub const QUER_FORMATS: &[&str] = &["16:9", "16:10", "4:3", "3:2", "5:4", "1:1"];
@@ -213,6 +213,8 @@ pub struct Spots {
 pub enum Dialog {
     Keys,
     Copy,
+    /// Übersicht der Tastenkürzel
+    Shortcuts,
 }
 
 pub struct SwiperApp {
@@ -250,6 +252,8 @@ pub struct SwiperApp {
     pub saver: Saver,
     pub thumbs: ThumbLoader,
     pub thumb_tex: HashMap<PathBuf, Option<TextureHandle>>,
+    /// winzige Fassung der Vorschaubilder für den unscharfen Hintergrund
+    pub thumb_blur: HashMap<PathBuf, TextureHandle>,
     pub tex: Option<Tex>,
     pub anim: Option<Anim>,
     pub dx: f32,
@@ -278,7 +282,7 @@ pub struct SwiperApp {
 impl SwiperApp {
     pub fn new(cc: &eframe::CreationContext<'_>, args: Vec<PathBuf>) -> Self {
         let ctx = cc.egui_ctx.clone();
-        crate::theme::apply(&ctx);
+        crate::ui::style::apply(&ctx);
         let mut cfg: Config = cc
             .storage
             .and_then(|s| eframe::get_value(s, eframe::APP_KEY))
@@ -315,6 +319,7 @@ impl SwiperApp {
             saver: Saver::new(ctx.clone(), 2),
             thumbs: ThumbLoader::new(ctx.clone(), 2),
             thumb_tex: HashMap::new(),
+            thumb_blur: HashMap::new(),
             tex: None,
             anim: None,
             dx: 0.0,
@@ -1137,7 +1142,7 @@ impl SwiperApp {
                     .map(|o| (order.get(p).copied().unwrap_or(0), p.clone(), o))
             })
             .collect();
-        v.sort_by(|a, b| b.0.cmp(&a.0));
+        v.sort_by_key(|b| std::cmp::Reverse(b.0));
         v.into_iter().map(|(_, p, o)| (p, o)).collect()
     }
 
@@ -1184,11 +1189,19 @@ impl SwiperApp {
 
     pub fn poll_thumbs(&mut self, ctx: &egui::Context) {
         for (p, img) in self.thumbs.take_done() {
+            if let Some(i) = &img {
+                let tiny = tiny_image(i, 40);
+                self.thumb_blur.insert(
+                    p.clone(),
+                    ctx.load_texture("unscharf", tiny, TextureOptions::LINEAR),
+                );
+            }
             let h = img.map(|i| ctx.load_texture("thumb", i, TextureOptions::LINEAR));
             self.thumb_tex.insert(p, h);
         }
         if self.thumb_tex.len() > MAX_THUMB_TEXTURES {
             self.thumb_tex.clear();
+            self.thumb_blur.clear();
             self.thumbs.reset();
         }
     }
@@ -1203,6 +1216,15 @@ impl SwiperApp {
                 None
             }
         }
+    }
+
+    /// Stark verkleinerte Fassung eines Vorschaubilds (für den Hintergrund).
+    pub fn thumb_blur(&self, p: &Path) -> Option<TextureId> {
+        let id = self.thumb_blur.get(p).map(|t| t.id());
+        if id.is_none() {
+            self.thumb(p);
+        }
+        id
     }
 
     pub fn ensure_texture(&mut self, ui: &Ui) -> Option<(Edit, Vec2, TextureId)> {
@@ -1331,7 +1353,7 @@ pub fn key_name(k: egui::Key) -> String {
 
 impl eframe::App for SwiperApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
-        crate::views::frame(self, ui);
+        crate::ui::frame(self, ui);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {

@@ -1,15 +1,20 @@
 //! Fenster und Einblendungen: Einführung, Tastenbelegung, Kopieren auf Stick/Karte,
 //! Text-Feld unter dem Bild.
 
-use egui::{pos2, vec2, Align2, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Ui};
+use egui::{pos2, vec2, Align2, Color32, Rect, Sense, Stroke, StrokeKind, Ui};
 
+use super::icons;
+use super::kit;
+use super::style::*;
 use crate::app::{
-    key_name, SwiperApp, View, ACTIONS, DATE_FORMATS, TEXT_POS, TEXT_SIZES, TEXT_STYLES,
+    key_name, Dialog, SwiperApp, View, ACTIONS, DATE_FORMATS, TEXT_POS, TEXT_SIZES, TEXT_STYLES,
 };
 use crate::system;
-use crate::theme::*;
-use crate::views::bold;
-use crate::widgets::*;
+use crate::util::{fmt_int, open_folder};
+
+fn bold(size: f32) -> egui::FontId {
+    font(size, W::Semibold)
+}
 
 // ------------------------------------------------------------------ Einführung
 
@@ -46,7 +51,7 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
         Step {
             title: "Vertan? Kein Problem",
             body: format!(
-                "↶ oder {} nimmt die letzte Entscheidung zurück, auch nach einem Neustart. \
+                "„Zurück“ oder {} nimmt die letzte Entscheidung zurück, auch nach einem Neustart. \
                  Im Filmstreifen siehst du, was du entschieden hast: grün = behalten, rot = weg.",
                 k("undo")
             ),
@@ -57,15 +62,15 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
         },
         Step {
             title: "Alles Weitere",
-            body: "Hinter ☰ findest du Zielordner, Rahmen-Profil, Text aufs Bild, Tastenbelegung, \
-                   hellen Modus und Schriftgröße (auch mit Strg + und Strg −)."
+            body: "Hinter dem Menü oben links findest du Zielordner, Rahmen-Profil, Text aufs Bild, Tastenbelegung, \
+                   hellen Modus und Schriftgröße. Alle Tastenkürzel zeigt das Tastatur-Symbol unten rechts (F1)."
                 .into(),
             spot: app.spots.menu,
         },
     ]
 }
 
-pub fn intro_ui(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
+pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
     let Some(i) = app.intro_step else { return };
     if app.view != View::Swipe {
         return;
@@ -88,7 +93,7 @@ pub fn intro_ui(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
             let shade = Color32::from_black_alpha(175);
             match step.spot {
                 Some(s) => {
-                    let s = s.expand(8.0);
+                    let s = s.expand(sp::S);
                     for r in [
                         Rect::from_min_max(full.min, pos2(full.right(), s.top())),
                         Rect::from_min_max(pos2(full.left(), s.bottom()), full.max),
@@ -100,87 +105,67 @@ pub fn intro_ui(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
                     ] {
                         p.rect_filled(r, 0.0, shade);
                     }
-                    p.rect_stroke(s, 12.0, Stroke::new(2.0, BLUE), StrokeKind::Outside);
+                    p.rect_stroke(
+                        s,
+                        radius::L,
+                        Stroke::new(2.0, accent()),
+                        StrokeKind::Outside,
+                    );
                 }
                 None => {
                     p.rect_filled(full, 0.0, shade);
                 }
             }
             // Erklär-Kasten: unter, über oder mitten in der hervorgehobenen Fläche
-            let bw = 380.0;
+            let bw = 400.0;
+            let pad = sp::XL;
             let body = p.layout(
                 step.body.clone(),
-                FontId::proportional(14.0),
-                text(),
-                bw - 36.0,
+                font(ts::BODY, W::Regular),
+                text_soft(),
+                bw - pad * 2.0,
             );
-            let bh = body.size().y + 104.0;
+            let bh = pad + 24.0 + sp::M + body.size().y + sp::XL + 40.0 + pad;
             let spot = step.spot.unwrap_or(full);
-            let pos = if spot.bottom() + bh + 24.0 < full.bottom() {
-                pos2(
-                    (spot.center().x - bw / 2.0)
-                        .clamp(full.left() + 16.0, full.right() - bw - 16.0),
-                    spot.bottom() + 20.0,
-                )
-            } else if spot.top() - bh - 24.0 > full.top() {
-                pos2(
-                    (spot.center().x - bw / 2.0)
-                        .clamp(full.left() + 16.0, full.right() - bw - 16.0),
-                    spot.top() - bh - 20.0,
-                )
+            let x =
+                (spot.center().x - bw / 2.0).clamp(full.left() + sp::L, full.right() - bw - sp::L);
+            let pos = if spot.bottom() + bh + sp::XL < full.bottom() {
+                pos2(x, spot.bottom() + sp::L)
+            } else if spot.top() - bh - sp::XL > full.top() {
+                pos2(x, spot.top() - bh - sp::L)
             } else {
                 spot.center() - vec2(bw / 2.0, bh / 2.0)
             };
             let br = Rect::from_min_size(pos, vec2(bw, bh));
-            p.rect(
-                br,
-                14.0,
-                sidebar(),
-                Stroke::new(1.0, border()),
-                StrokeKind::Inside,
-            );
+            kit::glass_with(p, br, radius::XL, panel());
+            let mut y = br.top() + pad;
             p.text(
-                br.left_top() + vec2(18.0, 16.0),
-                Align2::LEFT_TOP,
+                pos2(br.left() + pad, y + 12.0),
+                Align2::LEFT_CENTER,
                 step.title,
-                bold(17.0),
+                font(ts::TITLE, W::Semibold),
                 text(),
             );
             p.text(
-                br.right_top() + vec2(-18.0, 18.0),
-                Align2::RIGHT_TOP,
+                pos2(br.right() - pad, y + 12.0),
+                Align2::RIGHT_CENTER,
                 format!("{} / {n}", i + 1),
-                FontId::proportional(12.0),
+                font(ts::SMALL, W::Medium),
                 muted(),
             );
-            p.galley(br.left_top() + vec2(18.0, 46.0), body, text());
+            y += 24.0 + sp::M;
+            let body_h = body.size().y;
+            p.galley(pos2(br.left() + pad, y), body, text_soft());
+            y += body_h + sp::XL;
             let label = if i + 1 == n { "Los geht's" } else { "Weiter" };
-            let b1 = Rect::from_min_size(
-                br.right_bottom() - vec2(18.0 + 120.0, 48.0),
-                vec2(120.0, 34.0),
-            );
-            if ui
-                .put(
-                    b1,
-                    egui::Button::new(
-                        egui::RichText::new(label)
-                            .color(Color32::WHITE)
-                            .font(bold(14.0)),
-                    )
-                    .fill(BLUE)
-                    .corner_radius(9),
-                )
-                .clicked()
-            {
+            let b1 = Rect::from_min_size(pos2(br.right() - pad - 132.0, y), vec2(132.0, 40.0));
+            if kit::cta(ui, b1, "", label, true).clicked() {
                 next = true;
             }
             if i + 1 < n {
-                let b2 =
-                    Rect::from_min_size(br.left_bottom() + vec2(12.0, -48.0), vec2(130.0, 34.0));
-                if ui
-                    .put(b2, egui::Button::new("Überspringen").frame(false))
-                    .clicked()
-                {
+                let w = kit::secondary_width(ui, "", "Überspringen");
+                let b2 = Rect::from_min_size(pos2(br.left() + pad, y), vec2(w, 40.0));
+                if kit::secondary(ui, b2, "", "Überspringen", true).clicked() {
                     skip = true;
                 }
             }
@@ -198,7 +183,7 @@ pub fn intro_ui(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
 
 // ------------------------------------------------------------------ Tastenbelegung
 
-pub fn keys_dialog(app: &mut SwiperApp, ui: &mut Ui) {
+pub fn keys(app: &mut SwiperApp, ui: &mut Ui) {
     // gewartete Taste übernehmen
     if let Some((action, slot)) = app.capture {
         let key = ui.input(|i| {
@@ -244,7 +229,7 @@ pub fn keys_dialog(app: &mut SwiperApp, ui: &mut Ui) {
                         };
                         let mut b = egui::Button::new(text).min_size(vec2(120.0, 28.0));
                         if waiting {
-                            b = b.fill(BLUE);
+                            b = b.fill(BLUE_DARK);
                         }
                         let r = ui.add(b);
                         if r.clicked() {
@@ -261,7 +246,7 @@ pub fn keys_dialog(app: &mut SwiperApp, ui: &mut Ui) {
         ui.colored_label(
             muted(),
             egui::RichText::new(
-                "Fest belegt: Strg+Z rückgängig · Strg+B Menü · Strg +/− Schriftgröße · F11 Vollbild · Esc zurück",
+                "Fest belegt: Strg+Z rückgängig · Strg+B Menü · Strg +/− Schriftgröße · F1 Tastenkürzel · F11 Vollbild · Esc zurück",
             )
             .size(11.5),
         );
@@ -276,7 +261,7 @@ pub fn keys_dialog(app: &mut SwiperApp, ui: &mut Ui) {
                 if ui
                     .add(
                         egui::Button::new(egui::RichText::new("Fertig").color(Color32::WHITE))
-                            .fill(BLUE)
+                            .fill(BLUE_DARK)
                             .min_size(vec2(100.0, 30.0)),
                     )
                     .clicked()
@@ -295,7 +280,7 @@ pub fn keys_dialog(app: &mut SwiperApp, ui: &mut Ui) {
 
 // ------------------------------------------------------------------ Kopieren auf Stick / Karte
 
-pub fn copy_dialog(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
+pub fn copy(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
     let stats = app.stats(now);
     let busy = app
         .copy
@@ -327,12 +312,12 @@ pub fn copy_dialog(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
                 ui.add(egui::ProgressBar::new(f).text(format!("{} / {}", p.done, p.total)));
                 ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
             } else if let Some(e) = &p.error {
-                ui.colored_label(RED, format!("Das hat nicht geklappt:\n{e}"));
+                ui.colored_label(skip(), format!("Das hat nicht geklappt:\n{e}"));
                 ui.colored_label(muted(), "Ist der Stick voll oder schreibgeschützt?");
             } else {
                 let new = p.done - p.skipped;
                 ui.colored_label(
-                    GREEN,
+                    keep(),
                     egui::RichText::new(format!(
                         "Fertig: {} Bilder kopiert{}.",
                         fmt_int(new),
@@ -356,7 +341,6 @@ pub fn copy_dialog(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
                     if ui.button("Nochmal kopieren").clicked() {
                         drop(p);
                         app.copy = None;
-                        return;
                     }
                 });
             }
@@ -381,7 +365,7 @@ pub fn copy_dialog(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
                     egui::Button::new(label).min_size(vec2(ui.available_width(), 38.0)),
                 );
                 if full {
-                    ui.colored_label(RED, "Zu wenig Platz frei.");
+                    ui.colored_label(skip(), "Zu wenig Platz frei.");
                 }
                 if b.clicked() {
                     app.start_copy(d.root.join("Bilderrahmen"));
@@ -435,7 +419,7 @@ pub fn copy_dialog(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
 // ------------------------------------------------------------------ Text aufs Bild
 
 /// Einstellungen für den Text (im Menü und im Text-Feld unter dem Bild).
-pub fn text_settings_ui(app: &mut SwiperApp, ui: &mut Ui, id: &str) {
+pub fn text_settings(app: &mut SwiperApp, ui: &mut Ui, id: &str) {
     let t = &mut app.cfg.text;
     let row = |ui: &mut Ui, label: &str, add: &mut dyn FnMut(&mut Ui)| {
         ui.horizontal(|ui| {
@@ -474,24 +458,30 @@ pub fn text_settings_ui(app: &mut SwiperApp, ui: &mut Ui, id: &str) {
 }
 
 /// Kleines Feld neben dem Bild: Text an/aus, Ort für den Ordner, Notiz für dieses Bild.
-pub fn text_panel_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
+pub fn text_panel(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     let Some(path) = app.current().cloned() else {
         return;
     };
-    let w = 290.0;
-    let pos = pos2(area.left() + 4.0, area.top() + 4.0);
+    let w = area.width();
+    let pos = area.min;
     let mut close = false;
     egui::Area::new(ui.make_persistent_id("text_panel"))
         .order(egui::Order::Middle)
         .fixed_pos(pos)
         .show(ui.ctx(), |ui| {
             egui::Frame::new()
-                .fill(sidebar())
-                .stroke(Stroke::new(1.0, border()))
-                .corner_radius(12)
-                .inner_margin(egui::Margin::same(12))
+                .fill(panel())
+                .stroke(Stroke::new(1.0, glass_stroke()))
+                .corner_radius(radius::XL)
+                .shadow(egui::Shadow {
+                    offset: [0, 12],
+                    blur: 40,
+                    spread: 0,
+                    color: Color32::from_black_alpha(if is_dark() { 120 } else { 36 }),
+                })
+                .inner_margin(egui::Margin::same(sp::L as i8))
                 .show(ui, |ui| {
-                    ui.set_width(w - 24.0);
+                    ui.set_width(w - sp::L * 2.0);
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new("Text aufs Bild").font(bold(15.0)));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -542,7 +532,7 @@ pub fn text_panel_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                     egui::CollapsingHeader::new("Aussehen")
                         .id_salt("text_look")
                         .default_open(false)
-                        .show(ui, |ui| text_settings_ui(app, ui, "panel"));
+                        .show(ui, |ui| text_settings(app, ui, "panel"));
                 });
         });
     if close {
@@ -551,5 +541,114 @@ pub fn text_panel_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     // Enter beendet die Eingabe, damit die Tasten wieder fürs Wischen da sind
     if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
         ui.ctx().memory_mut(|m| m.stop_text_input());
+    }
+}
+
+// ------------------------------------------------------------------ Tastenkürzel
+
+/// Übersicht aller Tastenkürzel (ersetzt die lange Hinweiszeile).
+pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
+    let mut change = false;
+    let resp = egui::Modal::new(ui.make_persistent_id("shortcuts_modal")).show(ui.ctx(), |ui| {
+        ui.set_width(440.0);
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(icons::KEYBOARD).font(icon_font(22.0)));
+            ui.label(egui::RichText::new("Tastenkürzel").font(bold(19.0)));
+        });
+        ui.add_space(sp::M);
+        let mouse: [(&str, &str); 4] = [
+            ("Foto ziehen", "nach rechts behalten, nach links weg"),
+            ("Rechte Maustaste ziehen", "Ausschnitt verschieben"),
+            ("Mausrad", "Ausschnitt zoomen"),
+            ("Doppelklick", "Ausschnitt zurücksetzen"),
+        ];
+        let fixed: [(&str, &str); 5] = [
+            ("Strg + Z", "Rückgängig"),
+            ("Strg + B", "Einstellungen"),
+            ("Strg + / −", "Schriftgröße (Strg 0 = normal)"),
+            ("F11", "Vollbild"),
+            ("Esc", "Zurück / schließen"),
+        ];
+        let key_chip = |ui: &mut Ui, k: &str| {
+            let f = font(ts::SMALL, W::Semibold);
+            let w = kit::text_size(ui, k, f.clone()).x + sp::M * 2.0;
+            let (r, _) = ui.allocate_exact_size(vec2(w.max(28.0), 24.0), Sense::hover());
+            ui.painter().rect(
+                r,
+                6,
+                field(),
+                Stroke::new(1.0, divider()),
+                StrokeKind::Inside,
+            );
+            ui.painter()
+                .text(r.center(), Align2::CENTER_CENTER, k, f, text());
+        };
+        egui::ScrollArea::vertical()
+            .max_height(560.0)
+            .show(ui, |ui| {
+                egui::Grid::new("shortcuts_grid")
+                    .num_columns(2)
+                    .spacing(vec2(sp::L, sp::S))
+                    .show(ui, |ui| {
+                        for (id, label, _) in ACTIONS {
+                            ui.horizontal(|ui| {
+                                let keys = app.keys_for(id);
+                                if keys.is_empty() {
+                                    ui.colored_label(dim(), "–");
+                                }
+                                for k in keys {
+                                    key_chip(ui, &key_name(k));
+                                }
+                            });
+                            ui.label(*label);
+                            ui.end_row();
+                        }
+                        for (k, label) in fixed {
+                            key_chip(ui, k);
+                            ui.label(label);
+                            ui.end_row();
+                        }
+                    });
+                ui.add_space(sp::M);
+                kit::section(ui, "Maus");
+                egui::Grid::new("mouse_grid")
+                    .num_columns(2)
+                    .spacing(vec2(sp::L, sp::S))
+                    .show(ui, |ui| {
+                        for (k, label) in mouse {
+                            ui.label(egui::RichText::new(k).font(font(ts::BODY, W::Medium)));
+                            ui.colored_label(text_soft(), label);
+                            ui.end_row();
+                        }
+                    });
+            });
+        ui.add_space(sp::L);
+        let mut close = false;
+        ui.horizontal(|ui| {
+            if ui
+                .add(egui::Button::new("Tasten ändern …").min_size(vec2(0.0, 32.0)))
+                .clicked()
+            {
+                change = true;
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui
+                    .add(
+                        egui::Button::new(egui::RichText::new("Fertig").color(Color32::WHITE))
+                            .fill(BLUE_DARK)
+                            .min_size(vec2(100.0, 32.0)),
+                    )
+                    .clicked()
+                {
+                    close = true;
+                }
+            });
+        });
+        close
+    });
+    if change {
+        app.dialog = Some(Dialog::Keys);
+    } else if resp.inner || resp.should_close() {
+        app.dialog = None;
     }
 }

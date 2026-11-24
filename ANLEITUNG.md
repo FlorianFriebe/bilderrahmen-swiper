@@ -14,7 +14,7 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 
 ## In 4 Schritten zum fertigen Rahmen
 
-1. **Rahmen einstellen:** Hinter **☰** unter *Bilderrahmen* die Auflösung deines Rahmens
+1. **Rahmen einstellen:** Hinter **☰ (Menü oben links)** unter *Bilderrahmen* die Auflösung deines Rahmens
    wählen (z. B. *10 Zoll · 1280 × 800*) oder eigene eintippen. Format und Größe passen
    sich dann automatisch an.
 2. **Ordner wählen:** Auf dem Startbildschirm **„+ Ordner hinzufügen“** anklicken oder
@@ -31,15 +31,20 @@ Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** 
 
 ## Bedienung
 
+Unten schwebt eine Leiste, sortiert nach Wichtigkeit: in der Mitte die beiden großen Knöpfe
+**Weg** (rot) und **Behalten** (grün), links **Zurück**, rechts die Werkzeuge fürs Bild
+(**Drehen**, **Format**, **Ganz**, **Text**). Alle Tastenkürzel zeigt das kleine
+**Tastatur-Symbol** unten rechts (oder **F1**).
+
 | Aktion | Maus | Taste (änderbar) |
 |---|---|---|
-| Behalten | nach rechts ziehen oder ♥ | **→** oder D |
-| Weg | nach links ziehen oder × | **←** oder A |
-| Rückgängig (auch nach Neustart) | ↶ | **Rücktaste** oder Strg+Z |
-| Bild drehen | ⟳ | **R**, andersherum **L** |
-| Quer ↔ Hochkant | ⇄ oder oben auf das Format klicken | **H** |
-| Ganzes Foto auf unscharfen Hintergrund | Rahmen-Knopf ganz rechts | **F** |
-| Text aufs Bild (Datum, Ort, Notiz) | **Aa** ganz links | **T** |
+| Behalten | nach rechts ziehen oder **Behalten** | **→** oder D |
+| Weg | nach links ziehen oder **Weg** | **←** oder A |
+| Rückgängig (auch nach Neustart) | **Zurück** | **Rücktaste** oder Strg+Z |
+| Bild drehen | **Drehen** | **R**, andersherum **L** |
+| Quer ↔ Hochkant | **Format** oder oben auf das Format klicken | **H** |
+| Ganzes Foto auf unscharfen Hintergrund | **Ganz** | **F** |
+| Text aufs Bild (Datum, Ort, Notiz) | **Text** | **T** |
 | Ausschnitt verschieben | **rechte Maustaste** gedrückt halten und ziehen | – |
 | Hinein-/Herauszoomen | **Mausrad** | + / − |
 | Ausschnitt zurücksetzen | Doppelklick aufs Bild | 0 |
@@ -48,6 +53,7 @@ Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** 
 | Einstellungen | ☰ | Strg+B |
 | Schrift größer / kleiner | – | **Strg +** / **Strg −** (Strg 0 = normal) |
 | Vollbild | – | F11 |
+| Alle Tastenkürzel | Tastatur-Symbol unten rechts | F1 |
 
 **Tasten ändern:** ☰ → *Bedienung* → **„Tasten ändern …“**. Auf ein Feld klicken und die
 neue Taste drücken. Rechtsklick leert ein Feld.
@@ -62,7 +68,7 @@ Normal bleibt das Zuschneiden, F gilt nur für das jeweilige Bild.
 
 ## Text aufs Bild
 
-Mit **T** (oder **Aa**) öffnet sich links ein kleines Feld:
+Mit **T** (oder **Text**) öffnet sich links ein kleines Feld:
 
 - **Ort** gilt für den ganzen Ordner (vorgeschlagen wird der Ordnername), bis du ihn änderst.
 - **Notiz** gilt nur für dieses eine Bild.
