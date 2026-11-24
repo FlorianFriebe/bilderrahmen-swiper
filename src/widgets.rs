@@ -80,7 +80,7 @@ pub fn section(ui: &mut Ui, title: &str) {
     ui.label(
         egui::RichText::new(title.to_uppercase())
             .size(11.0)
-            .color(MUTED)
+            .color(muted())
             .font(FontId::new(11.0, FontFamily::Name("bold".into()))),
     );
     ui.add_space(2.0);
@@ -160,16 +160,12 @@ pub fn pill(ui: &mut Ui, r: Rect, text: &str, on: bool) -> egui::Response {
     let fill = if on {
         BLUE
     } else if resp.hovered() {
-        SURFACE_HI
+        surface_hi()
     } else {
-        SURFACE
+        surface()
     };
     ui.painter().rect_filled(r, 15.0, fill);
-    let col = if on {
-        Color32::WHITE
-    } else {
-        Color32::from_rgb(0xc9, 0xcb, 0xd6)
-    };
+    let col = if on { Color32::WHITE } else { soft() };
     ui.painter().text(
         r.center(),
         Align2::CENTER_CENTER,
@@ -193,6 +189,8 @@ pub enum Icon {
     Rotate,
     Yes,
     Swap,
+    Fill,
+    Text,
 }
 
 pub fn icon_button(ui: &mut Ui, r: Rect, icon: Icon, round: bool, enabled: bool) -> egui::Response {
@@ -213,18 +211,18 @@ pub fn icon_button(ui: &mut Ui, r: Rect, icon: Icon, round: bool, enabled: bool)
         Icon::Yes => Some(GREEN),
         _ => None,
     };
-    let mut fg = accent.unwrap_or(Color32::from_rgb(0xcc, 0xcc, 0xdd));
+    let mut fg = accent.unwrap_or(soft());
     if !enabled {
-        fg = Color32::from_rgb(0x48, 0x4b, 0x57);
+        fg = disabled();
     }
     let c = r.center();
     let rad = r.width() / 2.0;
     if round {
-        let mut fill = Color32::from_rgb(0x1c, 0x1e, 0x25);
+        let mut fill = card();
         if hovered {
             fill = match accent {
                 Some(a) => a.gamma_multiply(0.18),
-                None => Color32::from_rgb(0x26, 0x29, 0x35),
+                None => surface(),
             };
         }
         let press = if resp.is_pointer_button_down_on() {
@@ -240,11 +238,11 @@ pub fn icon_button(ui: &mut Ui, r: Rect, icon: Icon, round: bool, enabled: bool)
         let stroke = if accent.is_some() {
             Stroke::new(2.0, fg)
         } else {
-            Stroke::new(1.0, BORDER)
+            Stroke::new(1.0, border())
         };
         p.circle(c, rad * press - 1.0, fill, stroke);
     } else if hovered {
-        p.rect_filled(r, 8.0, SURFACE);
+        p.rect_filled(r, 8.0, surface());
     }
     let s = if round { rad * 0.42 } else { r.width() * 0.26 };
     let w = if round { (rad * 0.09).max(2.2) } else { 2.0 };
@@ -350,6 +348,27 @@ pub fn icon_button(ui: &mut Ui, r: Rect, icon: Icon, round: bool, enabled: bool)
                 fg,
                 Stroke::NONE,
             ));
+        }
+        Icon::Fill => {
+            // Rahmen mit kleinerem Bild darin
+            let outer = Rect::from_center_size(c, vec2(s * 2.1, s * 1.45));
+            p.rect_stroke(
+                outer,
+                3.0,
+                Stroke::new(w * 0.8, fg.gamma_multiply(0.6)),
+                egui::StrokeKind::Middle,
+            );
+            let inner = Rect::from_center_size(c, vec2(s * 0.85, s * 1.45));
+            p.rect_filled(inner, 2.0, fg);
+        }
+        Icon::Text => {
+            p.text(
+                c + vec2(0.0, s * 0.05),
+                Align2::CENTER_CENTER,
+                "Aa",
+                FontId::new(s * 1.45, FontFamily::Name("bold".into())),
+                fg,
+            );
         }
         Icon::Swap => {
             let h = s * 0.4;

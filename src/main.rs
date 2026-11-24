@@ -1,8 +1,10 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
+mod dialogs;
 mod folders;
 mod imaging;
+mod system;
 mod theme;
 mod views;
 #[cfg(windows)]
@@ -56,6 +58,7 @@ fn run(renderer: eframe::Renderer, args: Vec<PathBuf>) -> eframe::Result {
 }
 
 fn main() {
+    system::install_panic_hook();
     let args: Vec<PathBuf> = std::env::args_os()
         .skip(1)
         .map(PathBuf::from)
@@ -70,9 +73,11 @@ fn main() {
         (eframe::Renderer::Wgpu, eframe::Renderer::Glow)
     };
     if let Err(e) = run(first, args.clone()) {
-        eprintln!("Grafik-Start mit {first:?} fehlgeschlagen ({e}), versuche {second:?} …");
+        system::log(&format!(
+            "Grafik-Start mit {first:?} fehlgeschlagen ({e}), versuche {second:?}"
+        ));
         if let Err(e) = run(second, args) {
-            eprintln!("Fehler: {e}");
+            system::log(&format!("Grafik-Start fehlgeschlagen: {e}"));
             std::process::exit(1);
         }
     }

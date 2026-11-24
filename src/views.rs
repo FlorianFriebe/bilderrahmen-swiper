@@ -9,13 +9,23 @@ use egui::{
     Stroke, StrokeKind, Ui,
 };
 
-use crate::app::{Anim, SwiperApp, View, HOCH_FORMATS, QUER_FORMATS, RESOLUTIONS};
+use crate::app::{Anim, Dialog, SwiperApp, View, FRAMES, HOCH_FORMATS, QUER_FORMATS, RESOLUTIONS};
+use crate::dialogs::{copy_dialog, intro_ui, keys_dialog, text_panel_ui, text_settings_ui};
 use crate::folders;
 use crate::imaging::{self, Orient};
+use crate::system;
 use crate::theme::*;
 use crate::widgets::*;
 
-fn bold(size: f32) -> FontId {
+fn bilder(n: usize) -> String {
+    if n == 1 {
+        "1 Bild".into()
+    } else {
+        format!("{} Bilder", fmt_int(n))
+    }
+}
+
+pub fn bold(size: f32) -> FontId {
     FontId::new(size, FontFamily::Name("bold".into()))
 }
 
@@ -23,6 +33,20 @@ fn bold(size: f32) -> FontId {
 pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     let ctx = ui.ctx().clone();
     let now = ui.input(|i| i.time);
+    // Darstellung: hell/dunkel und Schriftgröße
+    let pref = match app.cfg.theme {
+        1 => egui::ThemePreference::Dark,
+        2 => egui::ThemePreference::Light,
+        _ => egui::ThemePreference::System,
+    };
+    if ctx.options(|o| o.theme_preference) != pref {
+        ctx.set_theme(pref);
+    }
+    crate::theme::set_dark(ctx.theme() == egui::Theme::Dark);
+    app.cfg.ui_scale = app.cfg.ui_scale.clamp(0.7, 1.8);
+    if (ctx.zoom_factor() - app.cfg.ui_scale).abs() > 0.001 {
+        ctx.set_zoom_factor(app.cfg.ui_scale);
+    }
     handle_drops(app, ui);
     app.poll_saver();
     app.poll_scan();
@@ -38,7 +62,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     }
 
     let full = ui.max_rect();
-    ui.painter().rect_filled(full, 0.0, BG);
+    ui.painter().rect_filled(full, 0.0, bg());
     // mittige Arbeitsfläche: so breit wie ein 16:9-Bildschirm gleicher Höhe
     let w = full.width().min((full.height() * 16.0 / 9.0).max(960.0));
     let ws =
@@ -54,16 +78,31 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     if app.drawer {
         drawer_ui(app, ui, ws);
     }
+    if app.view == View::Swipe
+        && !app.cfg.intro_done
+        && app.intro_step.is_none()
+        && app.current().is_some()
+    {
+        app.intro_step = Some(0);
+    }
+    if app.intro_step.is_some() {
+        intro_ui(app, ui, full);
+    }
+    match app.dialog {
+        Some(Dialog::Keys) => keys_dialog(app, ui),
+        Some(Dialog::Copy) => copy_dialog(app, ui, now),
+        None => {}
+    }
 
     // Hinweis / Meldung ganz unten
-    let (text, color) = match &app.toast {
+    let (msg, color) = match &app.toast {
         Some((t, _)) => (t.clone(), AMBER),
-        None => (hint_for(app.view).to_string(), DIM),
+        None => (hint_for(app), dim()),
     };
-    if !text.is_empty() {
+    if !msg.is_empty() {
         let g = ui
             .painter()
-            .layout(text, FontId::proportional(11.5), color, ws.width() - 20.0);
+            .layout(msg, FontId::proportional(11.5), color, ws.width() - 20.0);
         let p = pos2(ws.center().x - g.size().x / 2.0, ws.bottom() - g.size().y);
         ui.painter().galley(p, g, color);
     }
@@ -82,7 +121,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
             Align2::CENTER_CENTER,
             "Ordner hier ablegen",
             FontId::proportional(26.0),
-            TEXT,
+            text(),
         );
     }
 
@@ -96,13 +135,23 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     }
 }
 
-fn hint_for(v: View) -> &'static str {
-    match v {
-        View::Swipe => "← weg  ·  → behalten  ·  R drehen  ·  H quer/hochkant  ·  Rücktaste zurück  ·  S Serie vergleichen  ·  \
-                        Rechtsklick ziehen = Ausschnitt  ·  Mausrad = Zoom  ·  Doppelklick = Reset",
-        View::Home => "Klick auf eine Kachel wählt sie an oder ab  ·  Doppelklick startet nur diesen Ordner  ·  Enter = los",
-        View::Gallery => "Esc = zurück",
-        View::Burst => "Klick wählt aus  ·  Enter = Auswahl behalten, Rest weg  ·  Esc = einzeln durchgehen",
+fn hint_for(app: &SwiperApp) -> String {
+    let k = |a: &str| app.key_label(a);
+    match app.view {
+        View::Swipe => format!(
+            "{} weg  ·  {} behalten  ·  {} drehen  ·  {} quer/hochkant  ·  {} unscharfer Hintergrund  ·  {} Text  ·  \
+             {} zurück  ·  Rechtsklick ziehen = Ausschnitt  ·  Mausrad = Zoom  ·  Strg +/− = Schriftgröße",
+            k("skip"),
+            k("keep"),
+            k("rot_r"),
+            k("orient"),
+            k("fill"),
+            k("text"),
+            k("undo")
+        ),
+        View::Home => "Klick auf eine Kachel wählt sie an oder ab  ·  Doppelklick startet nur diesen Ordner  ·  Enter = los".into(),
+        View::Gallery => "Esc = zurück".into(),
+        View::Burst => "Klick wählt aus  ·  Enter = Auswahl behalten, Rest weg  ·  Esc = einzeln durchgehen".into(),
     }
 }
 
@@ -127,15 +176,45 @@ fn handle_drops(app: &mut SwiperApp, ui: &Ui) {
 
 fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
     let ctx = ui.ctx().clone();
-    if ctx.egui_wants_keyboard_input() {
+    if ctx.egui_wants_keyboard_input() || app.capture.is_some() {
         return;
     }
     use egui::Key;
     let k = |key: Key| ctx.input(|i| i.key_pressed(key));
     let m = ctx.input(|i| i.modifiers);
+    // Schriftgröße
+    if m.command && (k(Key::Plus) || k(Key::Equals)) {
+        app.cfg.ui_scale = ((app.cfg.ui_scale + 0.1) * 10.0).round() / 10.0;
+        app.toast(format!(
+            "Schriftgröße {:.0} %",
+            app.cfg.ui_scale.min(1.8) * 100.0
+        ));
+        return;
+    }
+    if m.command && k(Key::Minus) {
+        app.cfg.ui_scale = ((app.cfg.ui_scale - 0.1) * 10.0).round() / 10.0;
+        app.toast(format!(
+            "Schriftgröße {:.0} %",
+            app.cfg.ui_scale.max(0.7) * 100.0
+        ));
+        return;
+    }
+    if m.command && k(Key::Num0) {
+        app.cfg.ui_scale = 1.0;
+        return;
+    }
+    if k(Key::F11) {
+        let fs = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fs));
+    }
+    if app.modal_open() {
+        return;
+    }
     if k(Key::Escape) {
         if app.drawer {
             app.drawer = false;
+        } else if app.text_panel {
+            app.text_panel = false;
         } else if matches!(app.view, View::Gallery | View::Burst) {
             app.view = if app.folder.is_some() && app.current().is_some() || app.view == View::Burst
             {
@@ -144,49 +223,60 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
                 View::Home
             };
         }
-    }
-    if k(Key::F11) {
-        let fs = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fs));
+        return;
     }
     if m.command && k(Key::B) {
         app.drawer = !app.drawer;
+        return;
     }
-    let undo = k(Key::Backspace) || (m.command && k(Key::Z));
+    let undo = app.pressed(&ctx, "undo") || (m.command && k(Key::Z));
     match app.view {
         View::Swipe => {
-            if k(Key::ArrowRight) || k(Key::D) {
+            if app.pressed(&ctx, "keep") {
                 app.decide(true, now, width);
             }
-            if k(Key::ArrowLeft) || k(Key::A) {
+            if app.pressed(&ctx, "skip") {
                 app.decide(false, now, width);
             }
             if undo {
                 app.undo();
             }
-            if k(Key::R) {
+            if app.pressed(&ctx, "rot_r") {
                 app.rotate(if m.shift { -1 } else { 1 });
             }
-            if k(Key::L) {
+            if app.pressed(&ctx, "rot_l") {
                 app.rotate(-1);
             }
-            if k(Key::H) {
+            if app.pressed(&ctx, "orient") {
                 app.toggle_orientation();
             }
-            if k(Key::S) {
+            if app.pressed(&ctx, "fill") {
+                app.toggle_fill();
+            }
+            if app.pressed(&ctx, "text") {
+                app.text_panel = !app.text_panel;
+                if app.text_panel {
+                    app.cfg.text.enabled = true;
+                }
+            }
+            if app.pressed(&ctx, "burst") {
                 app.open_burst();
             }
-            if k(Key::Plus) || k(Key::Equals) {
+            if app.pressed(&ctx, "gallery") {
+                app.finish_anim();
+                app.view = View::Gallery;
+            }
+            if app.pressed(&ctx, "zoom_in") {
                 if let Some(e) = app.edit_mut() {
                     e.zoom *= 1.12;
                 }
             }
-            if k(Key::Minus) {
+            if app.pressed(&ctx, "zoom_out") {
                 if let Some(e) = app.edit_mut() {
                     e.zoom /= 1.12;
                 }
             }
-            if k(Key::Num0) {
+            if app.pressed(&ctx, "reset") {
                 if let Some(e) = app.edit_mut() {
                     e.reset_crop();
                 }
@@ -198,6 +288,9 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
             }
             if k(Key::Enter) {
                 start_from_home(app);
+            }
+            if app.pressed(&ctx, "gallery") && app.total_kept > 0 {
+                app.view = View::Gallery;
             }
         }
         View::Burst => {
@@ -223,7 +316,45 @@ fn start_from_home(app: &mut SwiperApp) {
 
 // ------------------------------------------------------------------ Startbildschirm
 
+fn update_chip(app: &SwiperApp, ui: &mut Ui, right: f32, top: f32) {
+    let Some(v) = app.update.lock().unwrap().clone() else {
+        return;
+    };
+    let t = format!("Neue Version {v} herunterladen");
+    let w = ui.fonts_mut(|f| {
+        f.layout_no_wrap(t.clone(), FontId::proportional(13.0), BLUE)
+            .size()
+            .x
+    }) + 28.0;
+    let r = Rect::from_min_size(pos2(right - w, top + 4.0), vec2(w, 28.0));
+    let resp = ui
+        .interact(r, ui.make_persistent_id("update_chip"), Sense::click())
+        .on_hover_text("Öffnet die Download-Seite. Einfach die alte .exe durch die neue ersetzen.");
+    ui.painter().rect(
+        r,
+        14.0,
+        if resp.hovered() {
+            surface_hi()
+        } else {
+            surface()
+        },
+        Stroke::new(1.0, BLUE),
+        StrokeKind::Inside,
+    );
+    ui.painter().text(
+        r.center(),
+        Align2::CENTER_CENTER,
+        t,
+        FontId::proportional(13.0),
+        BLUE,
+    );
+    if resp.clicked() {
+        system::open_url(system::RELEASE_PAGE);
+    }
+}
+
 fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
+    let now = ui.input(|i| i.time);
     // Menü oben links
     let menu = Rect::from_min_size(ws.min, vec2(36.0, 36.0));
     if icon_button(ui, menu, Icon::Menu, false, true)
@@ -241,6 +372,7 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             app.view = View::Gallery;
         }
     }
+    update_chip(app, ui, ws.right() - 44.0, ws.top());
 
     let inner = ws.shrink2(vec2(ws.width() * 0.04, 0.0));
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(Rect::from_min_max(
@@ -255,7 +387,7 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             let kept = app.folders.iter().find(|f| f.path == done).map(|f| f.kept).unwrap_or(0);
             ui.label(egui::RichText::new(format!("Fertig mit „{label}“!")).font(bold(28.0)));
             ui.add_space(4.0);
-            ui.label(egui::RichText::new(format!("{} Bilder behalten  ·  insgesamt {} im Zielordner", fmt_int(kept), fmt_int(app.total_kept))).size(15.0).color(MUTED));
+            ui.label(egui::RichText::new(format!("{} behalten  ·  insgesamt {} im Zielordner", bilder(kept), fmt_int(app.total_kept))).size(15.0).color(muted()));
             ui.add_space(16.0);
             let next = app.suggestion().map(|f| (f.path.clone(), f.label.clone(), f.open()));
             if let Some((p, l, open)) = next {
@@ -263,14 +395,38 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                     app.start_folder(p, None);
                 }
             } else {
-                ui.label(egui::RichText::new("Alle Ordner sind durch. Füge neue hinzu oder sieh dir die behaltenen Bilder an.").size(15.0).color(MUTED));
-                ui.add_space(6.0);
-                if big_button(ui, "Zielordner öffnen", true).clicked() {
-                    open_folder(&app.cfg.target);
+                let st = app.stats(now);
+                ui.label(egui::RichText::new("Alle Ordner sind durch!").size(16.0).color(text()));
+                ui.add_space(4.0);
+                ui.label(
+                    egui::RichText::new(format!(
+                        "Im Zielordner: {}  ·  {} quer  ·  {} hochkant  ·  {}",
+                        bilder(st.quer + st.hoch),
+                        fmt_int(st.quer),
+                        fmt_int(st.hoch),
+                        system::fmt_bytes(st.bytes)
+                    ))
+                    .size(14.0)
+                    .color(muted()),
+                );
+                ui.add_space(10.0);
+                if big_button(ui, "Auf USB-Stick / SD-Karte kopieren", true).clicked() {
+                    app.dialog = Some(Dialog::Copy);
                 }
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    let w = 168.0 * 2.0 + 8.0;
+                    ui.add_space((ui.available_width() - w).max(0.0) / 2.0);
+                    if ui.add(egui::Button::new("Behaltene ansehen").min_size(vec2(168.0, 34.0))).clicked() {
+                        app.view = View::Gallery;
+                    }
+                    if ui.add(egui::Button::new("Zielordner öffnen").min_size(vec2(168.0, 34.0))).clicked() {
+                        open_folder(&app.cfg.target);
+                    }
+                });
             }
             ui.add_space(10.0);
-            ui.label(egui::RichText::new("oder einen anderen Ordner wählen:").size(13.0).color(MUTED));
+            ui.label(egui::RichText::new("oder einen anderen Ordner wählen:").size(13.0).color(muted()));
         } else {
             ui.label(egui::RichText::new("Welche Fotos möchtest du durchgehen?").font(bold(28.0)));
             ui.add_space(4.0);
@@ -279,7 +435,7 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             } else {
                 "Wähle einen oder mehrere Ordner. Fertige Ordner bleiben mit ihrem Fortschritt hier.".to_string()
             };
-            ui.label(egui::RichText::new(sub).size(15.0).color(MUTED));
+            ui.label(egui::RichText::new(sub).size(15.0).color(muted()));
         }
         if app.cfg.goal > 0 {
             ui.add_space(6.0);
@@ -335,15 +491,11 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                     if i == app.folders.len() {
                         let resp =
                             ui.interact(r, ui.make_persistent_id("add_tile"), Sense::click());
-                        let col = if resp.hovered() { TEXT } else { MUTED };
+                        let col = if resp.hovered() { text() } else { muted() };
                         dashed_rect(
                             ui.painter(),
                             r,
-                            if resp.hovered() {
-                                BLUE
-                            } else {
-                                Color32::from_rgb(0x3b, 0x3f, 0x4d)
-                            },
+                            if resp.hovered() { BLUE } else { border_hi() },
                         );
                         ui.painter().text(
                             r.center(),
@@ -362,15 +514,11 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                     let resp =
                         ui.interact(r, ui.make_persistent_id(("tile", &f.path)), Sense::click());
                     let finished = f.open() == 0;
-                    let fill = if resp.hovered() {
-                        Color32::from_rgb(0x22, 0x25, 0x2e)
-                    } else {
-                        CARD
-                    };
+                    let fill = if resp.hovered() { hover() } else { card() };
                     let stroke = if sel {
                         Stroke::new(1.5, BLUE)
                     } else {
-                        Stroke::new(1.0, BORDER)
+                        Stroke::new(1.0, border())
                     };
                     ui.painter().rect(r, 14.0, fill, stroke, StrokeKind::Inside);
                     let alpha = if finished && !sel { 0.55 } else { 1.0 };
@@ -385,7 +533,7 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                                     .with_texture(id, uv),
                             );
                         } else {
-                            ui.painter().rect_filled(th, 8.0, SURFACE);
+                            ui.painter().rect_filled(th, 8.0, surface());
                         }
                     }
                     let tx = th.right() + 14.0;
@@ -405,7 +553,7 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                         ui.painter().rect_stroke(
                             cb,
                             4.0,
-                            Stroke::new(1.5, Color32::from_rgb(0x5a, 0x5e, 0x6e)),
+                            Stroke::new(1.5, dim()),
                             StrokeKind::Inside,
                         );
                     }
@@ -413,20 +561,20 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                     let g = ui.painter().layout(
                         f.label.clone(),
                         bold(15.0),
-                        TEXT.gamma_multiply(alpha),
+                        text().gamma_multiply(alpha),
                         maxw,
                     );
                     let g = if g.rows.len() > 1 {
                         ui.painter().layout_no_wrap(
                             ellipsize(&f.label, 26),
                             bold(15.0),
-                            TEXT.gamma_multiply(alpha),
+                            text().gamma_multiply(alpha),
                         )
                     } else {
                         g
                     };
                     ui.painter()
-                        .galley(pos2(cb.right() + 8.0, r.top() + 12.0), g, TEXT);
+                        .galley(pos2(cb.right() + 8.0, r.top() + 12.0), g, text());
                     let info = if finished {
                         format!(
                             "{} Fotos  ·  ✓ fertig  ·  {} behalten",
@@ -448,13 +596,13 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                         Align2::LEFT_CENTER,
                         info,
                         FontId::proportional(12.5),
-                        MUTED.gamma_multiply(alpha),
+                        muted().gamma_multiply(alpha),
                     );
                     let bar = Rect::from_min_max(
                         pos2(tx, r.bottom() - 18.0),
                         pos2(r.right() - 14.0, r.bottom() - 14.0),
                     );
-                    ui.painter().rect_filled(bar, 2.0, SURFACE);
+                    ui.painter().rect_filled(bar, 2.0, surface());
                     if f.total > 0 && f.done > 0 {
                         let w = bar.width() * f.done as f32 / f.total as f32;
                         ui.painter().rect_filled(
@@ -472,7 +620,7 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                         let xresp = ui
                             .interact(xr, ui.make_persistent_id(("x", &f.path)), Sense::click())
                             .on_hover_text("Aus der Liste entfernen (Fotos bleiben erhalten)");
-                        let col = if xresp.hovered() { RED } else { MUTED };
+                        let col = if xresp.hovered() { RED } else { muted() };
                         ui.painter().line_segment(
                             [xr.center() + vec2(-5.0, -5.0), xr.center() + vec2(5.0, 5.0)],
                             Stroke::new(1.6, col),
@@ -554,7 +702,7 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             .fill(if open > 0 || app.folders.is_empty() {
                 BLUE
             } else {
-                SURFACE
+                surface()
             })
             .corner_radius(12),
         );
@@ -576,16 +724,16 @@ fn home_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         let info = format!(
             "oder Ordner aus dem Explorer hierher ziehen  ·  Ziel: {}  ·  Quer {}  ·  Hochkant {}",
             app.cfg.target.display(),
-            app.cfg.ratio_quer,
-            app.cfg.ratio_hoch
+            app.ratio_label(Orient::Quer),
+            app.ratio_label(Orient::Hochkant)
         );
         let g = ui
             .painter()
-            .layout(info, FontId::proportional(12.0), DIM, ws.width() * 0.8);
+            .layout(info, FontId::proportional(12.0), dim(), ws.width() * 0.8);
         ui.painter().galley(
             pos2(ws.center().x - g.size().x / 2.0, r.bottom() + 12.0),
             g,
-            DIM,
+            dim(),
         );
     }
 }
@@ -596,7 +744,7 @@ fn big_button(ui: &mut Ui, text: &str, primary: bool) -> egui::Response {
             .font(bold(16.0))
             .color(Color32::WHITE),
     )
-    .fill(if primary { BLUE } else { SURFACE })
+    .fill(if primary { BLUE } else { surface() })
     .corner_radius(12)
     .min_size(vec2(340.0, 48.0));
     ui.add(b)
@@ -655,6 +803,7 @@ fn contain(img: egui::Vec2, area: Rect) -> Rect {
 fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
     // obere Leiste
     let top = Rect::from_min_size(ws.min, vec2(ws.width(), 36.0));
+    app.spots.menu = Some(Rect::from_min_size(top.min, vec2(36.0, 36.0)));
     if icon_button(
         ui,
         Rect::from_min_size(top.min, vec2(36.0, 36.0)),
@@ -683,22 +832,28 @@ fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
         return;
     }
     let orient = app.orientation_now();
-    let l1 = format!("Quer {}", app.cfg.ratio_quer);
-    let l2 = format!("Hochkant {}", app.cfg.ratio_hoch);
+    let l1 = format!("Quer {}", app.ratio_label(Orient::Quer));
+    let l2 = format!("Hochkant {}", app.ratio_label(Orient::Hochkant));
     let font = FontId::proportional(14.0);
-    let w1 = ui.fonts_mut(|f| f.layout_no_wrap(l1.clone(), font.clone(), TEXT).size().x) + 32.0;
-    let w2 = ui.fonts_mut(|f| f.layout_no_wrap(l2.clone(), font.clone(), TEXT).size().x) + 32.0;
+    let w1 = ui.fonts_mut(|f| f.layout_no_wrap(l1.clone(), font.clone(), text()).size().x) + 32.0;
+    let w2 = ui.fonts_mut(|f| f.layout_no_wrap(l2.clone(), font.clone(), text()).size().x) + 32.0;
     let x0 = top.center().x - (w1 + w2 + 10.0) / 2.0;
     let r1 = Rect::from_min_size(pos2(x0, top.min.y + 3.0), vec2(w1, 30.0));
     let r2 = Rect::from_min_size(pos2(x0 + w1 + 10.0, top.min.y + 3.0), vec2(w2, 30.0));
     if pill(ui, r1, &l1, orient == Some(Orient::Quer))
-        .on_hover_text("Dieses Bild quer zuschneiden (H)")
+        .on_hover_text(format!(
+            "Dieses Bild quer zuschneiden ({})",
+            app.key_label("orient")
+        ))
         .clicked()
     {
         app.set_orientation(Orient::Quer);
     }
     if pill(ui, r2, &l2, orient == Some(Orient::Hochkant))
-        .on_hover_text("Dieses Bild hochkant zuschneiden (H)")
+        .on_hover_text(format!(
+            "Dieses Bild hochkant zuschneiden ({})",
+            app.key_label("orient")
+        ))
         .clicked()
     {
         app.set_orientation(Orient::Hochkant);
@@ -726,9 +881,9 @@ fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
         kr,
         15.0,
         if kresp.hovered() {
-            Color32::from_rgb(0x17, 0x2e, 0x20)
+            kept_hover()
         } else {
-            Color32::from_rgb(0x15, 0x24, 0x1b)
+            kept_bg()
         },
     );
     ui.painter().text(
@@ -758,22 +913,20 @@ fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
         fmt_int(app.folder_done()),
         fmt_int(app.items.len())
     );
-    let g = ui.painter().layout_no_wrap(
-        counter,
-        FontId::proportional(13.5),
-        Color32::from_rgb(0xaa, 0xaa, 0xbb),
-    );
+    let g = ui
+        .painter()
+        .layout_no_wrap(counter, FontId::proportional(13.5), soft());
     let gp = pos2(
         kr.left() - 12.0 - g.size().x,
         top.center().y - g.size().y / 2.0,
     );
     if gp.x > r2.right() + 10.0 {
-        ui.painter().galley(gp, g, TEXT);
+        ui.painter().galley(gp, g, text());
     }
 
     // Fortschritt im Ordner
     let bar = Rect::from_min_size(pos2(ws.left(), top.bottom() + 8.0), vec2(ws.width(), 4.0));
-    ui.painter().rect_filled(bar, 2.0, SURFACE);
+    ui.painter().rect_filled(bar, 2.0, surface());
     let done = app.folder_done();
     if !app.items.is_empty() && done > 0 {
         let f = done as f32 / app.items.len() as f32;
@@ -796,9 +949,12 @@ fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
             .iter()
             .filter(|p| !app.status.bilder.contains_key(*p))
             .count();
-        let text = format!("Serie: {open} ähnliche Fotos  ·  Vergleichen (S)");
+        let chip = format!(
+            "Serie: {open} ähnliche Fotos  ·  Vergleichen ({})",
+            app.key_label("burst")
+        );
         let w = ui.fonts_mut(|f| {
-            f.layout_no_wrap(text.clone(), FontId::proportional(13.0), TEXT)
+            f.layout_no_wrap(chip.clone(), FontId::proportional(13.0), text())
                 .size()
                 .x
         }) + 30.0;
@@ -808,9 +964,9 @@ fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
             r,
             14.0,
             if resp.hovered() {
-                Color32::from_rgb(0x3a, 0x2e, 0x10)
+                amber_hover()
             } else {
-                Color32::from_rgb(0x2a, 0x22, 0x10)
+                amber_bg()
             },
             Stroke::new(1.0, AMBER),
             StrokeKind::Inside,
@@ -818,7 +974,7 @@ fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
         ui.painter().text(
             r.center(),
             Align2::CENTER_CENTER,
-            text,
+            chip,
             FontId::proportional(13.0),
             AMBER,
         );
@@ -828,8 +984,10 @@ fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
         card_top += 34.0;
     }
 
+    // offenes Text-Feld bekommt links seinen eigenen Platz
+    let panel_w = if app.text_panel { 300.0 } else { 0.0 };
     let card_area = Rect::from_min_max(
-        pos2(ws.left(), card_top),
+        pos2(ws.left() + panel_w, card_top),
         pos2(ws.right(), ws.bottom() - strip_h - buttons_h - hint_h),
     );
     let strip = Rect::from_min_max(
@@ -853,16 +1011,26 @@ fn swipe_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, now: f64) {
                 fmt_int(t)
             ),
             FontId::proportional(17.0),
-            MUTED,
+            muted(),
         );
         return;
     }
     if app.view != View::Swipe {
         return;
     }
+    app.spots.card = Some(card_area);
+    app.spots.strip = Some(strip);
+    app.spots.buttons = Some(Rect::from_center_size(buttons.center(), vec2(560.0, 84.0)));
     card_ui(app, ui, card_area, now);
     filmstrip_ui(app, ui, strip);
     buttons_ui(app, ui, buttons, now, card_area.width());
+    if app.text_panel && !app.drawer {
+        text_panel_ui(
+            app,
+            ui,
+            Rect::from_min_max(pos2(ws.left(), card_area.top()), card_area.max),
+        );
+    }
 }
 
 fn run_anim(app: &mut SwiperApp, ui: &Ui, now: f64) {
@@ -904,14 +1072,20 @@ fn card_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
             Align2::CENTER_CENTER,
             msg,
             FontId::proportional(16.0),
-            MUTED,
+            muted(),
         );
         return;
     };
 
     let avail = area.shrink2(vec2(12.0, 14.0));
-    let s = (avail.width() / size.x).min(avail.height() / size.y);
-    let card = Rect::from_center_size(avail.center(), size * s).translate(vec2(app.dx, app.dy));
+    let orient = edit.orientation(size.x as u32, size.y as u32);
+    let ratio = app.output_settings().ratio(orient);
+    let fill = edit.fill;
+    // Im Füll-Modus zeigt die Karte gleich das fertige Rahmenbild.
+    let shape = if fill { vec2(ratio, 1.0) } else { size };
+    let s = (avail.width() / shape.x).min(avail.height() / shape.y);
+    let card = Rect::from_center_size(avail.center(), shape * s).translate(vec2(app.dx, app.dy));
+    let s = if fill { 1.0 } else { s };
     let angle = app.dx / area.width().max(1.0) * 0.26;
     let pivot = card.center();
     let rot = Rot2::from_angle(angle);
@@ -927,7 +1101,7 @@ fn card_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
         app.dx += d.x;
         app.dy += d.y * 0.3;
     }
-    if resp.dragged_by(PointerButton::Secondary) {
+    if resp.dragged_by(PointerButton::Secondary) && !fill {
         let d = resp.drag_delta();
         edit.cx += d.x / card.width();
         edit.cy += d.y / card.height();
@@ -958,10 +1132,10 @@ fn card_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
     }
     if resp.hovered() {
         let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
-        if scroll != 0.0 {
+        if scroll != 0.0 && !fill {
             edit.zoom *= (scroll * 0.003).exp();
         }
-        if zoom != 1.0 {
+        if zoom != 1.0 && !fill {
             edit.zoom *= zoom;
         }
         ui.ctx().set_cursor_icon(if app.swiping {
@@ -971,8 +1145,6 @@ fn card_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
         });
     }
 
-    let orient = edit.orientation(size.x as u32, size.y as u32);
-    let ratio = app.output_settings().ratio(orient);
     let (x, y, cw, ch) = imaging::crop_rect(size.x, size.y, ratio, &mut edit);
     if let Some(p) = app.current().cloned() {
         app.edits.insert(p, edit);
@@ -987,62 +1159,110 @@ fn card_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
                 .with_angle_and_pivot(angle, pivot),
         );
     }
-    painter.add(
-        RectShape::filled(card, radius, Color32::WHITE)
-            .with_texture(tex_id, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)))
+    let full_uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
+    let out_r = if fill {
+        let blur_id = app.tex.as_ref().map(|t| t.blur.id()).unwrap_or(tex_id);
+        painter.add(
+            RectShape::filled(card, radius, Color32::from_gray(158))
+                .with_texture(blur_id, cover_uv(size, card.size()))
+                .with_angle_and_pivot(angle, pivot),
+        );
+        let photo = contain(size, card);
+        painter.add(
+            RectShape::filled(photo, 0.0, Color32::WHITE)
+                .with_texture(tex_id, full_uv)
+                .with_angle_and_pivot(angle, pivot),
+        );
+        painter.add(
+            RectShape::stroke(
+                card,
+                radius,
+                Stroke::new(2.0, Color32::from_white_alpha(200)),
+                StrokeKind::Inside,
+            )
             .with_angle_and_pivot(angle, pivot),
-    );
-    let cr = Rect::from_min_size(card.min + vec2(x * s, y * s), vec2(cw * s, ch * s));
-    let dark = Color32::from_black_alpha(150);
-    let bands = [
-        Rect::from_min_max(card.min, pos2(card.right(), cr.top())),
-        Rect::from_min_max(pos2(card.left(), cr.bottom()), card.max),
-        Rect::from_min_max(pos2(card.left(), cr.top()), pos2(cr.left(), cr.bottom())),
-        Rect::from_min_max(pos2(cr.right(), cr.top()), pos2(card.right(), cr.bottom())),
-    ];
-    for b in bands {
-        if b.width() < 0.5 || b.height() < 0.5 {
-            continue;
+        );
+        card
+    } else {
+        painter.add(
+            RectShape::filled(card, radius, Color32::WHITE)
+                .with_texture(tex_id, full_uv)
+                .with_angle_and_pivot(angle, pivot),
+        );
+        let cr = Rect::from_min_size(card.min + vec2(x * s, y * s), vec2(cw * s, ch * s));
+        let dark = Color32::from_black_alpha(150);
+        let bands = [
+            Rect::from_min_max(card.min, pos2(card.right(), cr.top())),
+            Rect::from_min_max(pos2(card.left(), cr.bottom()), card.max),
+            Rect::from_min_max(pos2(card.left(), cr.top()), pos2(cr.left(), cr.bottom())),
+            Rect::from_min_max(pos2(cr.right(), cr.top()), pos2(card.right(), cr.bottom())),
+        ];
+        for b in bands {
+            if b.width() < 0.5 || b.height() < 0.5 {
+                continue;
+            }
+            let near = |a: f32, b: f32| (a - b).abs() < 0.75;
+            let rr = |c: bool| if c { radius as u8 } else { 0 };
+            let crad = CornerRadius {
+                nw: rr(near(b.left(), card.left()) && near(b.top(), card.top())),
+                ne: rr(near(b.right(), card.right()) && near(b.top(), card.top())),
+                sw: rr(near(b.left(), card.left()) && near(b.bottom(), card.bottom())),
+                se: rr(near(b.right(), card.right()) && near(b.bottom(), card.bottom())),
+            };
+            painter.add(RectShape::filled(b, crad, dark).with_angle_and_pivot(angle, pivot));
         }
-        let near = |a: f32, b: f32| (a - b).abs() < 0.75;
-        let rr = |c: bool| if c { radius as u8 } else { 0 };
-        let crad = CornerRadius {
-            nw: rr(near(b.left(), card.left()) && near(b.top(), card.top())),
-            ne: rr(near(b.right(), card.right()) && near(b.top(), card.top())),
-            sw: rr(near(b.left(), card.left()) && near(b.bottom(), card.bottom())),
-            se: rr(near(b.right(), card.right()) && near(b.bottom(), card.bottom())),
-        };
-        painter.add(RectShape::filled(b, crad, dark).with_angle_and_pivot(angle, pivot));
-    }
-    let thin = Stroke::new(1.0, Color32::from_white_alpha(70));
-    for k in [1.0 / 3.0, 2.0 / 3.0] {
-        let xx = cr.left() + cr.width() * k;
-        let yy = cr.top() + cr.height() * k;
-        painter.line_segment([tr(pos2(xx, cr.top())), tr(pos2(xx, cr.bottom()))], thin);
-        painter.line_segment([tr(pos2(cr.left(), yy)), tr(pos2(cr.right(), yy))], thin);
-    }
-    painter.add(
-        RectShape::stroke(
-            cr,
-            0.0,
-            Stroke::new(2.0, Color32::from_white_alpha(235)),
-            StrokeKind::Inside,
-        )
-        .with_angle_and_pivot(angle, pivot),
-    );
-    if edit.zoom > 1.001 {
+        let thin = Stroke::new(1.0, Color32::from_white_alpha(70));
+        for k in [1.0 / 3.0, 2.0 / 3.0] {
+            let xx = cr.left() + cr.width() * k;
+            let yy = cr.top() + cr.height() * k;
+            painter.line_segment([tr(pos2(xx, cr.top())), tr(pos2(xx, cr.bottom()))], thin);
+            painter.line_segment([tr(pos2(cr.left(), yy)), tr(pos2(cr.right(), yy))], thin);
+        }
+        painter.add(
+            RectShape::stroke(
+                cr,
+                0.0,
+                Stroke::new(2.0, Color32::from_white_alpha(235)),
+                StrokeKind::Inside,
+            )
+            .with_angle_and_pivot(angle, pivot),
+        );
+        if edit.zoom > 1.001 {
+            let g = painter.layout_no_wrap(
+                format!("{:.0} %", edit.zoom * 100.0),
+                FontId::proportional(12.0),
+                Color32::WHITE,
+            );
+            let p = tr(cr.right_top() + vec2(-g.size().x - 10.0, 8.0));
+            painter.add(Shape::Text(
+                TextShape::new(p, g, Color32::WHITE).with_angle(angle),
+            ));
+        }
+        cr
+    };
+    if fill {
         let g = painter.layout_no_wrap(
-            format!("{:.0} %", edit.zoom * 100.0),
+            "Ganzes Foto · unscharfer Hintergrund".into(),
             FontId::proportional(12.0),
             Color32::WHITE,
         );
-        let p = tr(cr.right_top() + vec2(-g.size().x - 10.0, 8.0));
+        let p = tr(card.left_top() + vec2(16.0, 12.0));
+        let bg_r = Rect::from_min_size(p - vec2(8.0, 4.0), g.size() + vec2(16.0, 8.0));
+        painter.add(
+            RectShape::filled(bg_r, 10.0, Color32::from_black_alpha(120))
+                .with_angle_and_pivot(angle, p),
+        );
         painter.add(Shape::Text(
             TextShape::new(p, g, Color32::WHITE).with_angle(angle),
         ));
     }
+    let overlay = app.current().and_then(|p| app.overlay_for(p));
+    if let Some(ov) = overlay {
+        preview_overlay(&painter, &ov, out_r, &tr, angle);
+    }
 
     // Info unten
+    let text_at_bottom = app.cfg.text.enabled && app.cfg.text.pos < 3;
     let strip = Rect::from_min_max(pos2(card.left(), card.bottom() - 64.0), card.max);
     let mut mesh = Mesh::default();
     let c0 = Color32::from_black_alpha(0);
@@ -1061,8 +1281,10 @@ fn card_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
     }
     mesh.add_triangle(0, 1, 2);
     mesh.add_triangle(0, 2, 3);
-    painter.add(Shape::mesh(mesh));
-    if let (Some(p), Some(Ok(pre))) = (app.current(), app.preview()) {
+    if !text_at_bottom {
+        painter.add(Shape::mesh(mesh));
+    }
+    if let (Some(p), Some(Ok(pre)), false) = (app.current(), app.preview(), text_at_bottom) {
         let info = format!(
             "{}  ·  {}",
             folders::file_name(p),
@@ -1118,6 +1340,80 @@ fn card_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) {
     }
 }
 
+/// Text so auf die Vorschau zeichnen, wie er später im Bild steht.
+fn preview_overlay(
+    painter: &egui::Painter,
+    o: &imaging::Overlay,
+    r: Rect,
+    tr: &dyn Fn(Pos2) -> Pos2,
+    angle: f32,
+) {
+    let lines: Vec<&str> = o
+        .lines
+        .iter()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+    if lines.is_empty() {
+        return;
+    }
+    let (px, margin, line_h) = o.metrics(r.width(), r.height());
+    let px = px.max(6.0);
+    let galleys: Vec<_> = lines
+        .iter()
+        .map(|l| painter.layout_no_wrap(l.to_string(), bold(px), Color32::WHITE))
+        .collect();
+    let block_w = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
+    let block_h =
+        line_h * (galleys.len() as f32 - 1.0) + galleys.last().map(|g| g.size().y).unwrap_or(0.0);
+    let col = o.pos % 3;
+    let top = o.pos >= 3;
+    let pad = if o.style == 1 { px * 0.45 } else { 0.0 };
+    let y0 = if top {
+        r.top() + margin + pad
+    } else {
+        r.bottom() - margin - pad - block_h
+    };
+    let x_for = |w: f32| match col {
+        0 => r.left() + margin + pad,
+        1 => r.center().x - w / 2.0,
+        _ => r.right() - margin - pad - w,
+    };
+    if o.style == 1 {
+        let br = Rect::from_min_size(
+            pos2(x_for(block_w) - pad, y0 - pad * 0.8),
+            vec2(block_w + pad * 2.0, block_h + pad * 1.6),
+        );
+        let c = tr(br.center());
+        painter.add(
+            RectShape::filled(
+                Rect::from_center_size(c, br.size()),
+                pad * 0.8,
+                Color32::from_black_alpha(107),
+            )
+            .with_angle(angle),
+        );
+    }
+    let alpha = if o.style == 2 { 0.72 } else { 0.96 };
+    for (i, g) in galleys.into_iter().enumerate() {
+        let p = pos2(x_for(g.size().x), y0 + i as f32 * line_h);
+        if o.style != 1 {
+            let off = (px * 0.06).max(1.0);
+            let sh = if o.style == 2 { 90 } else { 150 };
+            painter.add(Shape::Text(
+                TextShape::new(tr(p + vec2(off, off)), g.clone(), Color32::WHITE)
+                    .with_override_text_color(Color32::from_black_alpha(sh))
+                    .with_angle(angle),
+            ));
+        }
+        painter.add(Shape::Text(
+            TextShape::new(tr(p), g, Color32::WHITE)
+                .with_override_text_color(Color32::from_white_alpha((255.0 * alpha) as u8))
+                .with_angle(angle),
+        ));
+    }
+}
+
 fn filmstrip_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     let n = app.items.len();
     if n == 0 {
@@ -1159,13 +1455,13 @@ fn filmstrip_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                     .with_texture(id, cover_uv(size, r.size())),
             );
         } else {
-            ui.painter().rect_filled(r, 6.0, SURFACE);
+            ui.painter().rect_filled(r, 6.0, surface());
         }
         let stroke = match (is_cur, entry) {
             (true, _) => Stroke::new(2.0, BLUE),
             (_, Some(true)) => Stroke::new(2.0, GREEN),
             (_, Some(false)) => Stroke::new(2.0, RED.gamma_multiply(0.8)),
-            _ => Stroke::new(1.0, BORDER),
+            _ => Stroke::new(1.0, border()),
         };
         ui.painter()
             .rect_stroke(r, 6.0, stroke, StrokeKind::Outside);
@@ -1188,30 +1484,75 @@ fn filmstrip_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
 fn buttons_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) {
     let loaded = matches!(app.preview(), Some(Ok(_)));
     let cy = area.center().y;
-    let specs: [(Icon, f32, &str, bool); 5] = [
+    let k = |a: &str| app.key_label(a);
+    let fill_on = app.current_fill();
+    let text_on = app.text_panel
+        || (app.cfg.text.enabled && app.current().and_then(|p| app.overlay_for(p)).is_some());
+    let specs: [(Icon, f32, String, bool, bool); 7] = [
+        (
+            Icon::Text,
+            46.0,
+            format!("Text aufs Bild: Datum, Ort, Notiz ({})", k("text")),
+            loaded,
+            text_on,
+        ),
         (
             Icon::Undo,
             52.0,
-            "Rückgängig (Rücktaste)",
+            format!("Rückgängig ({})", k("undo")),
             !app.status.verlauf.is_empty(),
+            false,
         ),
-        (Icon::No, 74.0, "Weg (Pfeil links)", app.current().is_some()),
+        (
+            Icon::No,
+            74.0,
+            format!("Weg ({})", k("skip")),
+            app.current().is_some(),
+            false,
+        ),
         (
             Icon::Rotate,
             52.0,
-            "Drehen (R, Umschalt+R andersherum)",
+            format!("Drehen ({}, {} andersherum)", k("rot_r"), k("rot_l")),
             loaded,
+            false,
         ),
-        (Icon::Yes, 74.0, "Behalten (Pfeil rechts)", loaded),
-        (Icon::Swap, 52.0, "Quer/Hochkant wechseln (H)", loaded),
+        (
+            Icon::Yes,
+            74.0,
+            format!("Behalten ({})", k("keep")),
+            loaded,
+            false,
+        ),
+        (
+            Icon::Swap,
+            52.0,
+            format!("Quer/Hochkant wechseln ({})", k("orient")),
+            loaded,
+            false,
+        ),
+        (
+            Icon::Fill,
+            46.0,
+            format!(
+                "Ganzes Foto auf unscharfen Hintergrund statt zuschneiden ({})",
+                k("fill")
+            ),
+            loaded,
+            fill_on,
+        ),
     ];
-    let gap = 22.0;
-    let total: f32 = specs.iter().map(|s| s.1).sum::<f32>() + gap * 4.0;
+    let gap = 20.0;
+    let total: f32 = specs.iter().map(|s| s.1).sum::<f32>() + gap * (specs.len() as f32 - 1.0);
     let mut x = area.center().x - total / 2.0;
-    for (icon, d, tip, enabled) in specs {
+    for (icon, d, tip, enabled, active) in specs {
         let r = Rect::from_center_size(pos2(x + d / 2.0, cy), vec2(d, d));
         x += d + gap;
         let resp = icon_button(ui, r, icon, true, enabled).on_hover_text(tip);
+        if active {
+            ui.painter()
+                .circle_stroke(r.center(), d / 2.0 + 2.0, Stroke::new(2.0, BLUE));
+        }
         if resp.clicked() && enabled {
             match icon {
                 Icon::Undo => app.undo(),
@@ -1219,6 +1560,13 @@ fn buttons_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32
                 Icon::Yes => app.decide(true, now, width),
                 Icon::Rotate => app.rotate(1),
                 Icon::Swap => app.toggle_orientation(),
+                Icon::Fill => app.toggle_fill(),
+                Icon::Text => {
+                    app.text_panel = !app.text_panel;
+                    if app.text_panel {
+                        app.cfg.text.enabled = true;
+                    }
+                }
                 _ => {}
             }
         }
@@ -1247,14 +1595,24 @@ fn gallery_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         Align2::CENTER_CENTER,
         format!("Behaltene Bilder ({})", fmt_int(list.len())),
         bold(20.0),
-        TEXT,
+        text(),
     );
     let open = ui.put(
-        Rect::from_min_size(pos2(ws.right() - 170.0, top.top()), vec2(170.0, 34.0)),
+        Rect::from_min_size(pos2(ws.right() - 150.0, top.top()), vec2(150.0, 34.0)),
         egui::Button::new("Zielordner öffnen"),
     );
     if open.clicked() {
         open_folder(&app.cfg.target);
+    }
+    let copy = ui.put(
+        Rect::from_min_size(
+            pos2(ws.right() - 150.0 - 8.0 - 210.0, top.top()),
+            vec2(210.0, 34.0),
+        ),
+        egui::Button::new("Auf Stick / SD-Karte …"),
+    );
+    if copy.clicked() {
+        app.dialog = Some(Dialog::Copy);
     }
     if list.is_empty() {
         ui.painter().text(
@@ -1262,7 +1620,7 @@ fn gallery_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             Align2::CENTER_CENTER,
             "Noch keine Bilder behalten.",
             FontId::proportional(17.0),
-            MUTED,
+            muted(),
         );
         return;
     }
@@ -1294,7 +1652,7 @@ fn gallery_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                         vec2(tw, th),
                     );
                     let resp = ui.interact(r, ui.make_persistent_id(("g", i)), Sense::click());
-                    ui.painter().rect_filled(r, 10.0, CARD);
+                    ui.painter().rect_filled(r, 10.0, card());
                     if let Some((id, size)) = app.thumb(out) {
                         let ir = contain(size, r.shrink(4.0));
                         ui.painter().add(
@@ -1330,7 +1688,7 @@ fn gallery_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                             Align2::LEFT_CENTER,
                             format!("{}  ·  {folder}", ellipsize(&folders::file_name(src), 18)),
                             FontId::proportional(12.0),
-                            TEXT,
+                            text(),
                         );
                         let xr = Rect::from_min_size(
                             pos2(r.right() - 104.0, r.top() + 8.0),
@@ -1383,14 +1741,14 @@ fn burst_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         Align2::CENTER_CENTER,
         format!("Serie: {} ähnliche Fotos", items.len()),
         bold(22.0),
-        TEXT,
+        text(),
     );
     ui.painter().text(
         pos2(ws.center().x, top.top() + 48.0),
         Align2::CENTER_CENTER,
         "Klicke die Fotos an, die du behalten willst. Der Rest wird übersprungen.",
         FontId::proportional(14.0),
-        MUTED,
+        muted(),
     );
     let area = Rect::from_min_max(
         pos2(ws.left(), top.bottom() + 8.0),
@@ -1419,15 +1777,8 @@ fn burst_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         );
         let resp = ui.interact(r, ui.make_persistent_id(("burst", p)), Sense::click());
         let sel = app.burst_sel.contains(p);
-        ui.painter().rect_filled(
-            r,
-            12.0,
-            if resp.hovered() {
-                Color32::from_rgb(0x22, 0x25, 0x2e)
-            } else {
-                CARD
-            },
-        );
+        ui.painter()
+            .rect_filled(r, 12.0, if resp.hovered() { hover() } else { card() });
         let img = app.loader.get(p).and_then(|r| r.ok());
         let shown = if let Some(pre) = img {
             let size = vec2(pre.image.size[0] as f32, pre.image.size[1] as f32);
@@ -1484,7 +1835,7 @@ fn burst_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                 Align2::LEFT_BOTTOM,
                 format!("{}  ·  {}", folders::file_name(p), when.format("%H:%M:%S")),
                 FontId::proportional(12.0),
-                TEXT,
+                text(),
             );
         }
         if resp.clicked() {
@@ -1554,8 +1905,8 @@ fn drawer_ui(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         .fixed_pos(r.min)
         .show(ui.ctx(), |ui| {
             egui::Frame::new()
-                .fill(SIDEBAR)
-                .stroke(Stroke::new(1.0, BORDER))
+                .fill(sidebar())
+                .stroke(Stroke::new(1.0, border()))
                 .corner_radius(14)
                 .shadow(egui::Shadow {
                     offset: [0, 12],
@@ -1608,7 +1959,7 @@ fn drawer_contents(app: &mut SwiperApp, ui: &mut Ui) {
         egui::Label::new(
             egui::RichText::new(app.cfg.target.display().to_string())
                 .size(12.5)
-                .color(Color32::from_rgb(0xb9, 0xbc, 0xcb)),
+                .color(soft()),
         )
         .wrap(),
     );
@@ -1628,47 +1979,133 @@ fn drawer_contents(app: &mut SwiperApp, ui: &mut Ui) {
         }
     });
     ui.colored_label(
-        MUTED,
+        muted(),
         egui::RichText::new("Darin entstehen die Ordner „Quer“ und „Hochkant“.").size(11.5),
     );
     ui.add_space(8.0);
 
-    section(ui, "Format");
-    ratio_ui(
-        ui,
-        "Quer",
-        "fmt_quer",
-        QUER_FORMATS,
-        &mut app.cfg.ratio_quer,
-        &mut app.custom_quer,
-    );
-    ratio_ui(
-        ui,
-        "Hochkant",
-        "fmt_hoch",
-        HOCH_FORMATS,
-        &mut app.cfg.ratio_hoch,
-        &mut app.custom_hoch,
-    );
+    if ui.add(button("Auf Stick / SD-Karte kopieren …")).clicked() {
+        app.dialog = Some(Dialog::Copy);
+        app.drawer = false;
+    }
     ui.add_space(8.0);
 
-    section(ui, "Größe");
-    ui.horizontal(|ui| {
-        ui.add_sized([78.0, 20.0], egui::Label::new("Auflösung"));
-        egui::ComboBox::from_id_salt("res")
-            .width(ui.available_width())
-            .selected_text(
-                RESOLUTIONS
-                    .get(app.cfg.res_idx)
-                    .map(|r| r.0)
-                    .unwrap_or(RESOLUTIONS[0].0),
-            )
-            .show_ui(ui, |ui| {
-                for (i, (name, _)) in RESOLUTIONS.iter().enumerate() {
-                    ui.selectable_value(&mut app.cfg.res_idx, i, *name);
+    section(ui, "Bilderrahmen");
+    let shown = if app.cfg.frame.is_empty() {
+        "Kein Profil (Format selbst wählen)".to_string()
+    } else if app.custom_frame {
+        "Eigene Auflösung".to_string()
+    } else {
+        FRAMES
+            .iter()
+            .find(|f| f.1 == app.cfg.frame)
+            .map(|f| f.0.to_string())
+            .unwrap_or_else(|| app.cfg.frame.clone())
+    };
+    egui::ComboBox::from_id_salt("frame")
+        .width(ui.available_width())
+        .selected_text(shown)
+        .show_ui(ui, |ui| {
+            if ui
+                .selectable_label(
+                    app.cfg.frame.is_empty(),
+                    "Kein Profil (Format selbst wählen)",
+                )
+                .clicked()
+            {
+                app.cfg.frame.clear();
+                app.custom_frame = false;
+            }
+            for (name, res) in FRAMES {
+                if ui
+                    .selectable_label(!app.custom_frame && app.cfg.frame == *res, *name)
+                    .clicked()
+                {
+                    app.cfg.frame = res.to_string();
+                    app.custom_frame = false;
                 }
-            });
-    });
+            }
+            if ui
+                .selectable_label(app.custom_frame, "Eigene Auflösung …")
+                .clicked()
+            {
+                app.custom_frame = true;
+                if app.cfg.frame.is_empty() {
+                    app.cfg.frame = "1280x800".into();
+                }
+            }
+        });
+    if app.custom_frame {
+        let ok = app.frame_res().is_some();
+        let mut te = egui::TextEdit::singleline(&mut app.cfg.frame)
+            .hint_text("Auflösung, z. B. 1280x800")
+            .desired_width(ui.available_width());
+        if !ok {
+            te = te.text_color(RED);
+        }
+        ui.add(te)
+            .on_hover_text("Steht meist auf dem Karton oder in der Anleitung des Rahmens.");
+    }
+    if let Some((l, sh)) = app.frame_res() {
+        ui.colored_label(
+            muted(),
+            egui::RichText::new(format!(
+                "Quer {} · Hochkant {} · höchstens {l} × {sh} Pixel. Format und Auflösung stellen sich danach ein.",
+                app.ratio_label(Orient::Quer),
+                app.ratio_label(Orient::Hochkant)
+            ))
+            .size(11.5),
+        );
+    } else {
+        ui.colored_label(
+            muted(),
+            egui::RichText::new("Wähl die Auflösung deines Rahmens, dann passt alles automatisch.")
+                .size(11.5),
+        );
+    }
+    ui.add_space(8.0);
+
+    let profile = app.frame_res().is_some();
+    if !profile {
+        section(ui, "Format");
+        ratio_ui(
+            ui,
+            "Quer",
+            "fmt_quer",
+            QUER_FORMATS,
+            &mut app.cfg.ratio_quer,
+            &mut app.custom_quer,
+        );
+        ratio_ui(
+            ui,
+            "Hochkant",
+            "fmt_hoch",
+            HOCH_FORMATS,
+            &mut app.cfg.ratio_hoch,
+            &mut app.custom_hoch,
+        );
+        ui.add_space(8.0);
+    }
+
+    section(ui, "Größe");
+    if !profile {
+        ui.horizontal(|ui| {
+            ui.add_sized([78.0, 20.0], egui::Label::new("Auflösung"));
+            egui::ComboBox::from_id_salt("res")
+                .width(ui.available_width())
+                .selected_text(
+                    RESOLUTIONS
+                        .get(app.cfg.res_idx)
+                        .map(|r| r.0)
+                        .unwrap_or(RESOLUTIONS[0].0),
+                )
+                .show_ui(ui, |ui| {
+                    for (i, (name, _)) in RESOLUTIONS.iter().enumerate() {
+                        ui.selectable_value(&mut app.cfg.res_idx, i, *name);
+                    }
+                });
+        });
+    }
     ui.horizontal(|ui| {
         ui.add_sized([78.0, 20.0], egui::Label::new("Max. Datei"));
         ui.add(
@@ -1697,6 +2134,24 @@ fn drawer_contents(app: &mut SwiperApp, ui: &mut Ui) {
     });
     ui.add_space(8.0);
 
+    section(ui, "Text aufs Bild");
+    ui.checkbox(
+        &mut app.cfg.text.enabled,
+        "Datum, Ort oder Notiz aufs Bild schreiben",
+    );
+    if app.cfg.text.enabled {
+        text_settings_ui(app, ui, "drawer");
+        ui.colored_label(
+            muted(),
+            egui::RichText::new(format!(
+                "Ort und Notiz trägst du direkt am Bild ein (Taste {} oder „Aa“).",
+                app.key_label("text")
+            ))
+            .size(11.5),
+        );
+    }
+    ui.add_space(8.0);
+
     section(ui, "Ziel");
     ui.horizontal(|ui| {
         ui.add_sized([78.0, 20.0], egui::Label::new("Bilder"));
@@ -1722,10 +2177,79 @@ fn drawer_contents(app: &mut SwiperApp, ui: &mut Ui) {
             app.goal_announced = app.cfg.goal > 0 && app.total_kept >= app.cfg.goal as usize;
         }
     });
+    ui.add_space(8.0);
+
+    section(ui, "Darstellung");
+    ui.horizontal(|ui| {
+        ui.add_sized([78.0, 20.0], egui::Label::new("Farben"));
+        let names = ["wie Windows", "dunkel", "hell"];
+        egui::ComboBox::from_id_salt("theme")
+            .width(ui.available_width())
+            .selected_text(names[(app.cfg.theme as usize).min(2)])
+            .show_ui(ui, |ui| {
+                for (i, n) in names.iter().enumerate() {
+                    ui.selectable_value(&mut app.cfg.theme, i as u8, *n);
+                }
+            });
+    });
+    ui.horizontal(|ui| {
+        ui.add_sized([78.0, 20.0], egui::Label::new("Schrift"));
+        let mut pct = (app.cfg.ui_scale * 100.0).round();
+        let r = ui.add(
+            egui::Slider::new(&mut pct, 70.0..=180.0)
+                .step_by(10.0)
+                .suffix(" %"),
+        );
+        if r.drag_stopped() || (r.changed() && !r.dragged()) {
+            app.cfg.ui_scale = pct / 100.0;
+        }
+        r.on_hover_text("Auch mit Strg + und Strg − (Strg 0 = normal)");
+    });
+    ui.add_space(8.0);
+
+    section(ui, "Bedienung");
+    ui.horizontal(|ui| {
+        if ui.add(button("Tasten ändern …")).clicked() {
+            app.dialog = Some(Dialog::Keys);
+            app.drawer = false;
+        }
+        if ui.add(button("Einführung zeigen")).clicked() {
+            app.cfg.intro_done = false;
+            app.intro_step = None;
+            app.drawer = false;
+            if app.view != View::Swipe {
+                app.toast("Die Einführung startet, sobald du Fotos durchgehst.".into());
+            }
+        }
+    });
     ui.add_space(12.0);
     ui.colored_label(
-        MUTED,
+        muted(),
         egui::RichText::new("Einstellungen gelten für alle Bilder, die du ab jetzt behältst.")
             .size(11.5),
     );
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ui.colored_label(
+            dim(),
+            egui::RichText::new(format!("Version {}", system::VERSION)).size(11.5),
+        );
+        if ui
+            .add(egui::Button::new(egui::RichText::new("Fehlerprotokoll").size(11.5)).frame(false))
+            .on_hover_text(system::log_path().display().to_string())
+            .clicked()
+        {
+            system::open_file(&system::log_path());
+        }
+    });
+    if let Some(v) = app.update.lock().unwrap().clone() {
+        if ui
+            .add(egui::Button::new(
+                egui::RichText::new(format!("Neue Version {v} herunterladen")).color(BLUE),
+            ))
+            .clicked()
+        {
+            system::open_url(system::RELEASE_PAGE);
+        }
+    }
 }

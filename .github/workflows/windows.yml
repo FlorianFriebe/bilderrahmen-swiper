@@ -43,8 +43,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           gh release delete latest --cleanup-tag -y || true
           gh release create latest dist/Bilderrahmen-Swiper.exe dist/ANLEITUNG.md \
             --target "${{ github.sha }}" \
-            --title "Bilderrahmen-Swiper (neueste Version)" \
+            --title "Bilderrahmen-Swiper ${VERSION}" \
             --notes "Automatisch gebaut aus Commit ${{ github.sha }}. Einfach **Bilderrahmen-Swiper.exe** herunterladen und starten, keine Installation nötig. Anleitung: ANLEITUNG.md"

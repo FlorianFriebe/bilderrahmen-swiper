@@ -52,6 +52,8 @@ pub struct Edit {
     pub cx: f32,
     pub cy: f32,
     pub zoom: f32,
+    /// ganzes Foto auf unscharfen Hintergrund legen statt zuschneiden
+    pub fill: bool,
 }
 
 impl Default for Edit {
@@ -62,6 +64,7 @@ impl Default for Edit {
             cx: 0.5,
             cy: 0.5,
             zoom: 1.0,
+            fill: false,
         }
     }
 }
@@ -98,6 +101,29 @@ impl OutputSettings {
             Orient::Quer => self.ratio_quer,
             Orient::Hochkant => self.ratio_hoch,
         }
+    }
+}
+
+/// Text, der unauffällig aufs Bild geschrieben wird.
+#[derive(Clone, Debug, Default)]
+pub struct Overlay {
+    pub lines: Vec<String>,
+    /// 0 unten links, 1 unten mittig, 2 unten rechts, 3 oben links, 4 oben mittig, 5 oben rechts
+    pub pos: u8,
+    /// Schrifthöhe in Prozent der kurzen Bildseite
+    pub size_pct: f32,
+    /// 0 Schatten, 1 dunkles Band, 2 dezent (halbtransparent)
+    pub style: u8,
+}
+
+impl Overlay {
+    pub fn is_empty(&self) -> bool {
+        self.lines.iter().all(|l| l.trim().is_empty())
+    }
+    /// Schriftgröße, Rand und Zeilenabstand in Pixeln für ein Bild der Größe w×h.
+    pub fn metrics(&self, w: f32, h: f32) -> (f32, f32, f32) {
+        let px = (w.min(h) * self.size_pct / 100.0).max(8.0);
+        (px, w.min(h) * 0.035, px * 1.22)
     }
 }
 
@@ -413,32 +439,41 @@ pub struct Rendered {
     pub when: NaiveDateTime,
 }
 
-pub fn render(path: &Path, edit: &Edit, cfg: &OutputSettings) -> Result<Rendered, String> {
+pub fn render(
+    path: &Path,
+    edit: &Edit,
+    cfg: &OutputSettings,
+    overlay: Option<&Overlay>,
+) -> Result<Rendered, String> {
     let when = capture_time(path);
     let d = decode(path)?;
     let icc = d.icc;
     let img = rotate(to_rgb(d.img), edit.rot);
     let (w, h) = img.dimensions();
     let orient = edit.orientation(w, h);
-    let mut e = *edit;
-    let (x, y, cw, ch) = crop_rect(w as f32, h as f32, cfg.ratio(orient), &mut e);
-    let (x, y) = (x.round() as u32, y.round() as u32);
-    let cw = (cw.round() as u32).clamp(1, w - x.min(w - 1));
-    let ch = (ch.round() as u32).clamp(1, h - y.min(h - 1));
-    let mut img = image::imageops::crop_imm(&img, x, y, cw, ch).to_image();
+    let ratio = cfg.ratio(orient);
+    let mut img = if edit.fill {
+        fill_canvas(&img, ratio, cfg.max_res.map(|(l, s)| fit_box(orient, l, s)))
+    } else {
+        let mut e = *edit;
+        let (x, y, cw, ch) = crop_rect(w as f32, h as f32, ratio, &mut e);
+        let (x, y) = (x.round() as u32, y.round() as u32);
+        let cw = (cw.round() as u32).clamp(1, w - x.min(w - 1));
+        let ch = (ch.round() as u32).clamp(1, h - y.min(h - 1));
+        image::imageops::crop_imm(&img, x, y, cw, ch).to_image()
+    };
 
     if let Some((long, short)) = cfg.max_res {
-        let (bw, bh) = if img.height() > img.width() {
-            (short, long)
-        } else {
-            (long, short)
-        };
+        let (bw, bh) = fit_box(orient, long, short);
         let s = (bw as f32 / img.width() as f32).min(bh as f32 / img.height() as f32);
         if s < 1.0 {
             let nw = (img.width() as f32 * s).round() as u32;
             let nh = (img.height() as f32 * s).round() as u32;
             img = resize(&img, nw, nh, false);
         }
+    }
+    if let Some(o) = overlay {
+        draw_overlay(&mut img, o);
     }
 
     let exif = exif_block(when);
@@ -461,6 +496,255 @@ pub fn render(path: &Path, edit: &Edit, cfg: &OutputSettings) -> Result<Rendered
         }
     }
     Ok(Rendered { data, orient, when })
+}
+
+/// Begrenzungsrahmen (Breite, Höhe) für die Ausrichtung.
+fn fit_box(orient: Orient, long: u32, short: u32) -> (u32, u32) {
+    match orient {
+        Orient::Quer => (long, short),
+        Orient::Hochkant => (short, long),
+    }
+}
+
+/// Ganzes Foto mittig auf eine Fläche im gewünschten Seitenverhältnis legen,
+/// der Rand wird mit einer unscharfen, abgedunkelten Kopie des Fotos gefüllt.
+pub fn fill_canvas(img: &RgbImage, ratio: f32, limit: Option<(u32, u32)>) -> RgbImage {
+    let (w, h) = img.dimensions();
+    let (mut cw, mut ch) = if (w as f32 / h as f32) < ratio {
+        (((h as f32) * ratio).round() as u32, h)
+    } else {
+        (w, ((w as f32) / ratio).round() as u32)
+    };
+    // nicht unnötig groß rechnen, wenn die Ausgabe ohnehin begrenzt ist
+    let mut fg = None;
+    if let Some((bw, bh)) = limit {
+        let s = (bw as f32 / cw as f32).min(bh as f32 / ch as f32);
+        if s < 1.0 {
+            cw = ((cw as f32) * s).round().max(1.0) as u32;
+            ch = ((ch as f32) * s).round().max(1.0) as u32;
+            let nw = ((w as f32) * s).round().max(1.0) as u32;
+            let nh = ((h as f32) * s).round().max(1.0) as u32;
+            fg = Some(resize(img, nw.min(cw), nh.min(ch), false));
+        }
+    }
+    let fg = fg.unwrap_or_else(|| img.clone());
+    // Hintergrund: Foto „cover“ auf winzige Größe, weichzeichnen, wieder hochziehen
+    let small_w = 48u32;
+    let small_h = ((small_w as f32) * ch as f32 / cw as f32).round().max(1.0) as u32;
+    let s = (small_w as f32 / w as f32).max(small_h as f32 / h as f32);
+    let tw = ((w as f32) * s).ceil().max(1.0) as u32;
+    let th = ((h as f32) * s).ceil().max(1.0) as u32;
+    let tiny = resize(img, tw, th, true);
+    let ox = (tw.saturating_sub(small_w)) / 2;
+    let oy = (th.saturating_sub(small_h)) / 2;
+    let tiny =
+        image::imageops::crop_imm(&tiny, ox, oy, small_w.min(tw), small_h.min(th)).to_image();
+    let blurred = image::imageops::blur(&tiny, 2.2);
+    let mut canvas = resize(&blurred, cw, ch, true);
+    for p in canvas.pixels_mut() {
+        for c in p.0.iter_mut() {
+            *c = ((*c as f32) * 0.62) as u8;
+        }
+    }
+    let x = (cw - fg.width().min(cw)) / 2;
+    let y = (ch - fg.height().min(ch)) / 2;
+    image::imageops::replace(&mut canvas, &fg, x as i64, y as i64);
+    canvas
+}
+
+// ------------------------------------------------------------------ Text aufs Bild
+
+fn overlay_font() -> Option<&'static ab_glyph::FontVec> {
+    use std::sync::OnceLock;
+    static FONT: OnceLock<Option<ab_glyph::FontVec>> = OnceLock::new();
+    FONT.get_or_init(|| {
+        let win = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into());
+        let cands = [
+            format!(r"{win}\Fonts\seguisb.ttf"),
+            format!(r"{win}\Fonts\segoeui.ttf"),
+            "/usr/share/fonts/opentype/inter/Inter-SemiBold.otf".into(),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf".into(),
+        ];
+        cands
+            .iter()
+            .find_map(|p| fs::read(p).ok())
+            .and_then(|b| ab_glyph::FontVec::try_from_vec(b).ok())
+            .or_else(|| {
+                ab_glyph::FontVec::try_from_vec(epaint_default_fonts::UBUNTU_LIGHT.to_vec()).ok()
+            })
+    })
+    .as_ref()
+}
+
+/// Alpha-Maske (Breite, Höhe, Werte 0..1) einer Textzeile.
+fn text_mask(font: &ab_glyph::FontVec, text: &str, px: f32) -> (usize, usize, Vec<f32>) {
+    use ab_glyph::{Font, ScaleFont};
+    let sf = font.as_scaled(px);
+    let mut x = 0.0f32;
+    let mut glyphs = vec![];
+    let mut prev = None;
+    for c in text.chars() {
+        let id = sf.glyph_id(c);
+        if let Some(p) = prev {
+            x += sf.kern(p, id);
+        }
+        glyphs.push(id.with_scale_and_position(px, ab_glyph::point(x, sf.ascent())));
+        x += sf.h_advance(id);
+        prev = Some(id);
+    }
+    let w = x.ceil().max(1.0) as usize + 2;
+    let h = (sf.ascent() - sf.descent()).ceil().max(1.0) as usize + 2;
+    let mut m = vec![0f32; w * h];
+    for g in glyphs {
+        if let Some(o) = font.outline_glyph(g) {
+            let b = o.px_bounds();
+            o.draw(|gx, gy, c| {
+                let xx = b.min.x as i32 + gx as i32;
+                let yy = b.min.y as i32 + gy as i32;
+                if xx >= 0 && yy >= 0 && (xx as usize) < w && (yy as usize) < h {
+                    let v = &mut m[yy as usize * w + xx as usize];
+                    *v = (*v + c).min(1.0);
+                }
+            });
+        }
+    }
+    (w, h, m)
+}
+
+fn box_blur(m: &[f32], w: usize, h: usize, r: usize) -> Vec<f32> {
+    if r == 0 {
+        return m.to_vec();
+    }
+    let mut tmp = vec![0f32; w * h];
+    let mut out = vec![0f32; w * h];
+    let n = (2 * r + 1) as f32;
+    for y in 0..h {
+        for x in 0..w {
+            let mut s = 0.0;
+            for k in x.saturating_sub(r)..(x + r + 1).min(w) {
+                s += m[y * w + k];
+            }
+            tmp[y * w + x] = s / n;
+        }
+    }
+    for y in 0..h {
+        for x in 0..w {
+            let mut s = 0.0;
+            for k in y.saturating_sub(r)..(y + r + 1).min(h) {
+                s += tmp[k * w + x];
+            }
+            out[y * w + x] = s / n;
+        }
+    }
+    out
+}
+
+fn blend(img: &mut RgbImage, x: i64, y: i64, col: [f32; 3], a: f32) {
+    if a <= 0.0 || x < 0 || y < 0 || x >= img.width() as i64 || y >= img.height() as i64 {
+        return;
+    }
+    let p = img.get_pixel_mut(x as u32, y as u32);
+    for i in 0..3 {
+        p.0[i] = (p.0[i] as f32 * (1.0 - a) + col[i] * a)
+            .round()
+            .clamp(0.0, 255.0) as u8;
+    }
+}
+
+/// Textzeilen unauffällig in eine Ecke schreiben.
+pub fn draw_overlay(img: &mut RgbImage, o: &Overlay) {
+    let lines: Vec<&str> = o
+        .lines
+        .iter()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+    if lines.is_empty() {
+        return;
+    }
+    let Some(font) = overlay_font() else { return };
+    let (w, h) = (img.width() as f32, img.height() as f32);
+    let (px, margin, line_h) = o.metrics(w, h);
+    let masks: Vec<_> = lines.iter().map(|l| text_mask(font, l, px)).collect();
+    let block_w = masks.iter().map(|m| m.0).max().unwrap_or(0) as f32;
+    let block_h =
+        line_h * (masks.len() as f32 - 1.0) + masks.last().map(|m| m.1).unwrap_or(0) as f32;
+    let col = o.pos % 3;
+    let top = o.pos >= 3;
+    let pad = if o.style == 1 { px * 0.45 } else { 0.0 };
+    let y0 = if top {
+        margin + pad
+    } else {
+        h - margin - pad - block_h
+    };
+    let x_for = |lw: f32| match col {
+        0 => margin + pad,
+        1 => (w - lw) / 2.0,
+        _ => w - margin - pad - lw,
+    };
+    let white = [255.0, 255.0, 255.0];
+    let alpha = if o.style == 2 { 0.72 } else { 0.96 };
+    if o.style == 1 {
+        // halbtransparentes dunkles Band hinter dem Text
+        let bx0 = x_for(block_w) - pad;
+        let by0 = y0 - pad * 0.8;
+        let bx1 = bx0 + block_w + pad * 2.0;
+        let by1 = y0 + block_h + pad * 0.8;
+        let rad = pad * 0.8;
+        for y in by0.floor() as i64..by1.ceil() as i64 {
+            for x in bx0.floor() as i64..bx1.ceil() as i64 {
+                // abgerundete Ecken
+                let fx = (x as f32 + 0.5).clamp(bx0 + rad, bx1 - rad);
+                let fy = (y as f32 + 0.5).clamp(by0 + rad, by1 - rad);
+                let d = ((x as f32 + 0.5 - fx).powi(2) + (y as f32 + 0.5 - fy).powi(2)).sqrt();
+                let cov = (rad - d + 0.5).clamp(0.0, 1.0);
+                blend(img, x, y, [0.0, 0.0, 0.0], 0.42 * cov);
+            }
+        }
+    }
+    for (i, (mw, mh, m)) in masks.iter().enumerate() {
+        let x0 = x_for(*mw as f32).round() as i64;
+        let yy0 = (y0 + i as f32 * line_h).round() as i64;
+        if o.style != 1 {
+            // weicher Schatten
+            let r = (px * 0.09).round().max(1.0) as usize;
+            let off = (px * 0.06).round().max(1.0) as i64;
+            let ext = r * 2;
+            let ew = mw + ext * 2;
+            let eh = mh + ext * 2;
+            let mut big = vec![0f32; ew * eh];
+            for y in 0..*mh {
+                for x in 0..*mw {
+                    big[(y + ext) * ew + x + ext] = m[y * mw + x];
+                }
+            }
+            let sh = box_blur(&box_blur(&big, ew, eh, r), ew, eh, r);
+            let strength = if o.style == 2 { 0.45 } else { 0.7 };
+            for y in 0..eh {
+                for x in 0..ew {
+                    let a = (sh[y * ew + x] * 1.6).min(1.0) * strength;
+                    blend(
+                        img,
+                        x0 + x as i64 - ext as i64 + off,
+                        yy0 + y as i64 - ext as i64 + off,
+                        [0.0; 3],
+                        a,
+                    );
+                }
+            }
+        }
+        for y in 0..*mh {
+            for x in 0..*mw {
+                blend(
+                    img,
+                    x0 + x as i64,
+                    yy0 + y as i64,
+                    white,
+                    m[y * mw + x] * alpha,
+                );
+            }
+        }
+    }
 }
 
 pub fn output_name(path: &Path, when: NaiveDateTime) -> String {
@@ -488,9 +772,10 @@ pub fn save(
     path: &Path,
     edit: &Edit,
     cfg: &OutputSettings,
+    overlay: Option<&Overlay>,
     out_root: &Path,
 ) -> Result<PathBuf, String> {
-    let r = render(path, edit, cfg)?;
+    let r = render(path, edit, cfg, overlay)?;
     let folder = out_root.join(r.orient.folder());
     fs::create_dir_all(&folder).map_err(|e| format!("Ordner {}: {e}", folder.display()))?;
     let target = unique_path(&folder, &output_name(path, r.when));
@@ -560,7 +845,7 @@ mod render_tests {
             quality: 92,
         };
         let t = std::time::Instant::now();
-        let out = save(&src, &Edit::default(), &cfg, &dir.join("out")).unwrap();
+        let out = save(&src, &Edit::default(), &cfg, None, &dir.join("out")).unwrap();
         eprintln!("speichern: {:?}", t.elapsed());
         assert!(out.starts_with(dir.join("out").join("Quer")));
         let meta = fs::metadata(&out).unwrap();
@@ -576,13 +861,62 @@ mod render_tests {
             orient: Some(Orient::Hochkant),
             ..Default::default()
         };
-        let out2 = save(&src, &e, &cfg, &dir.join("out")).unwrap();
+        let out2 = save(&src, &e, &cfg, None, &dir.join("out")).unwrap();
         assert!(out2.starts_with(dir.join("out").join("Hochkant")));
         let img2 = image::open(&out2).unwrap();
         assert!(img2.height() > img2.width() && img2.height() <= 1920);
+        // ganzes Foto auf unscharfem Hintergrund, Text unten links
+        let e = Edit {
+            fill: true,
+            orient: Some(Orient::Quer),
+            ..Default::default()
+        };
+        let tall = {
+            let p = dir.join("hoch.jpg");
+            image::imageops::rotate90(&image::open(&src).unwrap().into_rgb8())
+                .save(&p)
+                .unwrap();
+            p
+        };
+        let ov = Overlay {
+            lines: vec!["15.07.2024 · Italien".into()],
+            pos: 0,
+            size_pct: 3.4,
+            style: 0,
+        };
+        let out3 = save(&tall, &e, &cfg, Some(&ov), &dir.join("out")).unwrap();
+        assert!(out3.starts_with(dir.join("out").join("Quer")));
+        let img3 = image::open(&out3).unwrap();
+        assert!(img3.width() > img3.height());
+        assert!(((img3.width() as f32 / img3.height() as f32) - 16.0 / 9.0).abs() < 0.01);
         let t = std::time::Instant::now();
         load_preview(&src, 2048).unwrap();
         eprintln!("vorschau: {:?}", t.elapsed());
         let _ = fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod overlay_tests {
+    use super::*;
+
+    #[test]
+    fn styles_draw_something() {
+        for style in 0..3u8 {
+            let mut img = RgbImage::from_pixel(800, 450, image::Rgb([90, 120, 160]));
+            let o = Overlay {
+                lines: vec!["15. Juli 2024  ·  Gardasee".into(), "Baden mit Oma".into()],
+                pos: if style == 1 { 2 } else { 0 },
+                size_pct: 4.2,
+                style,
+            };
+            draw_overlay(&mut img, &o);
+            let changed = img.pixels().filter(|p| p.0 != [90, 120, 160]).count();
+            assert!(changed > 1000, "Stil {style}: nichts gezeichnet");
+            if let Some(dir) = std::env::var_os("BRS_TEST_OUT") {
+                img.save(PathBuf::from(dir).join(format!("stil{style}.png")))
+                    .unwrap();
+            }
+        }
     }
 }

@@ -7,7 +7,7 @@ use std::thread::JoinHandle;
 
 use chrono::NaiveDateTime;
 
-use crate::imaging::{self, Edit, OutputSettings};
+use crate::imaging::{self, Edit, OutputSettings, Overlay};
 
 pub const PREVIEW_SIDE: u32 = 2048;
 
@@ -114,6 +114,7 @@ pub struct SaveJob {
     pub path: PathBuf,
     pub edit: Edit,
     pub cfg: OutputSettings,
+    pub overlay: Option<Overlay>,
     pub target: PathBuf,
 }
 
@@ -146,7 +147,13 @@ impl Saver {
                             shared.lock().unwrap().queued -= 1;
                             continue;
                         }
-                        let res = imaging::save(&job.path, &job.edit, &job.cfg, &job.target);
+                        let res = imaging::save(
+                            &job.path,
+                            &job.edit,
+                            &job.cfg,
+                            job.overlay.as_ref(),
+                            &job.target,
+                        );
                         let mut s = shared.lock().unwrap();
                         s.queued -= 1;
                         if s.cancelled.contains(&job.id) {
@@ -174,6 +181,7 @@ impl Saver {
         path: PathBuf,
         edit: Edit,
         cfg: OutputSettings,
+        overlay: Option<Overlay>,
         target: PathBuf,
     ) -> u64 {
         let id = self.next_id;
@@ -185,6 +193,7 @@ impl Saver {
                 path,
                 edit,
                 cfg,
+                overlay,
                 target,
             });
         }
@@ -257,12 +266,14 @@ impl ThumbLoader {
                             s = cv.wait(s).unwrap();
                         }
                     };
-                    let img = imaging::load_thumb(&path, THUMB_SIDE).ok().map(|rgb| {
-                        egui::ColorImage::from_rgb(
-                            [rgb.width() as usize, rgb.height() as usize],
-                            rgb.as_raw(),
-                        )
-                    });
+                    let img = crate::system::cached_thumb(&path, THUMB_SIDE)
+                        .ok()
+                        .map(|rgb| {
+                            egui::ColorImage::from_rgb(
+                                [rgb.width() as usize, rgb.height() as usize],
+                                rgb.as_raw(),
+                            )
+                        });
                     state.0.lock().unwrap().done.push((path, img));
                     ctx.request_repaint();
                 })

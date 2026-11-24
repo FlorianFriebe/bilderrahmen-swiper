@@ -4,15 +4,54 @@ use std::sync::Arc;
 
 use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, TextStyle};
 
-pub const BG: Color32 = Color32::from_rgb(0x12, 0x13, 0x17);
-pub const SIDEBAR: Color32 = Color32::from_rgb(0x18, 0x1a, 0x20);
-pub const SURFACE: Color32 = Color32::from_rgb(0x23, 0x25, 0x2d);
-pub const SURFACE_HI: Color32 = Color32::from_rgb(0x2c, 0x2f, 0x39);
-pub const CARD: Color32 = Color32::from_rgb(0x1c, 0x1e, 0x25);
-pub const BORDER: Color32 = Color32::from_rgb(0x2a, 0x2d, 0x38);
-pub const TEXT: Color32 = Color32::from_rgb(0xe8, 0xe8, 0xee);
-pub const MUTED: Color32 = Color32::from_rgb(0x7d, 0x81, 0x91);
-pub const DIM: Color32 = Color32::from_rgb(0x6b, 0x6f, 0x7e);
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static DARK: AtomicBool = AtomicBool::new(true);
+
+pub fn is_dark() -> bool {
+    DARK.load(Ordering::Relaxed)
+}
+
+/// Wählt die Farbpalette für diesen Frame.
+pub fn set_dark(dark: bool) {
+    DARK.store(dark, Ordering::Relaxed);
+}
+
+macro_rules! palette {
+    ($($name:ident = $dark:expr, $light:expr;)*) => {
+        $(
+            #[inline]
+            pub fn $name() -> Color32 {
+                if is_dark() { hex($dark) } else { hex($light) }
+            }
+        )*
+    };
+}
+
+const fn hex(v: u32) -> Color32 {
+    Color32::from_rgb((v >> 16) as u8, (v >> 8) as u8, v as u8)
+}
+
+palette! {
+    bg = 0x121317, 0xf2f3f7;
+    sidebar = 0x181a20, 0xffffff;
+    surface = 0x23252d, 0xe4e6ec;
+    surface_hi = 0x2c2f39, 0xd8dbe3;
+    card = 0x1c1e25, 0xffffff;
+    hover = 0x22252e, 0xeceef4;
+    border = 0x2a2d38, 0xd5d8e0;
+    border_hi = 0x3b3f4d, 0xb9bdc9;
+    text = 0xe8e8ee, 0x1b1d24;
+    soft = 0xc9cbd6, 0x3a3e4a;
+    muted = 0x7d8191, 0x5f6474;
+    dim = 0x6b6f7e, 0x878c99;
+    disabled = 0x484b57, 0xb4b8c2;
+    kept_bg = 0x15241b, 0xdcf5e5;
+    kept_hover = 0x172e20, 0xc9efd8;
+    amber_bg = 0x2a2210, 0xfdf0d5;
+    amber_hover = 0x3a2e10, 0xfbe4b0;
+}
+
 pub const GREEN: Color32 = Color32::from_rgb(0x22, 0xc5, 0x5e);
 pub const RED: Color32 = Color32::from_rgb(0xef, 0x44, 0x44);
 pub const BLUE: Color32 = Color32::from_rgb(0x3b, 0x82, 0xf6);
@@ -23,6 +62,7 @@ fn first_existing(cands: &[&str]) -> Option<Vec<u8>> {
 }
 
 pub fn apply(ctx: &egui::Context) {
+    let was = is_dark();
     let mut fonts = FontDefinitions::default();
     let win = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into());
     let wf = |f: &str| format!(r"{win}\Fonts\{f}");
@@ -105,8 +145,26 @@ pub fn apply(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 
     ctx.options_mut(|o| o.zoom_with_keyboard = false);
+    for dark in [true, false] {
+        let theme = if dark {
+            egui::Theme::Dark
+        } else {
+            egui::Theme::Light
+        };
+        let mut style = (*ctx.style_of(theme)).clone();
+        style_for(&mut style, dark);
+        ctx.options_mut(|o| match theme {
+            egui::Theme::Dark => o.dark_style = Arc::new(style),
+            egui::Theme::Light => o.light_style = Arc::new(style),
+        });
+    }
+    set_dark(was);
+}
 
-    ctx.global_style_mut(|style| {
+fn style_for(style: &mut egui::Style, dark: bool) {
+    let was = is_dark();
+    set_dark(dark);
+    {
         style.text_styles = [
             (TextStyle::Small, FontId::proportional(11.5)),
             (TextStyle::Body, FontId::proportional(14.0)),
@@ -124,31 +182,39 @@ pub fn apply(ctx: &egui::Context) {
         style.spacing.combo_height = 300.0;
 
         let v = &mut style.visuals;
-        *v = egui::Visuals::dark();
-        v.panel_fill = BG;
-        v.window_fill = SIDEBAR;
-        v.extreme_bg_color = Color32::from_rgb(0x1f, 0x21, 0x29);
-        v.faint_bg_color = SURFACE;
-        v.override_text_color = Some(TEXT);
+        *v = if dark {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        };
+        v.panel_fill = bg();
+        v.window_fill = sidebar();
+        v.extreme_bg_color = if dark { hex(0x1f2129) } else { hex(0xf7f8fb) };
+        v.faint_bg_color = surface();
+        v.override_text_color = Some(text());
         v.selection.bg_fill = BLUE;
         v.selection.stroke = egui::Stroke::new(1.0, Color32::WHITE);
         v.hyperlink_color = BLUE;
         v.window_corner_radius = 10.into();
         v.menu_corner_radius = 8.into();
-        v.window_stroke = egui::Stroke::new(1.0, BORDER);
+        v.window_stroke = egui::Stroke::new(1.0, border());
         for (w, fill) in [
-            (&mut v.widgets.inactive, SURFACE),
-            (&mut v.widgets.hovered, SURFACE_HI),
-            (&mut v.widgets.active, Color32::from_rgb(0x34, 0x37, 0x44)),
-            (&mut v.widgets.open, SURFACE_HI),
+            (&mut v.widgets.inactive, surface()),
+            (&mut v.widgets.hovered, surface_hi()),
+            (
+                &mut v.widgets.active,
+                if dark { hex(0x343744) } else { hex(0xcdd1da) },
+            ),
+            (&mut v.widgets.open, surface_hi()),
         ] {
             w.bg_fill = fill;
             w.weak_bg_fill = fill;
             w.corner_radius = 8.into();
-            w.bg_stroke = egui::Stroke::new(1.0, Color32::from_rgb(0x3a, 0x3e, 0x4c));
-            w.fg_stroke.color = TEXT;
+            w.bg_stroke = egui::Stroke::new(1.0, if dark { hex(0x3a3e4c) } else { hex(0xc4c8d2) });
+            w.fg_stroke.color = text();
         }
-        v.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, BORDER);
-        v.widgets.noninteractive.fg_stroke.color = TEXT;
-    });
+        v.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, border());
+        v.widgets.noninteractive.fg_stroke.color = text();
+    }
+    set_dark(was);
 }
