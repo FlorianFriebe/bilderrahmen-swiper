@@ -1,0 +1,47 @@
+name: Windows-Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      # VC++-Laufzeit fest einbauen, damit die .exe überall ohne Installation läuft
+      RUSTFLAGS: -C target-feature=+crt-static
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Tests
+        run: cargo test --release
+      - name: Bauen
+        run: cargo build --release
+      - name: Paket schnüren
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item target/release/bilderrahmen-swiper.exe dist/Bilderrahmen-Swiper.exe
+          Copy-Item ANLEITUNG.md dist/ANLEITUNG.md
+          Get-Item dist/Bilderrahmen-Swiper.exe | Select-Object Name, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bilderrahmen-Swiper-Windows
+          path: dist/
+      - name: Download-Seite aktualisieren
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag -y || true
+          gh release create latest dist/Bilderrahmen-Swiper.exe dist/ANLEITUNG.md \
+            --target "${{ github.sha }}" \
+            --title "Bilderrahmen-Swiper (neueste Version)" \
+            --notes "Automatisch gebaut aus Commit ${{ github.sha }}. Einfach **Bilderrahmen-Swiper.exe** herunterladen und starten, keine Installation nötig. Anleitung: ANLEITUNG.md"
