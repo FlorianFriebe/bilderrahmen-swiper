@@ -422,7 +422,7 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
         .with_angle_and_pivot(angle, pivot),
     );
     let overlay = app.overlay_for(&path);
-    let text_on_top = overlay.as_ref().map(|o| o.pos >= 3).unwrap_or(false);
+    let text_on_top = overlay.as_ref().map(|o| o.look.row() == 0).unwrap_or(false);
     if let Some(ov) = &overlay {
         preview_overlay(&painter, ov, out_r, &tr, angle);
     }
@@ -720,66 +720,78 @@ fn preview_overlay(
     tr: &dyn Fn(Pos2) -> Pos2,
     angle: f32,
 ) {
-    let lines: Vec<&str> = o
-        .lines
-        .iter()
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        .collect();
+    let lines = o.shown_lines();
     if lines.is_empty() {
         return;
     }
+    let look = &o.look;
     let (px, margin, line_h) = o.metrics(r.width(), r.height());
     let px = px.max(6.0);
+    let [cr, cg, cb] = look.color;
     let galleys: Vec<_> = lines
-        .iter()
-        .map(|l| painter.layout_no_wrap(l.to_string(), font(px, W::Semibold), Color32::WHITE))
+        .into_iter()
+        .map(|l| painter.layout_no_wrap(l, overlay_ui_font(px, look.font), Color32::WHITE))
         .collect();
     let block_w = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
     let block_h =
         line_h * (galleys.len() as f32 - 1.0) + galleys.last().map(|g| g.size().y).unwrap_or(0.0);
-    let col = o.pos % 3;
-    let top = o.pos >= 3;
-    let pad = if o.style == 1 { px * 0.45 } else { 0.0 };
-    let y0 = if top {
-        r.top() + margin + pad
-    } else {
-        r.bottom() - margin - pad - block_h
+    let boxed = look.bg >= 2;
+    let pad = if boxed { px * 0.5 } else { 0.0 };
+    let y0 = match look.row() {
+        0 => r.top() + margin + pad,
+        1 => r.center().y - block_h / 2.0,
+        _ => r.bottom() - margin - pad - block_h,
     };
-    let x_for = |w: f32| match col {
+    let x_for = |w: f32| match look.col() {
         0 => r.left() + margin + pad,
         1 => r.center().x - w / 2.0,
         _ => r.right() - margin - pad - w,
     };
-    if o.style == 1 {
+    let light = (cr as u32 + cg as u32 + cb as u32) > 380;
+    let shade = |a: u8| {
+        if light {
+            Color32::from_black_alpha(a)
+        } else {
+            Color32::from_white_alpha(a)
+        }
+    };
+    if boxed {
         let br = Rect::from_min_size(
             pos2(x_for(block_w) - pad, y0 - pad * 0.8),
             vec2(block_w + pad * 2.0, block_h + pad * 1.6),
         );
-        painter.add(
-            RectShape::filled(
-                Rect::from_center_size(tr(br.center()), br.size()),
-                (pad * 0.8) as u8,
-                Color32::from_black_alpha(107),
-            )
-            .with_angle(angle),
-        );
+        let rr = Rect::from_center_size(tr(br.center()), br.size());
+        let rad = (pad * 0.9) as u8;
+        if look.bg == 3 {
+            painter.add(
+                RectShape::new(
+                    rr,
+                    rad,
+                    shade(80),
+                    Stroke::new(1.0, Color32::from_white_alpha(46)),
+                    StrokeKind::Inside,
+                )
+                .with_angle(angle),
+            );
+        } else {
+            painter.add(RectShape::filled(rr, rad, shade(115)).with_angle(angle));
+        }
     }
-    let alpha = if o.style == 2 { 0.72 } else { 0.96 };
+    let alpha = look.opacity.clamp(0.0, 1.0);
+    let fg = Color32::from_rgba_unmultiplied(cr, cg, cb, (255.0 * alpha) as u8);
     for (i, g) in galleys.into_iter().enumerate() {
         let p = pos2(x_for(g.size().x), y0 + i as f32 * line_h);
-        if o.style != 1 {
+        if look.bg == 1 {
             let off = (px * 0.06).max(1.0);
-            let sh = if o.style == 2 { 90 } else { 150 };
             painter.add(Shape::Text(
                 TextShape::new(tr(p + vec2(off, off)), g.clone(), Color32::WHITE)
-                    .with_override_text_color(Color32::from_black_alpha(sh))
+                    .with_override_text_color(shade((150.0 * alpha) as u8))
                     .with_angle(angle),
             ));
         }
         painter.add(Shape::Text(
             TextShape::new(tr(p), g, Color32::WHITE)
-                .with_override_text_color(Color32::from_white_alpha((255.0 * alpha) as u8))
+                .with_override_text_color(fg)
                 .with_angle(angle),
         ));
     }

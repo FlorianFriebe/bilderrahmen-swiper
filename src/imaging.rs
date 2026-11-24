@@ -108,12 +108,7 @@ impl OutputSettings {
 #[derive(Clone, Debug, Default)]
 pub struct Overlay {
     pub lines: Vec<String>,
-    /// 0 unten links, 1 unten mittig, 2 unten rechts, 3 oben links, 4 oben mittig, 5 oben rechts
-    pub pos: u8,
-    /// Schrifthöhe in Prozent der kurzen Bildseite
-    pub size_pct: f32,
-    /// 0 Schatten, 1 dunkles Band, 2 dezent (halbtransparent)
-    pub style: u8,
+    pub look: crate::textstyle::TextLook,
 }
 
 impl Overlay {
@@ -122,8 +117,22 @@ impl Overlay {
     }
     /// Schriftgröße, Rand und Zeilenabstand in Pixeln für ein Bild der Größe w×h.
     pub fn metrics(&self, w: f32, h: f32) -> (f32, f32, f32) {
-        let px = (w.min(h) * self.size_pct / 100.0).max(8.0);
-        (px, w.min(h) * 0.035, px * 1.22)
+        self.look.metrics(w, h)
+    }
+    /// Zeilen ohne leere, bei Bedarf in Großbuchstaben.
+    pub fn shown_lines(&self) -> Vec<String> {
+        self.lines
+            .iter()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty())
+            .map(|l| {
+                if self.look.upper {
+                    l.to_uppercase()
+                } else {
+                    l.to_string()
+                }
+            })
+            .collect()
     }
 }
 
@@ -567,13 +576,20 @@ pub fn fill_canvas(img: &RgbImage, ratio: f32, limit: Option<(u32, u32)>) -> Rgb
 
 // ------------------------------------------------------------------ Text aufs Bild
 
-fn overlay_font() -> Option<&'static ab_glyph::FontVec> {
+fn overlay_font(i: u8) -> Option<&'static ab_glyph::FontVec> {
     use std::sync::OnceLock;
-    static FONT: OnceLock<Option<ab_glyph::FontVec>> = OnceLock::new();
-    FONT.get_or_init(|| {
-        ab_glyph::FontVec::try_from_vec(crate::ui::style::overlay_font_bytes().to_vec()).ok()
-    })
-    .as_ref()
+    static FONTS: OnceLock<Vec<Option<ab_glyph::FontVec>>> = OnceLock::new();
+    FONTS
+        .get_or_init(|| {
+            (0..4)
+                .map(|i| {
+                    ab_glyph::FontVec::try_from_vec(crate::ui::style::overlay_font_bytes(i).to_vec())
+                        .ok()
+                })
+                .collect()
+        })
+        .get(i.min(3) as usize)
+        .and_then(|f| f.as_ref())
 }
 
 /// Alpha-Maske (Breite, Höhe, Werte 0..1) einer Textzeile.
@@ -651,59 +667,97 @@ fn blend(img: &mut RgbImage, x: i64, y: i64, col: [f32; 3], a: f32) {
 
 /// Textzeilen unauffällig in eine Ecke schreiben.
 pub fn draw_overlay(img: &mut RgbImage, o: &Overlay) {
-    let lines: Vec<&str> = o
-        .lines
-        .iter()
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        .collect();
+    let lines = o.shown_lines();
     if lines.is_empty() {
         return;
     }
-    let Some(font) = overlay_font() else { return };
+    let look = &o.look;
+    let Some(font) = overlay_font(look.font) else {
+        return;
+    };
     let (w, h) = (img.width() as f32, img.height() as f32);
     let (px, margin, line_h) = o.metrics(w, h);
     let masks: Vec<_> = lines.iter().map(|l| text_mask(font, l, px)).collect();
     let block_w = masks.iter().map(|m| m.0).max().unwrap_or(0) as f32;
     let block_h =
         line_h * (masks.len() as f32 - 1.0) + masks.last().map(|m| m.1).unwrap_or(0) as f32;
-    let col = o.pos % 3;
-    let top = o.pos >= 3;
-    let pad = if o.style == 1 { px * 0.45 } else { 0.0 };
-    let y0 = if top {
-        margin + pad
-    } else {
-        h - margin - pad - block_h
+    let boxed = look.bg >= 2;
+    let pad = if boxed { px * 0.5 } else { 0.0 };
+    let y0 = match look.row() {
+        0 => margin + pad,
+        1 => (h - block_h) / 2.0,
+        _ => h - margin - pad - block_h,
     };
-    let x_for = |lw: f32| match col {
+    let x_for = |lw: f32| match look.col() {
         0 => margin + pad,
         1 => (w - lw) / 2.0,
         _ => w - margin - pad - lw,
     };
-    let white = [255.0, 255.0, 255.0];
-    let alpha = if o.style == 2 { 0.72 } else { 0.96 };
-    if o.style == 1 {
-        // halbtransparentes dunkles Band hinter dem Text
+    let color = look.color.map(|c| c as f32);
+    let alpha = look.opacity.clamp(0.0, 1.0);
+    // helle Schrift bekommt dunkle Schatten und Flächen, dunkle Schrift helle
+    let light = look.color.iter().map(|c| *c as u32).sum::<u32>() > 380;
+    let shade = if light { [0.0; 3] } else { [255.0; 3] };
+    if boxed {
         let bx0 = x_for(block_w) - pad;
         let by0 = y0 - pad * 0.8;
         let bx1 = bx0 + block_w + pad * 2.0;
         let by1 = y0 + block_h + pad * 0.8;
-        let rad = pad * 0.8;
-        for y in by0.floor() as i64..by1.ceil() as i64 {
-            for x in bx0.floor() as i64..bx1.ceil() as i64 {
-                // abgerundete Ecken
-                let fx = (x as f32 + 0.5).clamp(bx0 + rad, bx1 - rad);
-                let fy = (y as f32 + 0.5).clamp(by0 + rad, by1 - rad);
-                let d = ((x as f32 + 0.5 - fx).powi(2) + (y as f32 + 0.5 - fy).powi(2)).sqrt();
-                let cov = (rad - d + 0.5).clamp(0.0, 1.0);
-                blend(img, x, y, [0.0, 0.0, 0.0], 0.42 * cov);
+        let rad = pad * 0.9;
+        let cov = |x: i64, y: i64| {
+            let fx = (x as f32 + 0.5).clamp(bx0 + rad, bx1 - rad);
+            let fy = (y as f32 + 0.5).clamp(by0 + rad, by1 - rad);
+            let d = ((x as f32 + 0.5 - fx).powi(2) + (y as f32 + 0.5 - fy).powi(2)).sqrt();
+            (rad - d + 0.5).clamp(0.0, 1.0)
+        };
+        let (ix0, iy0) = (bx0.floor().max(0.0) as i64, by0.floor().max(0.0) as i64);
+        let (ix1, iy1) = (
+            (bx1.ceil() as i64).min(img.width() as i64),
+            (by1.ceil() as i64).min(img.height() as i64),
+        );
+        if look.bg == 3 && ix1 > ix0 && iy1 > iy0 {
+            // Glas: Bild hinter dem Text weichzeichnen und leicht abdunkeln
+            let (rw, rh) = ((ix1 - ix0) as usize, (iy1 - iy0) as usize);
+            let r = (px * 0.35).round().max(2.0) as usize;
+            let mut ch = [vec![0f32; rw * rh], vec![0f32; rw * rh], vec![0f32; rw * rh]];
+            for y in 0..rh {
+                for x in 0..rw {
+                    let p = img.get_pixel((ix0 + x as i64) as u32, (iy0 + y as i64) as u32);
+                    for c in 0..3 {
+                        ch[c][y * rw + x] = p.0[c] as f32;
+                    }
+                }
+            }
+            for c in ch.iter_mut() {
+                *c = box_blur(&box_blur(&box_blur(c, rw, rh, r), rw, rh, r), rw, rh, r);
+            }
+            for y in 0..rh {
+                for x in 0..rw {
+                    let (gx, gy) = (ix0 + x as i64, iy0 + y as i64);
+                    let a = cov(gx, gy);
+                    if a <= 0.0 {
+                        continue;
+                    }
+                    let v = [ch[0][y * rw + x], ch[1][y * rw + x], ch[2][y * rw + x]];
+                    blend(img, gx, gy, v, a);
+                    blend(img, gx, gy, shade, 0.22 * a);
+                    // feiner heller Rand
+                    let edge = (cov(gx - 1, gy).min(cov(gx + 1, gy)).min(cov(gx, gy - 1)).min(cov(gx, gy + 1)) < 1.0) as u8 as f32;
+                    blend(img, gx, gy, [255.0; 3], 0.18 * a * edge);
+                }
+            }
+        } else {
+            for y in iy0..iy1 {
+                for x in ix0..ix1 {
+                    blend(img, x, y, shade, 0.45 * cov(x, y));
+                }
             }
         }
     }
     for (i, (mw, mh, m)) in masks.iter().enumerate() {
         let x0 = x_for(*mw as f32).round() as i64;
         let yy0 = (y0 + i as f32 * line_h).round() as i64;
-        if o.style != 1 {
+        if look.bg == 1 {
             // weicher Schatten
             let r = (px * 0.09).round().max(1.0) as usize;
             let off = (px * 0.06).round().max(1.0) as i64;
@@ -717,7 +771,7 @@ pub fn draw_overlay(img: &mut RgbImage, o: &Overlay) {
                 }
             }
             let sh = box_blur(&box_blur(&big, ew, eh, r), ew, eh, r);
-            let strength = if o.style == 2 { 0.45 } else { 0.7 };
+            let strength = 0.72 * alpha;
             for y in 0..eh {
                 for x in 0..ew {
                     let a = (sh[y * ew + x] * 1.6).min(1.0) * strength;
@@ -725,7 +779,7 @@ pub fn draw_overlay(img: &mut RgbImage, o: &Overlay) {
                         img,
                         x0 + x as i64 - ext as i64 + off,
                         yy0 + y as i64 - ext as i64 + off,
-                        [0.0; 3],
+                        shade,
                         a,
                     );
                 }
@@ -737,7 +791,7 @@ pub fn draw_overlay(img: &mut RgbImage, o: &Overlay) {
                     img,
                     x0 + x as i64,
                     yy0 + y as i64,
-                    white,
+                    color,
                     m[y * mw + x] * alpha,
                 );
             }
@@ -878,9 +932,7 @@ mod render_tests {
         };
         let ov = Overlay {
             lines: vec!["15.07.2024 · Italien".into()],
-            pos: 0,
-            size_pct: 3.4,
-            style: 0,
+            look: Default::default(),
         };
         let out3 = save(&tall, &e, &cfg, Some(&ov), &dir.join("out")).unwrap();
         assert!(out3.starts_with(dir.join("out").join("Quer")));
@@ -900,13 +952,11 @@ mod overlay_tests {
 
     #[test]
     fn styles_draw_something() {
-        for style in 0..3u8 {
+        for (style, look) in crate::textstyle::presets().into_iter().enumerate() {
             let mut img = RgbImage::from_pixel(800, 450, image::Rgb([90, 120, 160]));
             let o = Overlay {
                 lines: vec!["15. Juli 2024  ·  Gardasee".into(), "Baden mit Oma".into()],
-                pos: if style == 1 { 2 } else { 0 },
-                size_pct: 4.2,
-                style,
+                look,
             };
             draw_overlay(&mut img, &o);
             let changed = img.pixels().filter(|p| p.0 != [90, 120, 160]).count();

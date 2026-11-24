@@ -7,7 +7,7 @@ use super::icons;
 use super::kit;
 use super::style::*;
 use crate::app::{
-    key_name, Dialog, SwiperApp, View, ACTIONS, DATE_FORMATS, TEXT_POS, TEXT_SIZES, TEXT_STYLES,
+    key_name, Dialog, SwiperApp, View, ACTIONS, DATE_FORMATS,
 };
 use crate::system;
 use crate::util::{fmt_int, open_folder};
@@ -497,35 +497,37 @@ pub fn copy(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
 
 /// Einstellungen für den Text (im Menü und im Text-Feld unter dem Bild).
 pub fn text_settings(app: &mut SwiperApp, ui: &mut Ui, id: &str) {
+    let look = app
+        .current()
+        .map(|p| app.look_for(p))
+        .unwrap_or_else(|| app.cfg.text.look());
+    ui.horizontal(|ui| {
+        ui.add_sized([70.0, 20.0], egui::Label::new("Stil"));
+        ui.label(egui::RichText::new(look.summary()).color(text_soft()));
+    });
+    ui.horizontal(|ui| {
+        ui.add_space(74.0);
+        if ui
+            .add(egui::Button::new(
+                egui::RichText::new(format!("{}  Stil bearbeiten …", icons::PENCIL)),
+            ))
+            .on_hover_text("Schrift, Größe, Farbe, Hintergrund und Position – mit Vorschau")
+            .clicked()
+        {
+            super::textstyles::open(app);
+        }
+    });
     let t = &mut app.cfg.text;
-    let row = |ui: &mut Ui, label: &str, add: &mut dyn FnMut(&mut Ui)| {
-        ui.horizontal(|ui| {
-            ui.add_sized([70.0, 20.0], egui::Label::new(label));
-            add(ui);
-        });
-    };
-    let combo = |ui: &mut Ui, salt: String, val: &mut usize, opts: &[&str]| {
-        egui::ComboBox::from_id_salt(salt)
+    ui.horizontal(|ui| {
+        ui.add_sized([70.0, 20.0], egui::Label::new("Datum"));
+        egui::ComboBox::from_id_salt(format!("{id}_d"))
             .width(ui.available_width())
-            .selected_text(opts.get(*val).copied().unwrap_or(""))
+            .selected_text(DATE_FORMATS.get(t.date_fmt).copied().unwrap_or(""))
             .show_ui(ui, |ui| {
-                for (i, o) in opts.iter().enumerate() {
-                    ui.selectable_value(val, i, *o);
+                for (i, o) in DATE_FORMATS.iter().enumerate() {
+                    ui.selectable_value(&mut t.date_fmt, i, *o);
                 }
             });
-    };
-    row(ui, "Datum", &mut |ui| {
-        combo(ui, format!("{id}_d"), &mut t.date_fmt, DATE_FORMATS)
-    });
-    row(ui, "Position", &mut |ui| {
-        combo(ui, format!("{id}_p"), &mut t.pos, TEXT_POS)
-    });
-    let sizes: Vec<&str> = TEXT_SIZES.iter().map(|s| s.0).collect();
-    row(ui, "Größe", &mut |ui| {
-        combo(ui, format!("{id}_s"), &mut t.size, &sizes)
-    });
-    row(ui, "Stil", &mut |ui| {
-        combo(ui, format!("{id}_t"), &mut t.style, TEXT_STYLES)
     });
     ui.horizontal(|ui| {
         ui.add_space(74.0);
@@ -606,10 +608,8 @@ pub fn text_panel(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                         );
                     });
                     ui.add_space(4.0);
-                    egui::CollapsingHeader::new("Aussehen")
-                        .id_salt("text_look")
-                        .default_open(false)
-                        .show(ui, |ui| text_settings(app, ui, "panel"));
+                    ui.separator();
+                    text_settings(app, ui, "panel");
                 });
         });
     if close {

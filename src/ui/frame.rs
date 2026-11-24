@@ -63,6 +63,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         Some(Dialog::Settings) => settings::show(app, ui, full),
         Some(Dialog::Copy) => dialogs::copy(app, ui, now),
         Some(Dialog::Shortcuts) => dialogs::shortcuts(app, ui),
+        Some(Dialog::TextStyles) => super::textstyles::show(app, ui, full),
         None => {}
     }
 

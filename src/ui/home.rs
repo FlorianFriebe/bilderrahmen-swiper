@@ -544,11 +544,7 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
         ),
     };
     let text_lbl = if app.cfg.text.enabled {
-        let pos = crate::app::TEXT_POS
-            .get(app.cfg.text.pos)
-            .copied()
-            .unwrap_or("");
-        format!("Text an, {pos}")
+        format!("Text: {}", app.cfg.text.look().summary())
     } else {
         "Kein Text".to_string()
     };

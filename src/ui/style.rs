@@ -141,6 +141,9 @@ const INTER_SEMIBOLD: &[u8] = include_bytes!("../../assets/fonts/Inter-SemiBold.
 const INTER_BOLD: &[u8] = include_bytes!("../../assets/fonts/Inter-Bold.otf");
 const PHOSPHOR: &[u8] = include_bytes!("../../assets/fonts/Phosphor.ttf");
 const PHOSPHOR_FILL: &[u8] = include_bytes!("../../assets/fonts/Phosphor-Fill.ttf");
+const PLAYFAIR: &[u8] = include_bytes!("../../assets/fonts/PlayfairDisplay.ttf");
+const CAVEAT: &[u8] = include_bytes!("../../assets/fonts/Caveat.ttf");
+const OSWALD: &[u8] = include_bytes!("../../assets/fonts/Oswald.ttf");
 
 /// Schriftschnitt
 #[derive(Clone, Copy)]
@@ -180,9 +183,20 @@ pub fn icon_fill_font(size: f32) -> FontId {
     FontId::new(size, FontFamily::Name("ph-fill".into()))
 }
 
-/// Schrift für Text, der auf gespeicherte Bilder geschrieben wird.
-pub fn overlay_font_bytes() -> &'static [u8] {
-    INTER_SEMIBOLD
+/// Schriften für Text, der auf gespeicherte Bilder geschrieben wird
+/// (Reihenfolge wie `textstyle::FONTS`).
+pub fn overlay_font_bytes(i: u8) -> &'static [u8] {
+    match i {
+        1 => PLAYFAIR,
+        2 => CAVEAT,
+        3 => OSWALD,
+        _ => INTER_SEMIBOLD,
+    }
+}
+
+/// Dieselben Schriften für die Oberfläche (Vorschau im Programm).
+pub fn overlay_ui_font(size: f32, i: u8) -> FontId {
+    FontId::new(size, FontFamily::Name(format!("ov{}", i.min(3)).into()))
 }
 
 fn install_fonts(ctx: &egui::Context) {
@@ -199,6 +213,9 @@ fn install_fonts(ctx: &egui::Context) {
         ("inter-bold", INTER_BOLD),
         ("ph", PHOSPHOR),
         ("ph-fill", PHOSPHOR_FILL),
+        ("playfair", PLAYFAIR),
+        ("caveat", CAVEAT),
+        ("oswald", OSWALD),
     ] {
         fonts
             .font_data
@@ -220,6 +237,14 @@ fn install_fonts(ctx: &egui::Context) {
         fonts
             .families
             .insert(FontFamily::Name(fam_name.into()), fam(data));
+    }
+    for (i, data) in ["inter-semibold", "playfair", "caveat", "oswald"]
+        .iter()
+        .enumerate()
+    {
+        fonts
+            .families
+            .insert(FontFamily::Name(format!("ov{i}").into()), fam(data));
     }
     fonts
         .families

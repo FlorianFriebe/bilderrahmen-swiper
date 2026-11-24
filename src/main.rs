@@ -4,6 +4,7 @@ mod app;
 mod folders;
 mod imaging;
 mod daterange;
+mod textstyle;
 mod session;
 mod system;
 mod ui;

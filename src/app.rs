@@ -62,16 +62,6 @@ pub const DATE_FORMATS: &[&str] = &[
     "2024",
     "kein Datum",
 ];
-pub const TEXT_POS: &[&str] = &[
-    "unten links",
-    "unten mittig",
-    "unten rechts",
-    "oben links",
-    "oben mittig",
-    "oben rechts",
-];
-pub const TEXT_SIZES: &[(&str, f32)] = &[("klein", 2.4), ("mittel", 3.2), ("groß", 4.2)];
-pub const TEXT_STYLES: &[&str] = &["Schatten", "dunkles Band", "dezent"];
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
@@ -83,6 +73,18 @@ pub struct TextCfg {
     pub pos: usize,
     pub size: usize,
     pub style: usize,
+    // pos/size/style: nur noch zum Übernehmen alter Einstellungen
+    /// Aussehen ab Version 3.3 (fehlt in älteren Einstellungen)
+    pub look: Option<crate::textstyle::TextLook>,
+}
+
+impl TextCfg {
+    /// Aktuelles Aussehen, bei alten Einstellungen aus pos/size/style übernommen.
+    pub fn look(&self) -> crate::textstyle::TextLook {
+        self.look.clone().unwrap_or_else(|| {
+            crate::textstyle::TextLook::from_legacy(self.pos, self.size, self.style)
+        })
+    }
 }
 
 impl Default for TextCfg {
@@ -95,6 +97,7 @@ impl Default for TextCfg {
             pos: 0,
             size: 0,
             style: 0,
+            look: None,
         }
     }
 }
@@ -135,6 +138,10 @@ pub struct Config {
     pub sessions: Vec<crate::session::Session>,
     /// nur Fotos aus diesem Zeitraum (None = alle)
     pub date_filter: Option<crate::daterange::DateRange>,
+    /// eigene Textstile
+    pub text_styles: Vec<crate::textstyle::TextLook>,
+    /// Textstil, der nur für einen Ordner gilt
+    pub folder_looks: HashMap<PathBuf, crate::textstyle::TextLook>,
 }
 
 impl Default for Config {
@@ -163,6 +170,8 @@ impl Default for Config {
             copy_keep_folders: true,
             sessions: vec![],
             date_filter: None,
+            text_styles: vec![],
+            folder_looks: HashMap::new(),
         }
     }
 }
@@ -223,6 +232,8 @@ pub enum Dialog {
     Copy,
     /// Übersicht der Tastenkürzel
     Shortcuts,
+    /// Textstile bearbeiten
+    TextStyles,
 }
 
 pub struct SwiperApp {
@@ -253,6 +264,8 @@ pub struct SwiperApp {
     pub folder_files: HashMap<PathBuf, Vec<PathBuf>>,
     /// offenes Feld „Eigener Zeitraum“ mit dem Entwurf
     pub range_draft: Option<crate::daterange::DateRange>,
+    /// offener Stil-Editor
+    pub style_editor: Option<crate::ui::textstyles::Editor>,
     pub pending_jump: Option<PathBuf>,
     pub finished: Option<PathBuf>,
 
@@ -328,6 +341,7 @@ impl SwiperApp {
             dates: crate::daterange::load_cache(),
             lib_scan: None,
             range_draft: None,
+            style_editor: None,
             folder_files: HashMap::new(),
             years: vec![],
             groups: vec![],
@@ -1035,11 +1049,28 @@ impl SwiperApp {
     }
 
     /// Die Textzeilen für ein Bild (leer, wenn ausgeschaltet).
+    /// Textstil für ein Foto: eigener Stil des Ordners, sonst der allgemeine.
+    pub fn look_for(&self, path: &Path) -> crate::textstyle::TextLook {
+        path.parent()
+            .and_then(|p| self.cfg.folder_looks.get(p))
+            .cloned()
+            .unwrap_or_else(|| self.cfg.text.look())
+    }
+
     pub fn overlay_for(&self, path: &Path) -> Option<Overlay> {
-        let t = &self.cfg.text;
-        if !t.enabled {
+        if !self.cfg.text.enabled {
             return None;
         }
+        let o = Overlay {
+            lines: self.overlay_lines(path),
+            look: self.look_for(path),
+        };
+        (!o.is_empty()).then_some(o)
+    }
+
+    /// Textzeilen für ein Foto (Datum, Ort, Notiz), auch wenn Text gerade aus ist.
+    pub fn overlay_lines(&self, path: &Path) -> Vec<String> {
+        let t = &self.cfg.text;
         let mut first = vec![];
         let date = self.date_text(path);
         if !date.is_empty() {
@@ -1057,13 +1088,7 @@ impl SwiperApp {
                 lines.push(n.trim().to_string());
             }
         }
-        let o = Overlay {
-            lines,
-            pos: t.pos.min(5) as u8,
-            size_pct: TEXT_SIZES.get(t.size).map(|s| s.1).unwrap_or(3.2),
-            style: t.style.min(2) as u8,
-        };
-        (!o.is_empty()).then_some(o)
+        lines
     }
 
     // ------------------------------------------------------------------ Tasten
