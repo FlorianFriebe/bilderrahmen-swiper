@@ -22,7 +22,8 @@ description: Knöpfe, Leisten, Popups und Hinweise im Bilderrahmen-Swiper im Sti
 - Radien `radius::S M L XL CARD DOCK`, Größen `size::CONTROL 40 · BAR 48 · TOPBAR 56 · TOOL 64 · DOCK 88`.
 - Schrift `font(ts::BODY, W::Semibold)`, Farben nur über Funktionen wie `text()`, `text_soft()`,
   `muted()`, `accent()`, `keep()`, `skip()`, `glass()`, `panel()` (hell/dunkel automatisch).
-- Keine festen Farben oder Pixelwerte erfinden, wenn es ein Token gibt.
+- Keine festen Farben oder Pixelwerte erfinden, wenn es ein Token gibt. Feste Farbwerte außerhalb
+  von `style.rs` lässt der Test `design_check` scheitern; neue Farbe = neues Token in `style.rs`.
 
 ## Bausteine (`src/ui/kit/`, `src/ui/popups/`)
 

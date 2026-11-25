@@ -269,7 +269,7 @@ pub(super) fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Op
     }
     // Horizont-Linie, die gerade mit Strg gezogen wird
     if let Some((a, b)) = app.horizon_line {
-        let st = Stroke::new(2.0, Color32::from_rgb(0xFF, 0xD2, 0x4A));
+        let st = Stroke::new(2.0, HORIZON);
         painter.line_segment([a, b], st);
         painter.circle_filled(a, 4.0, st.color);
         painter.circle_filled(b, 4.0, st.color);

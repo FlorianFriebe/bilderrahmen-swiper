@@ -322,7 +322,7 @@ pub fn nav_button(ui: &Ui, r: Rect, glyph: &str, key: &str, enabled: bool) -> Re
         p.rect(
             r,
             rad,
-            mix(Color32::WHITE, Color32::from_gray(232), t),
+            mix(Color32::WHITE, LIGHT_PRESSED, t),
             Stroke::new(
                 1.0,
                 Color32::from_black_alpha(if is_dark() { 0 } else { 28 }),
@@ -338,11 +338,7 @@ pub fn nav_button(ui: &Ui, r: Rect, glyph: &str, key: &str, enabled: bool) -> Re
             StrokeKind::Inside,
         );
     }
-    let fg = if enabled {
-        Color32::from_gray(24)
-    } else {
-        disabled()
-    };
+    let fg = if enabled { LIGHT_INK } else { disabled() };
     let ic = 24.0;
     let key_font = font(ts::CAPTION, W::Semibold);
     let kw = if key.is_empty() {

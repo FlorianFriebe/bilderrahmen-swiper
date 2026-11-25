@@ -73,6 +73,11 @@ src/ui/
 
 ## Regeln für Änderungen
 
+Die wichtigsten Regeln prüft `src/design_check.rs` bei jedem `cargo test` und in CI: keine festen
+Farben außerhalb von `ui/style.rs`, keine Datei über 850 Zeilen, jede Datei mit `//!`-Kopfzeile.
+Schlägt der Test fehl, die Ursache beheben, nie die Regel lockern, ohne den Besitzer zu fragen.
+
+
 - Dateien klein halten: Ziel unter ~600 Zeilen. Neues Thema = neues Modul mit `//!`-Kopfzeile.
   In `app/` gilt: neues Untermodul mit `use super::*;` und eigenem `impl SwiperApp`-Block.
 - UI: nur Tokens aus `style.rs` und Bausteine aus `kit/`. Gewünschter Stil: kompakt, Symbole ohne

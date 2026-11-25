@@ -54,11 +54,7 @@ pub fn segmented_bare(
         let resp = clickable(ui, *rr, ("seg", l), true);
         let on = selected == Some(i);
         let t = anim(ui, resp.id, resp.hovered() && !on);
-        let col = if on {
-            Color32::from_rgb(0x11, 0x13, 0x18)
-        } else {
-            mix(text_soft(), text(), t)
-        };
+        let col = if on { INK } else { mix(text_soft(), text(), t) };
         p.text(rr.center(), Align2::CENTER_CENTER, l, f.clone(), col);
         if resp.clicked() {
             clicked = Some(i);
@@ -360,11 +356,7 @@ pub fn orient_switch(
         } else if t > 0.0 {
             p.rect_filled(rr, radius::M, glass_hover().gamma_multiply(t));
         }
-        let col = if on {
-            Color32::from_rgb(0x11, 0x13, 0x18)
-        } else {
-            mix(text_soft(), text(), t)
-        };
+        let col = if on { INK } else { mix(text_soft(), text(), t) };
         let size = if i == 0 {
             vec2(18.0, 12.0)
         } else {

@@ -189,6 +189,18 @@ pub const RED: Color32 = hex(0xef4444);
 pub const BLUE: Color32 = hex(0x3b82f6);
 pub const BLUE_DARK: Color32 = hex(0x2563eb);
 pub const AMBER: Color32 = hex(0xf59e0b);
+/// Schrift auf weißen Flächen (gewähltes Segment, heller Knopf)
+pub const INK: Color32 = hex(0x111318);
+/// heller Knopf: gedrückt / Schrift
+pub const LIGHT_PRESSED: Color32 = hex(0xe8e8e8);
+pub const LIGHT_INK: Color32 = hex(0x181818);
+/// dunkle Plakette über Fotos (Diashow-Infos)
+pub const SCRIM: Color32 = hexa(0x141418, 170);
+pub const SCRIM_STRONG: Color32 = hexa(0x141418, 190);
+/// Horizont-Linie beim Begradigen mit Strg
+pub const HORIZON: Color32 = hex(0xffd24a);
+/// Hintergrund der kleinen Text-Vorschau im Stil-Editor
+pub const SWATCH: Color32 = hex(0x5a6e86);
 
 // ------------------------------------------------------------------ Schriften
 
