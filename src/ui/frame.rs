@@ -62,10 +62,16 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     }
     match app.dialog {
         Some(Dialog::Keys) => super::popups::keys_dialog(app, ui),
-        Some(Dialog::Copy) => dialogs::copy(app, ui, now),
         Some(Dialog::Shortcuts) => dialogs::shortcuts(app, ui),
         Some(Dialog::TextStyles) => super::textstyles::show(app, ui, full),
         None => {}
+    }
+
+    if let Some((r, above)) = app.copy_anchor {
+        if !super::popups::copy_popup(app, ui, r, above, now) {
+            app.copy_anchor = None;
+            app.copy = None;
+        }
     }
 
     if let Some(mut v) = app.viewer.take() {
@@ -83,13 +89,18 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     if let Some((msg, t0)) = app.toast.clone().filter(|_| app.viewer.is_none()) {
         let age = now - t0;
         let alpha = (age / 0.2).min((TOAST_SECS - age) / 0.4).clamp(0.0, 1.0) as f32;
-        let anchor = pos2(
-            ws.center().x,
-            app.spots
-                .chips_bottom
-                .map(|b| b + sp::S)
-                .unwrap_or(ws.top() + size::TOPBAR + sp::S),
-        );
+        // Startseite: unten einblenden, damit die Überschrift lesbar bleibt
+        let anchor = if app.view == View::Home {
+            pos2(ws.center().x, ws.bottom() - 40.0 - sp::XL)
+        } else {
+            pos2(
+                ws.center().x,
+                app.spots
+                    .chips_bottom
+                    .map(|b| b + sp::S)
+                    .unwrap_or(ws.top() + size::TOPBAR + sp::S),
+            )
+        };
         let (glyph, action) = if app.toast_undo {
             (
                 (super::icons::X, skip()),
@@ -100,11 +111,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         };
         let action = action.as_ref().map(|(l, k)| (*l, k.as_str()));
         if kit::toast(ui, anchor, &msg, alpha, glyph, action) {
-            if app.bulk_undo.is_some() {
-                app.undo_bulk();
-            } else {
-                app.undo();
-            }
+            app.undo();
         }
     }
     if app.view != View::Home {
@@ -323,8 +330,8 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
             }
         }
         View::Gallery => {
-            if undo && app.bulk_undo.is_some() {
-                app.undo_bulk();
+            if undo {
+                app.undo();
             }
         }
     }
@@ -364,7 +371,8 @@ fn swipe_keys(
             .unwrap_or(false)
     };
     if app.polish_left().is_some() {
-        // Feinschliff: Pfeile blättern, Rücktaste / Entf nimmt das Foto raus
+        // Feinschliff: Pfeile blättern, Entf nimmt das Foto raus,
+        // Rücktaste / Strg+Z nehmen wie überall nur den letzten Schritt zurück
         let del = ctx.input(|i| i.key_pressed(egui::Key::Delete));
         if on("keep") {
             app.decide(true, now, width);
@@ -372,8 +380,11 @@ fn swipe_keys(
         if on("skip") {
             app.polish_back();
         }
-        if undo || del {
+        if del {
             app.decide(false, now, width);
+        }
+        if undo {
+            app.undo();
         }
     } else {
         if on("keep") {

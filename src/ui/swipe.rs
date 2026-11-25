@@ -45,21 +45,31 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect, ws: Rect, now: f64) {
     if !top_bar(app, ui, ws) {
         return;
     }
-    let mut card_top = ws.top() + size::TOPBAR + sp::XL;
+    // niedrige Fenster (Laptop): weniger Rand und ein flacheres Bilderband, damit das Foto größer wird
+    let short = ws.height() < 760.0;
+    let (top_gap, strip_h, gap) = if short {
+        (sp::M, 48.0, sp::S)
+    } else {
+        (sp::XL, STRIP_H, sp::L)
+    };
+    let mut card_top = ws.top() + size::TOPBAR + top_gap;
     if let Some(h) = burst_chip(app, ui, ws, card_top) {
         card_top += h + sp::M;
     }
     if let Some(h) = dup_chip(app, ui, ws, card_top) {
         card_top += h + sp::M;
     }
-    if card_top > ws.top() + size::TOPBAR + sp::XL + 1.0 {
+    if let Some(h) = note_chip(app, ui, ws, card_top) {
+        card_top += h + sp::M;
+    }
+    if card_top > ws.top() + size::TOPBAR + top_gap + 1.0 {
         app.spots.chips_bottom = Some(card_top - sp::M);
     }
 
     let dock = Rect::from_min_max(pos2(ws.left(), ws.bottom() - size::DOCK), ws.max);
     let strip = Rect::from_min_max(
-        pos2(ws.left(), dock.top() - sp::M - STRIP_H),
-        pos2(ws.right(), dock.top() - sp::M),
+        pos2(ws.left(), dock.top() - gap - strip_h),
+        pos2(ws.right(), dock.top() - gap),
     );
     // Das Textfeld schwebt links neben dem Foto. Nur wenn es sonst das Foto
     // verdecken würde, wird die Karte gleichmäßig schmaler (sie bleibt mittig).
@@ -71,7 +81,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect, ws: Rect, now: f64) {
     };
     let card_area = Rect::from_min_max(
         pos2(ws.left() + squeeze, card_top),
-        pos2(ws.right() - squeeze, strip.top() - sp::L),
+        pos2(ws.right() - squeeze, strip.top() - gap),
     );
     let panel = Rect::from_min_size(
         pos2(full.left() + sp::XL, card_area.top()),
@@ -175,16 +185,22 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         .and_then(|f| app.folders.iter().find(|i| &i.path == f))
         .map(|i| ellipsize(&i.label, 20))
         .unwrap_or_default();
-    let count = format!(
-        "{} / {}",
-        fmt_int(app.folder_done()),
-        fmt_int(app.items.len())
-    );
+    // im Feinschliff zählt der Schritt-Hinweis; der Ordnerfortschritt würde nur verwirren
+    let polishing = app.reedit.is_some();
+    let count = if polishing {
+        String::new()
+    } else {
+        format!(
+            "{} / {}",
+            fmt_int(app.folder_done()),
+            fmt_int(app.items.len())
+        )
+    };
     let nf = font(ts::BODY, W::Regular);
     let cf = font(ts::BODY, W::Semibold);
     let nw = kit::text_size(ui, &name, nf.clone()).x;
     let cw = kit::text_size(ui, &count, cf.clone()).x;
-    let mini = 72.0;
+    let mini = if polishing { 0.0 } else { 72.0 };
     let kept = if app.cfg.goal > 0 {
         format!(
             "{} / {}",
@@ -332,7 +348,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     }
     p.text(pos2(mx, cy), Align2::LEFT_CENTER, &count, cf, text());
     mx += cw + sp::M;
-    if show_name {
+    if show_name && !polishing {
         let f = if app.items.is_empty() {
             0.0
         } else {
@@ -426,6 +442,49 @@ fn burst_chip(app: &mut SwiperApp, ui: &Ui, ws: Rect, y: f32) -> Option<f32> {
     if kit::chip(ui, r, icons::STACK, false, &label, Tone::Warn).clicked() {
         app.open_burst();
     }
+    Some(36.0)
+}
+
+/// Hinweise zum aktuellen Foto: schon entschieden (nach einem Klick ins Bilderband),
+/// kein Aufnahmedatum, kleiner als der Rahmen.
+fn note_chip(app: &mut SwiperApp, ui: &Ui, ws: Rect, y: f32) -> Option<f32> {
+    let cur = app.current().cloned()?;
+    let mut parts: Vec<String> = vec![];
+    let mut tone = Tone::Warn;
+    if app.reedit.is_none() {
+        match app.decided(&cur).map(|e| e.d == "keep") {
+            Some(true) => {
+                parts.push("Schon behalten  ·  neu entscheiden oder weiterblättern".into());
+                tone = Tone::Keep;
+            }
+            Some(false) => {
+                parts.push("Schon aussortiert  ·  neu entscheiden oder weiterblättern".into())
+            }
+            None => {}
+        }
+    }
+    if let Some(Ok(pre)) = app.preview() {
+        if !pre.exif_date {
+            parts.push(format!(
+                "Kein Aufnahmedatum, nehme {}",
+                pre.when.format("%d.%m.%Y")
+            ));
+        }
+        let need = app.output_settings().max_res.or_else(|| app.frame_res());
+        let (w, h) = pre.orig;
+        if let Some((long, short)) = need {
+            if w.max(h) < long * 3 / 4 || w.min(h) < short * 3 / 4 {
+                parts.push(format!("Klein: {w} × {h} für {long} × {short}"));
+            }
+        }
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    let label = parts.join("  ·  ");
+    let w = kit::chip_width(ui, icons::INFO, &label);
+    let r = Rect::from_center_size(pos2(ws.center().x, y + 18.0), vec2(w, 36.0));
+    kit::chip(ui, r, icons::INFO, false, &label, tone);
     Some(36.0)
 }
 
@@ -529,8 +588,9 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
                 area,
                 icons::WARNING,
                 &format!(
-                    "„{}“ kann nicht geöffnet werden.\n{e}\n\nMit {} überspringen.",
+                    "„{}“ kann nicht geöffnet werden.\n{}\n\nMit {} überspringen.",
                     folders::file_name(&path),
+                    crate::imaging::explain_error(&e.to_string()),
                     app.key_label("skip")
                 ),
             ),
@@ -1612,8 +1672,8 @@ fn filmstrip(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     }
     if let Some(i) = hover {
         let tip = match app.decided(&app.items[i]).map(|e| e.d == "keep") {
-            Some(true) => "Behalten  ·  Klick: nochmal entscheiden",
-            Some(false) => "Weg  ·  Klick: nochmal entscheiden",
+            Some(true) => "Behalten  ·  Klick: ansehen und neu entscheiden",
+            Some(false) => "Weg  ·  Klick: ansehen und neu entscheiden",
             None => "Klick: zu diesem Foto springen",
         };
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
@@ -1703,15 +1763,12 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
             kit::Tool {
                 glyph: icons::X,
                 label: "Weg",
-                key: &ks("undo"),
+                key: "⌦",
                 active: false,
                 enabled: has_current,
             },
         )
-        .on_hover_text(format!(
-            "Doch nicht behalten: aus den Behaltenen nehmen ({})",
-            k("undo")
-        ))
+        .on_hover_text("Doch nicht behalten: aus den Behaltenen nehmen (Entf)")
         .clicked()
         {
             clicked = Some(Act::Skip);
@@ -1749,7 +1806,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
                 label: "Zurück",
                 key: &undo_key,
                 active: false,
-                enabled: !app.status.verlauf.is_empty(),
+                enabled: app.can_undo(),
             },
         )
         .on_hover_text(format!("Letzte Entscheidung rückgängig ({})", k("undo")))
@@ -1869,7 +1926,13 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
             } else {
                 icons::SWAP
             },
-            label: if app.current_fill() { "Ganz" } else { "Format" },
+            label: if app.current_fill() {
+                "Ganz"
+            } else if app.orientation_now() == Some(Orient::Hochkant) {
+                "Hochkant"
+            } else {
+                "Quer"
+            },
             key: &orient_key,
             active: app.current_fill(),
             enabled: loaded,
@@ -1877,14 +1940,22 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         app.fill_panel,
     );
     if main
-        .on_hover_text(format!(
-            "Quer / Hochkant wechseln ({}). Ganzes Foto: {}",
-            k("orient"),
-            k("fill")
-        ))
+        .on_hover_text(if app.current_fill() {
+            format!("Ganzes Foto mit Rand. Klick: Format wählen ({})", k("fill"))
+        } else {
+            format!(
+                "Klick: zwischen Quer und Hochkant wechseln ({}). Pfeil: Ganz und Rand",
+                k("orient")
+            )
+        })
         .clicked()
     {
-        clicked = Some(Act::Orient);
+        // im Ganz-Modus führt der Klick zur Auswahl statt still das Format zu tauschen
+        clicked = Some(if app.current_fill() {
+            Act::FillPanel
+        } else {
+            Act::Orient
+        });
     }
     if arrow
         .on_hover_text("Quer, Hochkant, Ganz und Rand")

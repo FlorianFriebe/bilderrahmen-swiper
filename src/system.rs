@@ -333,12 +333,12 @@ pub struct CopyProgress {
     pub done: usize,
     pub total: usize,
     pub skipped: usize,
+    /// vom Stick entfernt, weil nicht mehr behalten
+    pub removed: usize,
     pub finished: bool,
     pub error: Option<String>,
 }
 
-/// Fertige Bilder auf einen Stick/eine Karte kopieren. Schon vorhandene Dateien gleicher
-/// Größe werden übersprungen.
 /// Reihenfolge auf dem Rahmen beim Kopieren.
 pub const COPY_ORDERS: [(&str, &str); 3] = [
     (
@@ -360,6 +360,22 @@ pub fn strip_order(name: &str) -> &str {
     } else {
         name
     }
+}
+
+/// Stammt die Datei (ohne Reihenfolge-Nummer) von diesem Programm?
+/// Muster: „2024-07-15_143012_…jpg“. Nur solche Dateien werden je vom Stick entfernt.
+pub fn is_our_name(name: &str) -> bool {
+    let b = strip_order(name).as_bytes();
+    b.len() > 18
+        && b[..4].iter().all(u8::is_ascii_digit)
+        && b[4] == b'-'
+        && b[5..7].iter().all(u8::is_ascii_digit)
+        && b[7] == b'-'
+        && b[8..10].iter().all(u8::is_ascii_digit)
+        && b[10] == b'_'
+        && b[11..17].iter().all(u8::is_ascii_digit)
+        && b[17] == b'_'
+        && name.to_ascii_lowercase().ends_with(".jpg")
 }
 
 /// Dateinamen in der gewünschten Reihenfolge (je Zielordner durchnummeriert).
@@ -393,86 +409,159 @@ pub fn ordered_names(
         .collect()
 }
 
+/// Ein Bild, das auf den Stick gehört: fertige Datei und Ordnername der Quelle.
+#[derive(Clone)]
+pub struct CopyItem {
+    pub file: PathBuf,
+    pub folder: String,
+}
+
+/// Was beim Abgleich mit dem Stick passiert.
+#[derive(Default)]
+pub struct CopyPlan {
+    /// (Quelle, Größe, Ziel, vorhandene Datei gleicher Größe zum Umbenennen)
+    pub files: Vec<(PathBuf, u64, PathBuf, Option<PathBuf>)>,
+    /// Dateien auf dem Stick, die nicht mehr behalten sind
+    pub stale: Vec<PathBuf>,
+    /// so viele Bytes kommen neu dazu
+    pub need: u64,
+}
+
+/// Abgleich planen: Welche Bilder fehlen auf dem Stick, welche liegen dort umsonst?
+pub fn copy_plan(
+    items: &[CopyItem],
+    dest: &Path,
+    keep_folders: bool,
+    order: u8,
+    seed: u64,
+) -> CopyPlan {
+    let mut plan = CopyPlan::default();
+    // je Zielordner: Liste der Quellen
+    let mut groups: Vec<(PathBuf, Vec<&CopyItem>)> = vec![];
+    for it in items {
+        let sub = it
+            .file
+            .parent()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let to = if keep_folders {
+            dest.join(&sub)
+        } else {
+            dest.to_path_buf()
+        };
+        match groups.iter_mut().find(|g| g.0 == to) {
+            Some(g) => g.1.push(it),
+            None => groups.push((to, vec![it])),
+        }
+    }
+    // auch Ordner prüfen, in denen nichts mehr liegen soll
+    for sub in ["Quer", "Hochkant"] {
+        let to = if keep_folders {
+            dest.join(sub)
+        } else {
+            dest.to_path_buf()
+        };
+        if !groups.iter().any(|g| g.0 == to) {
+            groups.push((to, vec![]));
+        }
+    }
+    for (to, list) in groups {
+        let mut names: Vec<(String, String)> = vec![];
+        let mut src: std::collections::HashMap<String, (PathBuf, u64)> = Default::default();
+        for it in list {
+            let Some(n) = it.file.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            let len = fs::metadata(&it.file).map(|m| m.len()).unwrap_or(0);
+            if src.insert(n.to_string(), (it.file.clone(), len)).is_none() {
+                names.push((n.to_string(), it.folder.clone()));
+            }
+        }
+        // schon vorhandene Bilder (auch mit alter Nummer) wiederverwenden
+        let mut existing: std::collections::HashMap<String, (PathBuf, u64)> = Default::default();
+        for (p, len) in jpgs(&to) {
+            let Some(n) = p.file_name().and_then(|n| n.to_str()).map(str::to_string) else {
+                continue;
+            };
+            let key = strip_order(&n).to_string();
+            if src.contains_key(&key) {
+                existing.insert(key, (p, len));
+            } else if is_our_name(&n) {
+                plan.stale.push(p);
+            }
+        }
+        for (orig, name) in ordered_names(names, order, seed) {
+            let Some((f, len)) = src.get(&orig) else {
+                continue;
+            };
+            let have = existing
+                .get(&orig)
+                .filter(|(_, l)| l == len)
+                .map(|(p, _)| p.clone());
+            if have.is_none() {
+                plan.need += len;
+            }
+            plan.files.push((f.clone(), *len, to.join(&name), have));
+        }
+    }
+    plan
+}
+
+/// Fertige Bilder mit dem Stick / der Karte abgleichen: Fehlende kopieren, vorhandene
+/// nur umbenennen, nicht mehr behaltene (nur von diesem Programm) auf Wunsch entfernen.
 pub fn start_copy(
     ctx: egui::Context,
-    target: PathBuf,
+    items: Vec<CopyItem>,
     dest: PathBuf,
     keep_folders: bool,
     order: u8,
-    folder_of: std::collections::HashMap<String, String>,
+    remove_stale: bool,
 ) -> Arc<Mutex<CopyProgress>> {
     let prog = Arc::new(Mutex::new(CopyProgress::default()));
     let p2 = prog.clone();
     std::thread::spawn(move || {
-        // je Zielordner: (Quelle, Größe, Ziel)
-        let mut groups: Vec<(PathBuf, Vec<(PathBuf, u64)>)> = vec![];
-        for sub in ["Quer", "Hochkant"] {
-            let to = if keep_folders {
-                dest.join(sub)
-            } else {
-                dest.clone()
-            };
-            let list = jpgs(&target.join(sub));
-            match groups.iter_mut().find(|g| g.0 == to) {
-                Some(g) => g.1.extend(list),
-                None => groups.push((to, list)),
-            }
-        }
         let seed = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(7);
-        let mut files = vec![];
-        for (to, list) in groups {
-            let names: Vec<(String, String)> = list
-                .iter()
-                .filter_map(|(f, _)| {
-                    let n = f.file_name()?.to_str()?.to_string();
-                    let folder = folder_of.get(&n).cloned().unwrap_or_default();
-                    Some((n, folder))
-                })
-                .collect();
-            let sizes: std::collections::HashMap<String, (PathBuf, u64)> = list
-                .into_iter()
-                .filter_map(|(f, len)| Some((f.file_name()?.to_str()?.to_string(), (f, len))))
-                .collect();
-            // schon vorhandene Bilder (auch mit alter Nummer) wiederverwenden
-            let existing: std::collections::HashMap<String, (PathBuf, u64)> = jpgs(&to)
-                .into_iter()
-                .filter_map(|(p, len)| {
-                    let n = p.file_name()?.to_str()?.to_string();
-                    Some((strip_order(&n).to_string(), (p, len)))
-                })
-                .collect();
-            for (orig, name) in ordered_names(names, order, seed) {
-                if let Some((src, len)) = sizes.get(&orig) {
-                    files.push((
-                        src.clone(),
-                        *len,
-                        to.clone(),
-                        name,
-                        existing.get(&orig).cloned(),
-                    ));
+        let plan = copy_plan(&items, &dest, keep_folders, order, seed);
+        p2.lock().unwrap().total = plan.files.len();
+        if remove_stale {
+            let mut n = 0;
+            for f in &plan.stale {
+                if fs::remove_file(f).is_ok() {
+                    n += 1;
                 }
             }
+            p2.lock().unwrap().removed = n;
         }
-        p2.lock().unwrap().total = files.len();
         let mut err = None;
-        for (f, len, to, name, have) in files {
-            let out = to.join(&name);
-            let reuse = have.filter(|(_, l)| *l == len);
-            if let Some((old, _)) = reuse {
+        for (f, _, out, have) in plan.files {
+            if let Some(old) = have {
                 if old != out {
                     let _ = fs::rename(&old, &out);
                 }
                 p2.lock().unwrap().skipped += 1;
-            } else if let Err(e) = fs::create_dir_all(&to).and_then(|_| fs::copy(&f, &out)) {
-                log(&format!(
-                    "Kopieren nach {} fehlgeschlagen: {e}",
-                    out.display()
-                ));
-                err = Some(format!("{}: {e}", out.display()));
-                break;
+            } else {
+                // erst unter anderem Namen schreiben: ein abgezogener Stick hinterlässt
+                // keine halben Bilder, die der Rahmen anzeigen würde
+                let part = out.with_extension("jpg.part");
+                let res = out
+                    .parent()
+                    .map(fs::create_dir_all)
+                    .unwrap_or(Ok(()))
+                    .and_then(|_| fs::copy(&f, &part))
+                    .and_then(|_| fs::rename(&part, &out));
+                if let Err(e) = res {
+                    let _ = fs::remove_file(&part);
+                    log(&format!(
+                        "Kopieren nach {} fehlgeschlagen: {e}",
+                        out.display()
+                    ));
+                    err = Some(format!("{}: {e}", out.display()));
+                    break;
+                }
             }
             p2.lock().unwrap().done += 1;
             ctx.request_repaint();
@@ -589,5 +678,55 @@ mod order_tests {
         assert_eq!(strip_order("2024-07-15_a.jpg"), "2024-07-15_a.jpg");
         let r = ordered_names(files, 1, 42);
         assert!(r.iter().all(|(o, n)| strip_order(n) == o));
+    }
+}
+
+#[cfg(test)]
+mod sync_tests {
+    use super::*;
+
+    #[test]
+    fn recognizes_own_names() {
+        assert!(is_our_name("2024-07-15_143012_IMG_1234.jpg"));
+        assert!(is_our_name("0003_2024-07-15_143012_IMG_1234.jpg"));
+        assert!(!is_our_name("Urlaubsfoto.jpg"));
+        assert!(!is_our_name("2024-07-15_143012_IMG_1234.png"));
+    }
+
+    #[test]
+    fn plan_copies_new_keeps_existing_and_finds_stale() {
+        let base = std::env::temp_dir().join(format!("brs_plan_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let src = base.join("ziel").join("Quer");
+        let dest = base.join("stick");
+        fs::create_dir_all(&src).unwrap();
+        fs::create_dir_all(dest.join("Quer")).unwrap();
+        let a = src.join("2024-01-01_100000_a.jpg");
+        let b = src.join("2024-01-02_100000_b.jpg");
+        fs::write(&a, b"aaaa").unwrap();
+        fs::write(&b, b"bbbbbb").unwrap();
+        // a liegt schon drauf, dazu ein altes, nicht mehr behaltenes Bild und ein fremdes
+        fs::write(dest.join("Quer").join("2024-01-01_100000_a.jpg"), b"aaaa").unwrap();
+        fs::write(dest.join("Quer").join("2020-05-05_120000_alt.jpg"), b"x").unwrap();
+        fs::write(dest.join("Quer").join("Oma.jpg"), b"x").unwrap();
+        let items = vec![
+            CopyItem {
+                file: a.clone(),
+                folder: "Urlaub".into(),
+            },
+            CopyItem {
+                file: b.clone(),
+                folder: "Urlaub".into(),
+            },
+        ];
+        let plan = copy_plan(&items, &dest, true, 0, 1);
+        assert_eq!(plan.files.len(), 2);
+        assert_eq!(plan.need, 6, "nur b ist neu");
+        assert!(plan.files.iter().any(|f| f.0 == a && f.3.is_some()));
+        assert_eq!(
+            plan.stale,
+            vec![dest.join("Quer").join("2020-05-05_120000_alt.jpg")]
+        );
+        let _ = fs::remove_dir_all(&base);
     }
 }

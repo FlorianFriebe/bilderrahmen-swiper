@@ -32,7 +32,6 @@ pub const FRAME: &str = "\u{E626}";
 pub const HOME: &str = "\u{E2C2}";
 pub const EYE: &str = "\u{E220}";
 pub const CALENDAR: &str = "\u{E108}";
-pub const SHUFFLE: &str = "\u{E422}";
 pub const CARET_LEFT: &str = "\u{E138}";
 pub const CARET_RIGHT: &str = "\u{E13A}";
 pub const UPLOAD: &str = "\u{E4BE}";

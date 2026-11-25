@@ -14,6 +14,10 @@ pub const PREVIEW_SIDE: u32 = 2048;
 pub struct Preview {
     pub image: Arc<egui::ColorImage>,
     pub when: NaiveDateTime,
+    /// Aufnahmezeit stammt aus den EXIF-Daten (sonst Datum der Datei)
+    pub exif_date: bool,
+    /// Größe des Originals in Pixeln (nach EXIF-Drehung)
+    pub orig: (u32, u32),
 }
 
 pub type LoadResult = Result<Arc<Preview>, String>;
@@ -58,13 +62,17 @@ impl Loader {
                             s = cv.wait(s).unwrap();
                         }
                     };
-                    let res = imaging::load_preview(&path, PREVIEW_SIDE).map(|(rgb, when)| {
-                        let size = [rgb.width() as usize, rgb.height() as usize];
-                        Arc::new(Preview {
-                            image: Arc::new(egui::ColorImage::from_rgb(size, rgb.as_raw())),
-                            when,
-                        })
-                    });
+                    let res = imaging::load_preview(&path, PREVIEW_SIDE).map(
+                        |(rgb, when, exif_date, orig)| {
+                            let size = [rgb.width() as usize, rgb.height() as usize];
+                            Arc::new(Preview {
+                                image: Arc::new(egui::ColorImage::from_rgb(size, rgb.as_raw())),
+                                when,
+                                exif_date,
+                                orig,
+                            })
+                        },
+                    );
                     let (lock, _) = &*state;
                     let mut s = lock.lock().unwrap();
                     s.busy.remove(&path);
@@ -116,6 +124,8 @@ pub struct SaveJob {
     pub cfg: OutputSettings,
     pub overlay: Option<Overlay>,
     pub target: PathBuf,
+    /// frühere Ausgabe desselben Fotos: wird bei gleicher Ausrichtung ersetzt (Name bleibt)
+    pub replace: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -153,6 +163,7 @@ impl Saver {
                             &job.cfg,
                             job.overlay.as_ref(),
                             &job.target,
+                            job.replace.as_deref(),
                         );
                         let mut s = shared.lock().unwrap();
                         s.queued -= 1;
@@ -183,6 +194,7 @@ impl Saver {
         cfg: OutputSettings,
         overlay: Option<Overlay>,
         target: PathBuf,
+        replace: Option<PathBuf>,
     ) -> u64 {
         let id = self.next_id;
         self.next_id += 1;
@@ -195,6 +207,7 @@ impl Saver {
                 cfg,
                 overlay,
                 target,
+                replace,
             });
         }
         id

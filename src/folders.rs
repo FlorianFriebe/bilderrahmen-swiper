@@ -147,6 +147,63 @@ pub struct StatusFile {
     pub frueher: HashMap<PathBuf, PathBuf>,
 }
 
+/// Pfad ohne Laufwerksbuchstaben (`E:\\Fotos\\a.jpg` → `\\Fotos\\a.jpg`).
+fn without_drive(p: &Path) -> PathBuf {
+    p.components()
+        .filter(|c| !matches!(c, std::path::Component::Prefix(_)))
+        .collect()
+}
+
+impl StatusFile {
+    /// Hat ein Stick oder eine Platte mit Fotos einen anderen Laufwerksbuchstaben bekommen,
+    /// passen die gespeicherten Pfade nicht mehr. Für jeden Ordner in `roots` werden Einträge,
+    /// die bis auf den Buchstaben gleich sind und deren Datei es unter dem neuen Pfad gibt,
+    /// umgeschrieben. Gibt die Zahl der umgeschriebenen Fotos zurück.
+    pub fn remap_drives(&mut self, roots: &[PathBuf]) -> usize {
+        let mut map: HashMap<PathBuf, PathBuf> = HashMap::new();
+        let drive = |p: &Path| match p.components().next() {
+            Some(std::path::Component::Prefix(x)) => Some(x.as_os_str().to_owned()),
+            _ => None,
+        };
+        let root_drives: Vec<_> = roots.iter().map(|r| drive(r)).collect();
+        for old in self.bilder.keys() {
+            // nur Pfade auf einem Laufwerk, das gerade keiner der Ordner nutzt
+            let d = drive(old);
+            if d.is_none() || root_drives.contains(&d) || old.exists() {
+                continue;
+            }
+            let bare = without_drive(old);
+            for root in roots {
+                let rb = without_drive(root);
+                if rb.as_os_str().is_empty() {
+                    continue;
+                }
+                if let Ok(rest) = bare.strip_prefix(&rb) {
+                    let new = root.join(rest);
+                    if new.exists() && !self.bilder.contains_key(&new) {
+                        map.insert(old.clone(), new);
+                        break;
+                    }
+                }
+            }
+        }
+        for (old, new) in &map {
+            if let Some(e) = self.bilder.remove(old) {
+                self.bilder.insert(new.clone(), e);
+            }
+            if let Some(f) = self.frueher.remove(old) {
+                self.frueher.insert(new.clone(), f);
+            }
+        }
+        for v in &mut self.verlauf {
+            if let Some(n) = map.get(v) {
+                *v = n.clone();
+            }
+        }
+        map.len()
+    }
+}
+
 /// Zweite Kopie des Fortschritts unter %LOCALAPPDATA%, falls die Datei im
 /// Zielordner verloren geht oder beschädigt wird.
 fn backup_path(target: &Path) -> PathBuf {
@@ -270,5 +327,32 @@ mod status_backup {
         fs::remove_dir_all(&dir).unwrap();
         assert!(load_status(&dir).bilder.is_empty());
         let _ = fs::remove_file(backup_path(&dir));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn follows_new_drive_letter() {
+        let root = std::env::temp_dir().join(format!("brs_drive_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("a.jpg"), b"x").unwrap();
+        // gleicher Pfad, aber auf einem anderen (nicht vorhandenen) Laufwerk
+        let bare = without_drive(&root.join("a.jpg"));
+        let old = PathBuf::from(format!("Q:{}", bare.display()));
+        let mut s = StatusFile::default();
+        s.bilder.insert(
+            old.clone(),
+            Entry {
+                d: "keep".into(),
+                out: None,
+                edit: None,
+                grob: false,
+            },
+        );
+        s.verlauf.push(old);
+        assert_eq!(s.remap_drives(std::slice::from_ref(&root)), 1);
+        assert!(s.bilder.contains_key(&root.join("a.jpg")));
+        assert_eq!(s.verlauf, vec![root.join("a.jpg")]);
+        let _ = fs::remove_dir_all(&root);
     }
 }

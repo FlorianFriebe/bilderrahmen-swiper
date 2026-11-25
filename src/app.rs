@@ -178,6 +178,10 @@ pub struct Config {
     pub slide_date: bool,
     /// Diashow im Vollbild (ganzer Bildschirm)
     pub slide_full: bool,
+    /// Profil-Popup wurde schon einmal gezeigt (beim ersten Start fragt die App danach)
+    pub profile_asked: bool,
+    /// beim Abgleich mit dem Stick nicht mehr behaltene Bilder dort entfernen
+    pub copy_remove_stale: bool,
 }
 
 /// Neue Einführung zeigen, wenn sich die Bedienung geändert hat.
@@ -211,7 +215,8 @@ impl Default for Config {
             target: home.join("Pictures").join("Bilderrahmen"),
             ratio_quer: "16:9".into(),
             ratio_hoch: "9:16".into(),
-            res_idx: 0,
+            // neue Installationen: nicht die volle Kameraauflösung auf den Rahmen
+            res_idx: 3,
             max_mb: 0.0,
             goal: 0,
             frame: String::new(),
@@ -241,6 +246,8 @@ impl Default for Config {
             slide_orient: 0,
             slide_date: false,
             slide_full: true,
+            profile_asked: false,
+            copy_remove_stale: true,
         }
     }
 }
@@ -302,9 +309,6 @@ pub struct Reedit {
     finished: Option<PathBuf>,
 }
 
-/// Zwischenordner und je Bild (Original, Ausgabe, Ablage im Zwischenordner).
-pub type BulkUndo = (PathBuf, Vec<(PathBuf, PathBuf, PathBuf)>);
-
 /// (Foto, Anzahl behaltener, bekannte Abdrücke, Ergebnis)
 type DupCache = (PathBuf, usize, usize, Option<(PathBuf, PathBuf)>);
 
@@ -323,7 +327,6 @@ pub struct Spots {
 pub enum Dialog {
     /// Tasten ändern
     Keys,
-    Copy,
     /// Übersicht der Tastenkürzel
     Shortcuts,
     /// Textstile bearbeiten
@@ -341,6 +344,10 @@ pub struct SwiperApp {
     /// gewählter Bereich der Einstellungs-Karte
     /// Zahnrad-Popup offen (Strg+B oder Zahnrad)
     pub gear_popup: bool,
+    /// Start gedrückt, aber das Profil wurde noch nie gezeigt: erst danach fragen
+    pub ask_profile: bool,
+    /// im Bilderband angeklicktes, schon entschiedenes Foto: wird gezeigt, bis neu entschieden
+    pub look_at: Option<PathBuf>,
 
     // aktuelle Sitzung
     pub queue: Vec<PathBuf>,
@@ -388,10 +395,12 @@ pub struct SwiperApp {
     pub dx: f32,
     pub dy: f32,
     pub toast: Option<(String, f64)>,
-    /// Meldung mit „Rückgängig“-Knopf (nach „Alle entfernen“)
+    /// Meldung mit „Rückgängig“-Knopf
     pub toast_undo: bool,
-    /// Zuletzt gesammelt entfernte Bilder: Zwischenordner und (Original, Ausgabe, Zwischenablage)
-    pub bulk_undo: Option<BulkUndo>,
+    /// Schritte, die „Rückgängig“ zurücknehmen kann (siehe `history.rs`)
+    pub undo_stack: Vec<crate::history::Step>,
+    /// Länge von `undo_stack` beim Beginn des Nachbearbeitens / Feinschliffs
+    pub reedit_mark: usize,
     /// Filter der Galerie: 0 alle, 1 quer, 2 hochkant
     pub gallery_filter: u8,
     /// in der Galerie markierte Bilder (Ausgabedateien) und letzter Klick für Shift
@@ -429,6 +438,10 @@ pub struct SwiperApp {
     /// laufender Export eines Ordners: fertig-Meldung, sobald da
     pub export: Option<Arc<Mutex<Option<String>>>>,
     pub copy_dest: Option<PathBuf>,
+    /// offenes Popup „Auf Stick / SD-Karte“: Knopf, an dem es hängt, und ob es darüber liegt
+    pub copy_anchor: Option<(egui::Rect, bool)>,
+    /// zuletzt berechneter Platzbedarf je Ziel (Zeit, Bytes)
+    pub copy_need: HashMap<PathBuf, (f64, u64)>,
     pub stats: Option<(f64, Stats)>,
     pub update: Arc<Mutex<Option<String>>>,
     /// laufendes Ein-Klick-Update
@@ -458,6 +471,8 @@ impl SwiperApp {
             view: View::Home,
             active_session: None,
             gear_popup: false,
+            ask_profile: false,
+            look_at: None,
             queue: vec![],
             folder: None,
             items: vec![],
@@ -493,7 +508,8 @@ impl SwiperApp {
             dy: 0.0,
             toast: None,
             toast_undo: false,
-            bulk_undo: None,
+            undo_stack: vec![],
+            reedit_mark: 0,
             gallery_filter: 0,
             gallery_sel: Default::default(),
             gallery_anchor: None,
@@ -515,6 +531,8 @@ impl SwiperApp {
             copy: None,
             export: None,
             copy_dest: None,
+            copy_anchor: None,
+            copy_need: HashMap::new(),
             stats: None,
             update: system::check_update(ctx.clone()),
             updater: None,
@@ -587,6 +605,16 @@ impl SwiperApp {
     }
 
     pub fn rescan(&mut self) {
+        self.sync_target();
+        // anderer Laufwerksbuchstabe für Stick/Platte mit den Fotos: Fortschritt mitnehmen
+        let moved = self.status.remap_drives(&self.cfg.roots);
+        if moved > 0 {
+            system::log(&format!(
+                "{moved} Fotos auf neuen Laufwerksbuchstaben umgeschrieben"
+            ));
+            self.status_dirty = true;
+            self.flush_status();
+        }
         self.tree = self
             .cfg
             .roots
@@ -736,6 +764,7 @@ impl SwiperApp {
         self.folder = Some(path.clone());
         self.items = crate::daterange::filtered(self, &path);
         self.pos = 0;
+        self.look_at = None;
         self.groups = vec![(0, 1); self.items.len()];
         self.pending_jump = jump;
         self.view = View::Swipe;
@@ -795,7 +824,9 @@ impl SwiperApp {
         }
         self.groups = groups;
         let jump = self.pending_jump.take();
-        self.pos = match jump.and_then(|j| self.items.iter().position(|p| *p == j)) {
+        // beim Fortsetzen: das gemerkte Foto, außer es ist inzwischen entschieden
+        let at = jump.and_then(|j| self.items.iter().position(|p| *p == j));
+        self.pos = match at.and_then(|i| self.next_open(i)) {
             Some(i) => i,
             None => match self.next_open(0) {
                 Some(i) => i,
@@ -835,6 +866,8 @@ impl SwiperApp {
         self.status = folders::load_status(&self.cfg.target);
         self.status_target = self.cfg.target.clone();
         self.goal_announced = false;
+        self.undo_stack.clear();
+        crate::history::empty_old_trash(&self.status_target);
         self.sync_target();
     }
 
@@ -874,9 +907,11 @@ impl SwiperApp {
         if self.scan.is_some() || self.view == View::Home {
             return None;
         }
-        self.items
-            .get(self.pos)
-            .filter(|p| self.reedit.is_some() || !self.status.bilder.contains_key(*p))
+        self.items.get(self.pos).filter(|p| {
+            self.reedit.is_some()
+                || !self.status.bilder.contains_key(*p)
+                || self.look_at.as_ref() == Some(*p)
+        })
     }
 
     pub fn folder_done(&self) -> usize {
@@ -1026,6 +1061,24 @@ impl SwiperApp {
 
     /// Entscheidung für ein beliebiges Bild speichern (ohne weiterzuspringen).
     pub fn record(&mut self, path: &Path, keep: bool) {
+        let prev = self.status.bilder.get(path).cloned();
+        if prev.is_some() {
+            // schon entschieden (Bilderband, Nachbearbeiten): alten Auftrag abbrechen
+            if let Some(id) = self.job_for.remove(path) {
+                self.saver.cancel(id);
+                self.job_of.remove(&id);
+            }
+            if prev.as_ref().is_some_and(|e| e.d == "keep") {
+                self.total_kept = self.total_kept.saturating_sub(1);
+            }
+        }
+        let (old, old_was_frueher) = self.stash_previous(path, keep);
+        self.undo_stack.push(crate::history::Step::Decision {
+            path: path.to_path_buf(),
+            prev,
+            old,
+            old_was_frueher,
+        });
         if keep {
             let edit = self.edits.get(path).copied().unwrap_or_default();
             let id = self.saver.submit(
@@ -1034,6 +1087,7 @@ impl SwiperApp {
                 self.output_settings(),
                 self.overlay_for(path),
                 self.cfg.target.clone(),
+                self.status.frueher.get(path).cloned(),
             );
             self.job_of.insert(id, path.to_path_buf());
             self.job_for.insert(path.to_path_buf(), id);
@@ -1081,70 +1135,21 @@ impl SwiperApp {
     }
 
     pub fn advance(&mut self) {
+        self.look_at = None;
         match self.next_open(self.pos + 1) {
             Some(i) => self.pos = i,
             None => self.folder_finished(),
         }
     }
 
-    /// Entscheidung zurücknehmen (Datei löschen, wieder offen).
-    pub fn revert(&mut self, path: &Path) {
-        if let Some(id) = self.job_for.remove(path) {
-            self.saver.cancel(id);
-            self.job_of.remove(&id);
-        }
-        if let Some(e) = self.status.bilder.remove(path) {
-            if e.d == "keep" {
-                self.total_kept = self.total_kept.saturating_sub(1);
-            }
-            if let Some(out) = e.out {
-                let _ = std::fs::remove_file(out);
-            }
-        }
-        self.status.verlauf.retain(|p| p != path);
-        self.status_dirty = true;
-    }
-
-    pub fn undo(&mut self) {
-        self.anim = None;
-        let Some(path) = self.status.verlauf.last().cloned() else {
-            return;
-        };
-        debug(&format!("undo {}", path.display()));
-        if self.toast_undo {
-            self.toast = None;
-            self.toast_undo = false;
-        }
-        self.revert(&path);
-        self.dx = 0.0;
-        self.dy = 0.0;
-        let parent = path.parent().map(Path::to_path_buf);
-        if self.view == View::Swipe
-            && self.folder.as_deref() == parent.as_deref()
-            && self.scan.is_none()
-        {
-            if let Some(i) = self.items.iter().position(|p| *p == path) {
-                self.pos = i;
-                return;
-            }
-        }
-        if let Some(parent) = parent {
-            if parent.is_dir() {
-                self.refresh_folders();
-                self.start_folder(parent, Some(path));
-            }
-        }
-    }
-
-    /// Filmstreifen: zu einem Bild springen (bei Bedarf Entscheidung zurücknehmen).
+    /// Bilderband: zu einem Bild springen. Eine schon getroffene Entscheidung bleibt,
+    /// bis man das Foto neu entscheidet.
     pub fn jump_to(&mut self, i: usize) {
         self.finish_anim();
         let Some(p) = self.items.get(i).cloned() else {
             return;
         };
-        if self.status.bilder.contains_key(&p) {
-            self.revert(&p);
-        }
+        self.look_at = self.status.bilder.contains_key(&p).then_some(p);
         self.pos = i;
         self.dx = 0.0;
     }
@@ -1454,29 +1459,68 @@ impl SwiperApp {
         }
     }
 
-    pub fn start_copy(&mut self, dest: PathBuf) {
-        self.flush_status();
-        // Speichern abwarten wäre schöner, reicht aber auch so: offene Aufträge sind selten
-        self.copy_dest = Some(dest.clone());
-        // Ordnername der Quelle je gespeichertem Bild (für „Nach Ordner“)
-        let folder_of = self
+    /// Alle fertigen Bilder, die auf den Stick gehören: behaltene und (nach „Ganz von
+    /// vorn“) die früheren Ausgaben, solange das Foto nicht neu entschieden ist.
+    pub fn copy_items(&self) -> Vec<system::CopyItem> {
+        let label = |src: &Path| src.parent().map(folders::file_name).unwrap_or_default();
+        let mut v: Vec<system::CopyItem> = self
             .status
             .bilder
             .iter()
+            .filter(|(_, e)| e.d == "keep")
             .filter_map(|(src, e)| {
-                let out = e.out.as_ref()?.file_name()?.to_str()?.to_string();
-                let folder = src.parent().map(folders::file_name).unwrap_or_default();
-                Some((out, folder))
+                let file = e.out.clone()?;
+                Some(system::CopyItem {
+                    file,
+                    folder: label(src),
+                })
             })
             .collect();
+        for (src, out) in &self.status.frueher {
+            if !self.status.bilder.contains_key(src) {
+                v.push(system::CopyItem {
+                    file: out.clone(),
+                    folder: label(src),
+                });
+            }
+        }
+        v.retain(|it| it.file.exists());
+        v
+    }
+
+    /// Mit Stick / Karte abgleichen. Läuft erst, wenn alle Bilder gespeichert sind.
+    pub fn start_copy(&mut self, dest: PathBuf) {
+        if self.saver.queued() > 0 {
+            return;
+        }
+        self.flush_status();
+        self.copy_dest = Some(dest.clone());
         self.copy = Some(system::start_copy(
             self.ctx.clone(),
-            self.cfg.target.clone(),
+            self.copy_items(),
             dest,
             self.cfg.copy_keep_folders,
             self.cfg.copy_order,
-            folder_of,
+            self.cfg.copy_remove_stale,
         ));
+    }
+
+    /// So viele Bytes kämen beim Abgleich mit `dest` neu dazu (alle paar Sekunden neu berechnet).
+    pub fn copy_need(&mut self, dest: &Path, now: f64) -> u64 {
+        if let Some((t, n)) = self.copy_need.get(dest) {
+            if now - t < 4.0 {
+                return *n;
+            }
+        }
+        let plan = system::copy_plan(
+            &self.copy_items(),
+            dest,
+            self.cfg.copy_keep_folders,
+            self.cfg.copy_order,
+            1,
+        );
+        self.copy_need.insert(dest.to_path_buf(), (now, plan.need));
+        plan.need
     }
 
     // ------------------------------------------------------------------ Serien
@@ -1718,44 +1762,6 @@ impl SwiperApp {
         (skip, all)
     }
 
-    /// Entscheidungen eines Ordners vergessen: nur die aussortierten oder alle.
-    /// Behaltene Bilder bleiben im Zielordner liegen.
-    pub fn reset_folder(&mut self, folder: &Path, only_skipped: bool) {
-        let before = self.status.bilder.len();
-        let mut old = vec![];
-        self.status.bilder.retain(|p, e| {
-            let keep = p.parent() != Some(folder) || (only_skipped && e.d != "skip");
-            if !keep {
-                if let Some(o) = &e.out {
-                    old.push((p.clone(), o.clone()));
-                }
-            }
-            keep
-        });
-        self.status.frueher.extend(old);
-        let n = before - self.status.bilder.len();
-        let bilder = &self.status.bilder;
-        self.status
-            .verlauf
-            .retain(|p| p.parent() != Some(folder) || bilder.contains_key(p));
-        if n == 0 {
-            return;
-        }
-        self.status_dirty = true;
-        self.stats = None;
-        self.flush_status();
-        self.refresh_folders();
-        let what = if only_skipped {
-            format!("{} aussortierte Fotos sind wieder offen.", fmt_int(n))
-        } else {
-            format!(
-                "„{}“ beginnt von vorn. Behaltene Bilder bleiben im Zielordner.",
-                folders::file_name(folder)
-            )
-        };
-        self.toast(what);
-    }
-
     /// Wurde dieses Motiv schon einmal behalten (z. B. als Kopie in einem anderen
     /// Ordner)? Liefert (Quelle, Ausgabe) des früheren Bildes.
     pub fn duplicate_of(&mut self, p: &Path) -> Option<(PathBuf, PathBuf)> {
@@ -1846,6 +1852,7 @@ impl SwiperApp {
             }
         }
         if self.reedit.is_none() {
+            self.reedit_mark = self.undo_stack.len();
             self.reedit = Some(Reedit {
                 polish,
                 folder: self.folder.clone(),
@@ -1915,14 +1922,9 @@ impl SwiperApp {
     fn finish_reedit(&mut self, path: &Path, keep: bool) {
         let polish = self.reedit.as_ref().is_some_and(|r| r.polish);
         if keep {
-            let old = self.status.bilder.get(path).and_then(|e| e.out.clone());
+            // die alte Datei wird nach dem Speichern ersetzt (siehe `record`)
             self.record(path, true);
-            // war schon behalten: nicht doppelt zählen, alte Datei nach dem Speichern ersetzen
-            self.total_kept = self.total_kept.saturating_sub(1);
-            if let Some(o) = old {
-                self.status.frueher.insert(path.to_path_buf(), o);
-            }
-            // Rückgängig soll das neu gespeicherte Bild nicht ganz verwerfen
+            // Rückgängig nach einem Neustart soll das neu gespeicherte Bild nicht ganz verwerfen
             self.status.verlauf.retain(|p| p != path);
             if !polish {
                 self.toast("Neu gespeichert".into());
@@ -2050,97 +2052,6 @@ impl SwiperApp {
         self.view = View::Gallery;
     }
 
-    /// Mehrere behaltene Bilder auf einmal entfernen. Die Dateien wandern erst in einen
-    /// Zwischenordner, damit „Rückgängig“ sie zurückholen kann.
-    pub fn discard_many(&mut self, items: &[(PathBuf, PathBuf)]) {
-        self.drop_bulk_undo();
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
-        let dir = std::env::temp_dir()
-            .join("bilderrahmen-swiper-papierkorb")
-            .join(stamp.to_string());
-        let _ = std::fs::create_dir_all(&dir);
-        let mut moved = vec![];
-        for (i, (src, out)) in items.iter().enumerate() {
-            let name = out
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default();
-            let stash = dir.join(format!("{i}_{name}"));
-            let ok = std::fs::rename(out, &stash).is_ok()
-                || (std::fs::copy(out, &stash).is_ok() && std::fs::remove_file(out).is_ok());
-            if let Some(e) = self.status.bilder.get_mut(src) {
-                e.out = None;
-                e.d = "skip".into();
-                self.total_kept = self.total_kept.saturating_sub(1);
-            }
-            self.thumb_tex.remove(out);
-            self.thumbs.forget(out);
-            if ok {
-                moved.push((src.clone(), out.clone(), stash));
-            }
-        }
-        self.stats = None;
-        self.status_dirty = true;
-        let n = items.len();
-        self.bulk_undo = Some((dir, moved));
-        self.toast_with_undo(if n == 1 {
-            "1 Bild entfernt".into()
-        } else {
-            format!("{} Bilder entfernt", fmt_int(n))
-        });
-    }
-
-    /// „Alle entfernen“ rückgängig machen.
-    pub fn undo_bulk(&mut self) {
-        let Some((dir, moved)) = self.bulk_undo.take() else {
-            return;
-        };
-        for (src, out, stash) in moved {
-            if let Some(parent) = out.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            let ok = std::fs::rename(&stash, &out).is_ok()
-                || (std::fs::copy(&stash, &out).is_ok() && std::fs::remove_file(&stash).is_ok());
-            if !ok {
-                continue;
-            }
-            if let Some(e) = self.status.bilder.get_mut(&src) {
-                e.out = Some(out);
-                e.d = "keep".into();
-                self.total_kept += 1;
-            }
-        }
-        let _ = std::fs::remove_dir_all(dir);
-        self.stats = None;
-        self.status_dirty = true;
-        self.toast = None;
-        self.toast_undo = false;
-    }
-
-    /// Zwischenordner der letzten Sammel-Entfernung endgültig löschen.
-    pub fn drop_bulk_undo(&mut self) {
-        if let Some((dir, _)) = self.bulk_undo.take() {
-            let _ = std::fs::remove_dir_all(dir);
-        }
-    }
-
-    pub fn discard_kept(&mut self, src: &Path) {
-        if let Some(e) = self.status.bilder.get_mut(src) {
-            if let Some(out) = e.out.take() {
-                let _ = std::fs::remove_file(&out);
-                self.thumb_tex.remove(&out);
-                self.thumbs.forget(&out);
-            }
-            e.d = "skip".into();
-            self.stats = None;
-            self.total_kept = self.total_kept.saturating_sub(1);
-            self.status_dirty = true;
-        }
-    }
-
     // ------------------------------------------------------------------ Hintergrund
 
     pub fn poll_saver(&mut self) {
@@ -2152,16 +2063,7 @@ impl SwiperApp {
             match res {
                 Ok(out) => {
                     self.stats = None;
-                    if let Some(old) = self.status.frueher.remove(&path) {
-                        if old != out {
-                            let _ = std::fs::remove_file(&old);
-                        }
-                        self.status_dirty = true;
-                    }
-                    if let Some(e) = self.status.bilder.get_mut(&path) {
-                        e.out = Some(out);
-                        self.status_dirty = true;
-                    }
+                    self.saved(&path, out);
                 }
                 Err(err) => {
                     self.revert(&path);
@@ -2172,6 +2074,22 @@ impl SwiperApp {
                 }
             }
         }
+    }
+
+    /// Fertig gespeichert: Ausgabe merken, frühere Fassung (liegt als Kopie im
+    /// Papierkorb) wegräumen, wenn sie einen anderen Namen hatte.
+    fn saved(&mut self, path: &Path, out: PathBuf) {
+        if let Some(old) = self.status.frueher.remove(path) {
+            if old != out {
+                let _ = std::fs::remove_file(&old);
+            }
+        }
+        self.thumbs.forget(&out);
+        self.thumb_tex.remove(&out);
+        if let Some(e) = self.status.bilder.get_mut(path) {
+            e.out = Some(out);
+        }
+        self.status_dirty = true;
     }
 
     pub fn poll_thumbs(&mut self, ctx: &egui::Context) {
@@ -2470,14 +2388,11 @@ impl Drop for SwiperApp {
         self.thumbs.shutdown();
         for (id, res) in self.saver.finish() {
             if let (Some(path), Ok(out)) = (self.job_of.remove(&id), res) {
-                if let Some(e) = self.status.bilder.get_mut(&path) {
-                    e.out = Some(out);
-                }
+                self.saved(&path, out);
             }
         }
-        for (_, old) in self.status.frueher.drain() {
-            let _ = std::fs::remove_file(old);
-        }
+        // Frühere Ausgaben in `frueher` (nach „Ganz von vorn“) bleiben liegen,
+        // bis das Foto neu entschieden wird.
         self.status_dirty = true;
         self.flush_status();
         self.hashes.save_if_dirty();

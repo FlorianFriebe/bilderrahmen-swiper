@@ -4,6 +4,7 @@ mod app;
 mod daterange;
 mod dupes;
 mod folders;
+mod history;
 mod imaging;
 mod session;
 mod system;

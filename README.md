@@ -54,11 +54,12 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Optional Text aufs Bild: Datum, Ort (pro Ordner), Notiz (pro Bild)
 - Stil-Editor mit Vorschau am echten Foto: vier Schriften, Größe, Farbe, Deckkraft, Hintergrund (Schatten, Band, Glas), neun Positionen und Randabstand; sieben mitgelieferte Stile, eigene Stile speichern, pro Ordner festlegen, als Datei exportieren und importieren
 - Wischen: Foto neben dem Zuschnitt-Rahmen nach rechts (behalten) oder links (weg) ziehen
-- Ausgabe als JPEG in `Zielordner\Quer` und `Zielordner\Hochkant`, Dateiname mit Aufnahmedatum; EXIF-Daten und Farbprofil bleiben erhalten
+- Ausgabe als JPEG in `Zielordner\Quer` und `Zielordner\Hochkant`, Dateiname mit Aufnahmedatum; Aufnahmedatum (EXIF) und Farbprofil werden mitgeschrieben, übrige EXIF-Daten wie Kamera und GPS nicht
 
 **Abschließen**
 - Zusammenfassung mit Anzahl (quer und hochkant) und Gesamtgröße
-- Kopieren auf USB-Stick oder SD-Karte mit Platzprüfung; schon vorhandene Dateien werden übersprungen
+- Abgleich mit USB-Stick oder SD-Karte: kopiert nur Neues, prüft den nötigen Platz, nimmt auf Wunsch nicht mehr behaltene Bilder vom Stick und wartet, bis alles gespeichert ist
+- Rückgängig für alles, was Bilder entfernt (Entscheidungen, Entfernen in der Galerie, Ganz von vorn); entfernte Bilder liegen 14 Tage im Ordner `.papierkorb` im Zielordner
 - Reihenfolge auf dem Rahmen: nach Datum, zufällig oder nach Ordner (über eine vierstellige Nummer vor dem Dateinamen; beim erneuten Kopieren werden vorhandene Dateien nur umbenannt)
 
 **Bedienung**
@@ -112,7 +113,8 @@ nächste Foto wird vorgeladen.
 ```
 src/
   main.rs        Start, Fenster, Grafik-Ausweichweg
-  app.rs         Zustand und Logik: Ordner, Entscheidungen, Rückgängig, Serien, Tasten
+  app.rs         Zustand und Logik: Ordner, Entscheidungen, Serien, Tasten
+  history.rs     Rückgängig: Schritte, Papierkorb, Ganz von vorn
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import
@@ -129,7 +131,7 @@ src/
     kit.rs       Bausteine: Glasflächen, Knöpfe, Umschalter, Chips, Meldungen
     icons.rs     Symbole (Phosphor)
     frame.rs     Ablauf eines Frames: Darstellung, Tasten, Hintergrund, Übergänge
-    home.rs, swipe.rs, gallery.rs, burst.rs, settings.rs, dialogs.rs,
+    home.rs, swipe.rs, gallery.rs, burst.rs, popups.rs, dialogs.rs,
     textstyles.rs, viewer.rs   je eine Ansicht
 assets/fonts/    Inter, Playfair Display, Caveat, Oswald, Phosphor (Lizenzen in LIZENZEN.md)
 ```

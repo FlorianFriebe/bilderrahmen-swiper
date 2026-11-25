@@ -281,14 +281,50 @@ fn profile_sub(p: &crate::app::FrameProfile) -> String {
 /// Profil-Popup: Profile wechseln und anlegen, darunter Format und Größe des aktiven Profils.
 pub fn profile_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool {
     app.store_profile();
-    form_popup(ui, "profile", item, 380.0, above, |ui| {
+    // Kopf „Welchen Bilderrahmen hast du?“ bleibt stehen, solange das erste Popup offen ist
+    let first_id = egui::Id::unique("profile_first");
+    if !app.cfg.profile_asked {
+        ui.ctx().data_mut(|d| d.insert_temp(first_id, true));
+    }
+    let first: bool = ui.ctx().data(|d| d.get_temp(first_id)).unwrap_or(false);
+    app.cfg.profile_asked = true;
+    let keep = form_popup(ui, "profile", item, 380.0, above, |ui| {
+        if first {
+            ui.horizontal(|ui| {
+                ui.add_space(sp::M);
+                ui.vertical(|ui| {
+                    ui.add_space(sp::S);
+                    ui.label(
+                        egui::RichText::new("Welchen Bilderrahmen hast du?")
+                            .font(font(ts::BODY, W::Semibold))
+                            .color(text()),
+                    );
+                    ui.label(
+                        egui::RichText::new(
+                            "Wähle unten unter Vorlage dein Gerät, dann passen Format und Größe jedes behaltenen Fotos. Danach geht es mit Start los.",
+                        )
+                        .size(12.0)
+                        .color(text_soft()),
+                    );
+                });
+            });
+            divider_line(ui);
+        }
         caption(ui, "Profile");
         let mut switch = None;
         let mut remove = None;
         let n = app.cfg.profiles.len();
         for (i, p) in app.cfg.profiles.iter().enumerate() {
-            let r = menu_row(ui, &p.name, &profile_sub(p), i == app.cfg.profile)
-                .on_hover_text(format!("Zielordner: {}", p.target.display()));
+            let r = menu_row(ui, &p.name, &profile_sub(p), i == app.cfg.profile).on_hover_text(
+                if n > 1 {
+                    format!(
+                        "Zielordner: {}\nRechtsklick: Profil entfernen",
+                        p.target.display()
+                    )
+                } else {
+                    format!("Zielordner: {}", p.target.display())
+                },
+            );
             if r.clicked() {
                 switch = Some(i);
             }
@@ -347,16 +383,6 @@ pub fn profile_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> b
             }
             None => d.remove::<String>(id),
         });
-        if n > 1 {
-            ui.horizontal(|ui| {
-                ui.add_space(sp::M);
-                ui.label(
-                    egui::RichText::new("Rechtsklick auf ein Profil: entfernen")
-                        .size(11.5)
-                        .color(muted()),
-                );
-            });
-        }
         if let Some(i) = switch {
             app.switch_profile(i);
         }
@@ -407,7 +433,11 @@ pub fn profile_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> b
         });
         ui.add_space(sp::S);
         true
-    })
+    });
+    if !keep {
+        ui.ctx().data_mut(|d| d.remove::<bool>(first_id));
+    }
+    keep
 }
 
 /// Vorlage (Auflösung eines Geräts), Format, Auflösung, Dateigröße und Ziel des aktiven Profils.
@@ -517,52 +547,50 @@ fn format_size_ui(app: &mut SwiperApp, ui: &mut Ui) {
                 });
         });
     }
+    let mb_label = |v: f32| {
+        if v <= 0.0 {
+            "Unbegrenzt".to_string()
+        } else {
+            format!("{} MB", format!("{v:.1}").trim_end_matches(".0")).replace('.', ",")
+        }
+    };
     field_row(ui, "Max. Datei", |ui| {
-        ui.add_sized(
-            [ui.available_width() - sp::M, 26.0],
-            egui::DragValue::new(&mut app.cfg.max_mb)
-                .range(0.0..=50.0)
-                .speed(0.05)
-                .fixed_decimals(1)
-                .custom_formatter(|v, _| {
-                    if v <= 0.0 {
-                        "unbegrenzt".into()
-                    } else {
-                        format!("{v:.1} MB")
-                    }
-                })
-                .custom_parser(|s| {
-                    let s = s.to_lowercase().replace("mb", "").replace(',', ".");
-                    let s = s.trim();
-                    if s.is_empty() || s.starts_with('u') {
-                        Some(0.0)
-                    } else {
-                        s.parse().ok()
-                    }
-                }),
-        )
-        .on_hover_text("Ziehen oder doppelklicken zum Eintippen. 0 = unbegrenzt.");
+        egui::ComboBox::from_id_salt("pop_max_mb")
+            .width(ui.available_width() - sp::M)
+            .selected_text(mb_label(app.cfg.max_mb))
+            .show_ui(ui, |ui| {
+                for v in [0.0, 0.3, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0] {
+                    ui.selectable_value(&mut app.cfg.max_mb, v, mb_label(v));
+                }
+            })
+            .response
+            .on_hover_text("Manche Rahmen zeigen große Dateien nicht oder nur langsam an. Die Qualität wird dann passend gewählt.");
     });
+}
+
+/// Ziel: so viele Bilder möchte man insgesamt behalten (0 = kein Ziel).
+fn goal_ui(app: &mut SwiperApp, ui: &mut Ui) {
+    let label = |v: u32| {
+        if v == 0 {
+            "Kein Ziel".to_string()
+        } else {
+            format!("{v} Bilder")
+        }
+    };
     let before = app.cfg.goal;
-    field_row(ui, "Ziel", |ui| {
-        ui.add_sized(
-            [ui.available_width() - sp::M, 26.0],
-            egui::DragValue::new(&mut app.cfg.goal)
-                .range(0..=100_000)
-                .speed(5.0)
-                .custom_formatter(|v, _| {
-                    if v <= 0.0 {
-                        "kein Ziel".into()
-                    } else {
-                        format!("{v:.0} Bilder")
-                    }
-                })
-                .custom_parser(|s| {
-                    let s: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
-                    Some(s.parse::<f64>().unwrap_or(0.0))
-                }),
-        )
-        .on_hover_text("Wie viele Bilder möchtest du insgesamt? 0 = kein Ziel.");
+    field_row(ui, "Bilder-Ziel", |ui| {
+        egui::ComboBox::from_id_salt("pop_goal")
+            .width(ui.available_width() - sp::M)
+            .selected_text(label(app.cfg.goal))
+            .show_ui(ui, |ui| {
+                for v in [0, 50, 100, 200, 300, 500, 1000, 2000] {
+                    ui.selectable_value(&mut app.cfg.goal, v, label(v));
+                }
+            })
+            .response
+            .on_hover_text(
+                "Wie viele Bilder möchtest du insgesamt? Beim Erreichen gibt es eine Meldung.",
+            );
     });
     if before != app.cfg.goal {
         app.goal_announced = app.cfg.goal > 0 && app.total_kept >= app.cfg.goal as usize;
@@ -613,6 +641,180 @@ fn ratio_row(
     }
 }
 
+// ------------------------------------------------------------------ Stick / Karte
+
+/// Popup „Auf Stick / SD-Karte“: Laufwerk wählen, Reihenfolge, Abgleich mit Fortschritt.
+/// Gibt `false` zurück, wenn es zugehen soll (nie während des Kopierens).
+pub fn copy_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool, now: f64) -> bool {
+    let busy = app
+        .copy
+        .as_ref()
+        .is_some_and(|c| !c.lock().unwrap().finished);
+    let keep = form_popup(ui, "copy", item, 380.0, above, |ui| {
+        let mut close = false;
+        let stats = app.stats(now);
+        caption(ui, "Auf Stick oder SD-Karte");
+        ui.horizontal(|ui| {
+            ui.add_space(sp::M);
+            ui.label(
+                egui::RichText::new(format!(
+                    "{} Bilder ({} quer, {} hochkant), {}",
+                    crate::util::fmt_int(stats.quer + stats.hoch),
+                    crate::util::fmt_int(stats.quer),
+                    crate::util::fmt_int(stats.hoch),
+                    system::fmt_bytes(stats.bytes)
+                ))
+                .size(12.0)
+                .color(text_soft()),
+            );
+        });
+        ui.add_space(sp::XS);
+        let note = |ui: &mut Ui, t: &str, c: Color32| {
+            ui.horizontal(|ui| {
+                ui.add_space(sp::M);
+                ui.add(egui::Label::new(egui::RichText::new(t).size(12.5).color(c)).wrap());
+            });
+        };
+        if let Some(c) = app.copy.clone() {
+            let p = c.lock().unwrap();
+            let dest = app.copy_dest.clone().unwrap_or_default();
+            if !p.finished {
+                note(ui, &format!("Gleiche ab mit {} …", dest.display()), text());
+                let f = if p.total > 0 {
+                    p.done as f32 / p.total as f32
+                } else {
+                    0.0
+                };
+                ui.horizontal(|ui| {
+                    ui.add_space(sp::M);
+                    let (r, _) = ui.allocate_exact_size(
+                        vec2(ui.available_width() - sp::M, 6.0),
+                        Sense::hover(),
+                    );
+                    kit::progress(ui.painter(), r, f);
+                });
+                ui.ctx()
+                    .request_repaint_after(std::time::Duration::from_millis(100));
+            } else if let Some(e) = &p.error {
+                note(ui, &format!("Das hat nicht geklappt: {e}"), skip());
+                note(ui, "Ist der Stick voll oder schreibgeschützt?", muted());
+            } else {
+                let new = p.done - p.skipped;
+                let mut parts = vec![format!("{} neu", crate::util::fmt_int(new))];
+                if p.skipped > 0 {
+                    parts.push(format!(
+                        "{} waren schon drauf",
+                        crate::util::fmt_int(p.skipped)
+                    ));
+                }
+                if p.removed > 0 {
+                    parts.push(format!("{} entfernt", crate::util::fmt_int(p.removed)));
+                }
+                note(ui, &format!("Fertig: {}.", parts.join(", ")), keep());
+                note(
+                    ui,
+                    "Wirf den Stick in Windows über „Hardware sicher entfernen“ aus, bevor du ihn abziehst.",
+                    muted(),
+                );
+                drop(p);
+                if menu_row(ui, "Ordner auf dem Stick öffnen", "", false).clicked() {
+                    open_folder(&dest);
+                }
+                if menu_row(ui, "Fertig", "", false).clicked() {
+                    close = true;
+                }
+            }
+            return !close;
+        }
+        let waiting = app.saver.queued();
+        if waiting > 0 {
+            note(
+                ui,
+                &format!("Speichere noch {waiting} Bilder, gleich geht es los …"),
+                muted(),
+            );
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(200));
+        }
+        let drives = system::removable_drives();
+        if drives.is_empty() {
+            note(
+                ui,
+                "Kein Stick und keine Karte gefunden. Steck sie ein, dann erscheint sie hier.",
+                muted(),
+            );
+        }
+        for d in drives {
+            let dest = d.root.join("Bilderrahmen");
+            let need = app.copy_need(&dest, now);
+            let full = d.free != u64::MAX && d.free < need;
+            let sub = if full {
+                format!(
+                    "Zu wenig Platz: {} nötig, {} frei",
+                    system::fmt_bytes(need),
+                    system::fmt_bytes(d.free)
+                )
+            } else if d.free == u64::MAX {
+                d.root.display().to_string()
+            } else {
+                format!(
+                    "{}  ·  {} frei  ·  {} neu",
+                    d.root.display(),
+                    system::fmt_bytes(d.free),
+                    system::fmt_bytes(need)
+                )
+            };
+            let r = ui.add_enabled_ui(!full && waiting == 0, |ui| {
+                menu_row(ui, &format!("{}  {}", icons::USB, d.label), &sub, false)
+            });
+            if r.inner.clicked() {
+                app.start_copy(dest);
+            }
+        }
+        let r = ui.add_enabled_ui(waiting == 0, |ui| {
+            menu_row(ui, "Anderen Ordner wählen …", "", false)
+        });
+        if r.inner.clicked() {
+            if let Some(dir) = rfd::FileDialog::new()
+                .set_title("Wohin sollen die Bilder?")
+                .pick_folder()
+            {
+                app.start_copy(dir);
+            }
+        }
+        divider_line(ui);
+        caption(ui, "Reihenfolge auf dem Rahmen");
+        for (i, (label, hint)) in system::COPY_ORDERS.iter().enumerate() {
+            if menu_row(ui, label, hint, app.cfg.copy_order == i as u8).clicked() {
+                app.cfg.copy_order = i as u8;
+                app.copy_need.clear();
+            }
+        }
+        divider_line(ui);
+        ui.horizontal(|ui| {
+            ui.add_space(sp::M);
+            if ui
+                .checkbox(&mut app.cfg.copy_keep_folders, "Unterordner Quer und Hochkant")
+                .on_hover_text("Aus: alle Bilder landen direkt im Ordner „Bilderrahmen“. Manche Rahmen zeigen nur Bilder aus dem obersten Ordner.")
+                .changed()
+            {
+                app.copy_need.clear();
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.add_space(sp::M);
+            ui.checkbox(
+                &mut app.cfg.copy_remove_stale,
+                "Nicht mehr behaltene Bilder vom Stick nehmen",
+            )
+            .on_hover_text("Entfernt im Ordner „Bilderrahmen“ nur Bilder, die dieses Programm dort abgelegt hat und die du inzwischen herausgenommen oder neu gespeichert hast.");
+        });
+        ui.add_space(sp::XS);
+        true
+    });
+    keep || busy
+}
+
 // ------------------------------------------------------------------ App (Zahnrad)
 
 /// Zahnrad-Popup: was man einmal einstellt.
@@ -621,28 +823,24 @@ pub fn app_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool 
         let mut close = false;
         caption(ui, "Zielordner");
         let path = app.cfg.target.display().to_string();
-        let shown = kit::fit_text_start(ui, &path, font(ts::SMALL, W::Regular), 300.0);
-        ui.horizontal(|ui| {
-            ui.add_space(sp::M);
-            ui.label(egui::RichText::new(shown).size(12.5).color(text_soft()))
-                .on_hover_text(&path);
-        });
-        ui.horizontal(|ui| {
-            ui.add_space(sp::M);
-            if ui.button("Ändern …").clicked() {
-                if let Some(d) = rfd::FileDialog::new()
-                    .set_title("Zielordner wählen")
-                    .set_directory(&app.cfg.target)
-                    .pick_folder()
-                {
-                    app.set_target(d);
-                }
+        let shown = kit::fit_text_start(ui, &path, font(ts::SMALL, W::Regular), 280.0);
+        if menu_row(ui, "Zielordner ändern …", &shown, false)
+            .on_hover_text(&path)
+            .clicked()
+        {
+            if let Some(d) = rfd::FileDialog::new()
+                .set_title("Zielordner wählen")
+                .set_directory(&app.cfg.target)
+                .pick_folder()
+            {
+                app.set_target(d);
             }
-            if ui.button("Öffnen").clicked() {
-                let _ = std::fs::create_dir_all(&app.cfg.target);
-                open_folder(&app.cfg.target);
-            }
-        });
+        }
+        if menu_row(ui, "Zielordner öffnen", "", false).clicked() {
+            let _ = std::fs::create_dir_all(&app.cfg.target);
+            open_folder(&app.cfg.target);
+        }
+        goal_ui(app, ui);
 
         divider_line(ui);
         caption(ui, "Darstellung");
