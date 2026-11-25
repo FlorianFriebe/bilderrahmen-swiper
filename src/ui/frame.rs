@@ -42,6 +42,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     let fade = view_fade(ui, app.view, now);
     let mut view_ui = ui.new_child(egui::UiBuilder::new().max_rect(full));
     view_ui.multiply_opacity(fade);
+    app.spots.chips_bottom = None;
     match app.view {
         View::Home => home::show(app, &mut view_ui, ws),
         View::Swipe => swipe::show(app, &mut view_ui, full, ws, now),
@@ -70,12 +71,23 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     if let Some(mut v) = app.viewer.take() {
         if super::viewer::show(&mut v, ui, full) {
             app.viewer = Some(v);
+        } else if v.was_tap(now) {
+            if let (Some(f), Some(pos)) = (v.menu_for.clone(), ui.input(|i| i.pointer.latest_pos()))
+            {
+                app.folder_menu = Some((f, pos));
+            }
         }
     }
     if let Some((msg, t0)) = app.toast.clone().filter(|_| app.viewer.is_none()) {
         let age = now - t0;
         let alpha = (age / 0.2).min((TOAST_SECS - age) / 0.4).clamp(0.0, 1.0) as f32;
-        let anchor = pos2(ws.center().x, ws.top() + size::TOPBAR + sp::S);
+        let anchor = pos2(
+            ws.center().x,
+            app.spots
+                .chips_bottom
+                .map(|b| b + sp::S)
+                .unwrap_or(ws.top() + size::TOPBAR + sp::S),
+        );
         let (glyph, action) = if app.toast_undo {
             (
                 (super::icons::X, skip()),
@@ -98,6 +110,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     if app.status_dirty && now - app.last_flush > 2.0 {
         app.last_flush = now;
         app.flush_status();
+        app.hashes.save_if_dirty();
     }
 }
 
@@ -227,8 +240,13 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         return;
     }
     if k(Key::Escape) {
-        if app.text_panel {
+        if app.fill_panel || app.adjust_panel {
+            app.fill_panel = false;
+            app.adjust_panel = false;
+        } else if app.text_panel {
             app.text_panel = false;
+        } else if app.reedit.is_some() && app.view == View::Swipe {
+            app.cancel_reedit();
         } else if matches!(app.view, View::Gallery | View::Burst) {
             app.view = if app.view == View::Burst || app.folder.is_some() && app.current().is_some()
             {
@@ -258,7 +276,7 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
                 home::start(app);
             }
             if app.pressed(&ctx, "gallery") && app.total_kept > 0 {
-                app.view = View::Gallery;
+                app.open_gallery();
             }
         }
         View::Burst => {
@@ -279,8 +297,22 @@ fn swipe_keys(
     shift: bool,
 ) {
     let names = [
-        "keep", "skip", "rot_r", "rot_l", "orient", "fill", "text", "burst", "gallery", "zoom_in",
-        "zoom_out", "reset", "preview",
+        "keep",
+        "skip",
+        "rot_r",
+        "rot_l",
+        "orient",
+        "fill",
+        "text",
+        "burst",
+        "gallery",
+        "zoom_in",
+        "zoom_out",
+        "reset",
+        "preview",
+        "guide",
+        "straighten",
+        "enhance",
     ];
     let hit: Vec<bool> = names.iter().map(|a| app.pressed(ctx, a)).collect();
     let on = |a: &str| {
@@ -311,6 +343,26 @@ fn swipe_keys(
     if on("fill") {
         app.toggle_fill();
     }
+    if on("straighten") {
+        app.apply_straighten();
+    }
+    if on("enhance") {
+        app.toggle_enhance();
+    }
+    if on("guide") {
+        let names = swipe::GUIDES;
+        if shift {
+            app.cfg.guide_flip = (app.cfg.guide_flip + 1) % 4;
+        } else {
+            app.cfg.guide = (app.cfg.guide + 1) % names.len() as u8;
+        }
+        let name = names[app.cfg.guide as usize];
+        app.toast(if app.cfg.guide == 0 {
+            "Hilfslinien aus".into()
+        } else {
+            format!("Hilfslinien: {name}")
+        });
+    }
     if on("preview") {
         app.open_frame_preview(false);
     }
@@ -322,7 +374,7 @@ fn swipe_keys(
     }
     if on("gallery") {
         app.finish_anim();
-        app.view = View::Gallery;
+        app.open_gallery();
     }
     let zoom = if on("zoom_in") {
         1.12

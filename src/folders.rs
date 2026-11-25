@@ -127,6 +127,9 @@ pub struct Entry {
     pub d: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub out: Option<PathBuf>,
+    /// Einstellungen beim Behalten (zum Nachbearbeiten)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edit: Option<crate::imaging::Edit>,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -136,21 +139,63 @@ pub struct StatusFile {
     /// Reihenfolge der Entscheidungen (für Rückgängig nach Neustart)
     #[serde(default)]
     pub verlauf: Vec<PathBuf>,
+    /// Nach „Ganz von vorn“: frühere Ausgabe je Foto, wird beim erneuten Behalten ersetzt
+    #[serde(default)]
+    pub frueher: HashMap<PathBuf, PathBuf>,
+}
+
+/// Zweite Kopie des Fortschritts unter %LOCALAPPDATA%, falls die Datei im
+/// Zielordner verloren geht oder beschädigt wird.
+fn backup_path(target: &Path) -> PathBuf {
+    // FNV-1a über den Pfad, damit jeder Zielordner seine eigene Sicherung hat
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in target.to_string_lossy().to_lowercase().bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x0100_0000_01b3);
+    }
+    crate::system::data_dir()
+        .join("sicherung")
+        .join(format!("fortschritt_{h:016x}.json"))
+}
+
+fn read_status(p: &Path) -> Option<StatusFile> {
+    fs::read(p)
+        .ok()
+        .and_then(|b| serde_json::from_slice::<StatusFile>(&b).ok())
 }
 
 pub fn load_status(target: &Path) -> StatusFile {
-    fs::read(target.join(STATUS_FILE))
-        .ok()
-        .and_then(|b| serde_json::from_slice::<StatusFile>(&b).ok())
-        .unwrap_or_default()
+    if let Some(s) = read_status(&target.join(STATUS_FILE)) {
+        return s;
+    }
+    // Nur wenn es den Zielordner noch gibt: Wer ihn ganz löscht, will neu anfangen.
+    if target.is_dir() {
+        if let Some(s) = read_status(&backup_path(target)) {
+            crate::system::log(&format!(
+                "Fortschritt aus der Sicherung wiederhergestellt ({} Bilder)",
+                s.bilder.len()
+            ));
+            return s;
+        }
+    }
+    StatusFile::default()
 }
 
 pub fn save_status(target: &Path, status: &StatusFile) -> std::io::Result<()> {
     fs::create_dir_all(target)?;
+    let data = serde_json::to_vec(status)?;
     let p = target.join(STATUS_FILE);
     let tmp = target.join(format!("{STATUS_FILE}.tmp"));
-    fs::write(&tmp, serde_json::to_vec(status)?)?;
+    fs::write(&tmp, &data)?;
     fs::rename(&tmp, &p)?;
+    let b = backup_path(target);
+    if let Some(dir) = b.parent() {
+        let _ = fs::create_dir_all(dir);
+        let btmp = b.with_extension("tmp");
+        if fs::write(&btmp, &data).is_ok() {
+            let _ = fs::rename(&btmp, &b);
+        }
+    }
     Ok(())
 }
 
@@ -194,5 +239,32 @@ mod tests {
         let mut v = vec!["IMG_10.jpg", "img_2.jpg", "IMG_1.jpg"];
         v.sort_by(|a, b| natural_cmp(a, b));
         assert_eq!(v, ["IMG_1.jpg", "img_2.jpg", "IMG_10.jpg"]);
+    }
+}
+
+#[cfg(test)]
+mod status_backup {
+    use super::*;
+
+    #[test]
+    fn restores_lost_status() {
+        let dir = std::env::temp_dir().join(format!("brs_status_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let mut s = StatusFile::default();
+        s.bilder.insert(
+            PathBuf::from("/x/a.jpg"),
+            Entry {
+                d: "skip".into(),
+                out: None,
+                edit: None,
+            },
+        );
+        save_status(&dir, &s).unwrap();
+        fs::remove_file(dir.join(STATUS_FILE)).unwrap();
+        assert_eq!(load_status(&dir).bilder.len(), 1);
+        // ganz gelöschter Zielordner = neu anfangen
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(load_status(&dir).bilder.is_empty());
+        let _ = fs::remove_file(backup_path(&dir));
     }
 }

@@ -22,6 +22,8 @@ pub struct SessionSettings {
     pub max_mb: f32,
     pub text: TextCfg,
     pub date_filter: Option<crate::daterange::DateRange>,
+    /// Zielordner des Rahmens, für den diese Auswahl lief
+    pub target: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -67,10 +69,19 @@ impl SwiperApp {
             max_mb: self.cfg.max_mb,
             text: self.cfg.text.clone(),
             date_filter: self.cfg.date_filter,
+            target: Some(self.cfg.target.clone()),
         }
     }
 
     fn apply_settings(&mut self, s: &SessionSettings) {
+        // lief für einen anderen Rahmen: erst zu diesem wechseln
+        if let Some(t) = &s.target {
+            if *t != self.cfg.target {
+                if let Some(i) = self.cfg.profiles.iter().position(|p| &p.target == t) {
+                    self.switch_profile(i);
+                }
+            }
+        }
         self.cfg.frame = s.frame.clone();
         self.cfg.ratio_quer = s.ratio_quer.clone();
         self.cfg.ratio_hoch = s.ratio_hoch.clone();
@@ -144,10 +155,15 @@ impl SwiperApp {
     /// Zum Startbildschirm: Stand merken (Haus-Knopf).
     pub fn pause(&mut self) {
         self.finish_anim();
+        if self.reedit.is_some() {
+            self.cancel_reedit();
+        }
         self.sync_session();
         self.view = View::Home;
         self.finished = None;
         self.text_panel = false;
+        self.fill_panel = false;
+        self.adjust_panel = false;
         self.refresh_folders();
         self.drop_finished_sessions();
         self.toast("Gespeichert. Unter „Weitermachen“ geht es später weiter.".into());

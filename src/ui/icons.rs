@@ -37,3 +37,4 @@ pub const CARET_LEFT: &str = "\u{E138}";
 pub const CARET_RIGHT: &str = "\u{E13A}";
 pub const UPLOAD: &str = "\u{E4BE}";
 pub const PLUS: &str = "\u{E3D4}";
+pub const DOTS: &str = "\u{E1FE}";

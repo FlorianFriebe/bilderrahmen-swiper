@@ -34,7 +34,10 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 **Aufbereiten**
 - Zuschnitt auf das Seitenverhältnis des Rahmens, getrennt für Quer und Hochkant
 - Ausschnitt verschieben und zoomen, Drehen in 90°-Schritten
-- Alternativ das ganze Foto auf unscharfem Hintergrund statt Zuschnitt
+- Alternativ das ganze Foto statt Zuschnitt, frei zoombar, Rand unscharf, in Fotofarbe, schwarz oder weiß
+- Hilfslinien (Drittel, Goldener Schnitt, Spirale …), Begradigen mit Vorschlag, Auto-Verbessern
+- Doppelte Fotos werden am Bildinhalt erkannt, behaltene Bilder lassen sich nachbearbeiten
+- Mehrere Rahmen mit eigenem Format und Zielordner
 - Rahmen-Profile (z. B. 1280 × 800) setzen Seitenverhältnis und Auflösung automatisch
 - Optionale Begrenzung von Auflösung und Dateigröße (die JPEG-Qualität wird angepasst)
 - Optional Text aufs Bild: Datum, Ort (pro Ordner), Notiz (pro Bild)
@@ -101,7 +104,8 @@ src/
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import
   update.rs      Ein-Klick-Update unter Windows
-  imaging.rs     Laden (EXIF-Drehung), Zuschnitt, unscharfer Hintergrund, Text, JPEG-Export
+  imaging.rs     Laden (EXIF-Drehung), Zuschnitt, Ganz-Rand, Begradigen, Licht, Text, JPEG-Export
+  dupes.rs       Fingerabdrücke (Differenz-Hash) zum Erkennen doppelter Fotos
   workers.rs     Hintergrund-Threads: Vorladen, Speichern, Vorschaubilder, Aufnahmedaten
   folders.rs     Ordnerbaum, natürliche Sortierung, Fortschrittsdatei
   system.rs      Protokoll, Vorschau-Speicher, Wechseldatenträger, Kopieren, Update-Abfrage

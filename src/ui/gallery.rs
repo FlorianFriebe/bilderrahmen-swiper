@@ -42,6 +42,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let th = tw * 0.66;
     let rows = list.len().div_ceil(cols);
     let mut discard = None;
+    let mut edit = None;
     let mut peek = None;
     let mut visible = vec![];
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(area));
@@ -60,8 +61,9 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                         vec2(tw, th),
                     );
                     match tile(app, ui, r, i, src, out) {
-                        Some(true) => discard = Some(src.clone()),
-                        Some(false) => peek = Some(i),
+                        Some(TileAct::Discard) => discard = Some(src.clone()),
+                        Some(TileAct::Peek) => peek = Some(i),
+                        Some(TileAct::Edit) => edit = Some(src.clone()),
                         None => {}
                     }
                 }
@@ -72,6 +74,10 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         .retain_queue(|p| vis.contains(p) || !p.starts_with(&app.cfg.target));
     if let Some(src) = discard {
         app.discard_kept(&src);
+    }
+    if let Some(src) = edit {
+        app.start_reedit(&src);
+        return;
     }
     if let Some(i) = peek {
         let files: Vec<PathBuf> = list.iter().map(|(_, o)| o.clone()).collect();
@@ -132,7 +138,13 @@ fn header(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, n: usize) -> bool {
     true
 }
 
-/// Eine Kachel. `Some(true)`: rauswerfen, `Some(false)`: Vorschau (rechte Maustaste).
+enum TileAct {
+    Discard,
+    Peek,
+    Edit,
+}
+
+/// Eine Kachel: rauswerfen, bearbeiten (Knopf oder Doppelklick) oder Vorschau (rechte Maustaste).
 fn tile(
     app: &SwiperApp,
     ui: &Ui,
@@ -140,10 +152,13 @@ fn tile(
     i: usize,
     src: &std::path::Path,
     out: &std::path::Path,
-) -> Option<bool> {
-    let resp = ui.interact(r, ui.make_persistent_id(("g", i)), Sense::hover());
+) -> Option<TileAct> {
+    let resp = ui.interact(r, ui.make_persistent_id(("g", i)), Sense::click());
     if kit::peek_pressed(ui, &resp) {
-        return Some(false);
+        return Some(TileAct::Peek);
+    }
+    if resp.double_clicked() {
+        return Some(TileAct::Edit);
     }
     let t = kit::anim(ui, resp.id, resp.contains_pointer());
     let p = ui.painter();
@@ -200,8 +215,38 @@ fn tile(
         pos2(xr.left() + sp::M + 14.0 + sp::S, xr.center().y),
         Align2::LEFT_CENTER,
         "Rauswerfen",
-        lf,
+        lf.clone(),
         Color32::WHITE.gamma_multiply(t),
     );
-    x.clicked().then_some(true)
+    // Bearbeiten links daneben
+    let ew = sp::M + 14.0 + sp::S + kit::text_size(ui, "Bearbeiten", lf.clone()).x + sp::M;
+    let er = Rect::from_min_size(pos2(xr.left() - sp::S - ew, xr.top()), vec2(ew, 32.0));
+    let ed = ui
+        .interact(er, ui.make_persistent_id(("reedit", i)), Sense::click())
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text("Zuschnitt, Ganz, Text, Begradigen und Licht ändern und neu speichern (auch Doppelklick)");
+    let eh = kit::anim(ui, ed.id, ed.hovered());
+    p.rect_filled(
+        er,
+        radius::S + 2,
+        Color32::from_black_alpha(((150.0 + 60.0 * eh) * t) as u8),
+    );
+    kit::icon(
+        p,
+        pos2(er.left() + sp::M + 7.0, er.center().y),
+        icons::PENCIL,
+        14.0,
+        Color32::WHITE.gamma_multiply(t),
+    );
+    p.text(
+        pos2(er.left() + sp::M + 14.0 + sp::S, er.center().y),
+        Align2::LEFT_CENTER,
+        "Bearbeiten",
+        font(ts::SMALL, W::Semibold),
+        Color32::WHITE.gamma_multiply(t),
+    );
+    if ed.clicked() {
+        return Some(TileAct::Edit);
+    }
+    x.clicked().then_some(TileAct::Discard)
 }

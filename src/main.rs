@@ -2,6 +2,7 @@
 
 mod app;
 mod daterange;
+mod dupes;
 mod folders;
 mod imaging;
 mod session;

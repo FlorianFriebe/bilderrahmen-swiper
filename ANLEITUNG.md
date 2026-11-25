@@ -22,9 +22,12 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 2. **Ordner wählen:** Auf dem Startbildschirm **„+ Ordner hinzufügen“** anklicken oder
    Ordner aus dem Explorer ins Fenster ziehen. Klick = an-/abwählen,
    **Doppelklick = direkt diesen Ordner starten**. **Rechte Maustaste gedrückt halten** zeigt
-   die Fotos eines Ordners groß, das Mausrad blättert.
+   die Fotos eines Ordners groß, das Mausrad blättert. Ein **kurzer Rechtsklick** (oder **⋯**
+   an der Kachel) öffnet das Ordner-Menü: **Aussortierte nochmal zeigen**, **Ganz von vorn**
+   (behaltene Bilder bleiben im Zielordner) und **Aus der Liste entfernen**.
    Mit **Zeitraum** (unter der Überschrift) gehst du nur Fotos aus einem Jahr oder einem
-   eigenen Zeitraum durch, z. B. *Juni – August 2023*.
+   eigenen Zeitraum durch, z. B. *Juni – August 2023*. Der eigene Zeitraum klappt direkt
+   darunter auf.
 3. **Losswipen:** Die Fotos kommen nach Aufnahmedatum sortiert. Ist ein Ordner durch,
    schlägt das Programm den nächsten vor. Das **Haus** oben links bringt dich jederzeit zum
    Startbildschirm; dein Stand steht dann unter **„Weitermachen“**.
@@ -45,7 +48,8 @@ Ordner und Fortschritt, die Zahl der behaltenen Bilder und ganz rechts das klein
 
 Unten schwebt die Leiste fürs Bild, sortiert nach Wichtigkeit: in der Mitte die beiden großen
 Knöpfe **Weg** (rot) und **Behalten** (grün), links **Zurück**, rechts die Werkzeuge
-(**Drehen**, **Format**, **Ganz**, **Vorschau**, **Text**). Jeder Knopf zeigt klein die Taste,
+(**Drehen**, **Format**, **Vorschau**, **Ganz**, **Text**). Der kleine **Pfeil** an Drehen, Ganz
+und Text öffnet jeweils die Feineinstellungen. Jeder Knopf zeigt klein die Taste,
 die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 
 | Aktion | Maus | Taste (änderbar) |
@@ -55,7 +59,11 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Rückgängig (auch nach Neustart) | **Zurück** oder „Rückgängig“ in der Meldung | **Rücktaste** oder Strg+Z |
 | Bild drehen | **Drehen** | **R**, andersherum **L** |
 | Quer ↔ Hochkant | **Format** oder oben auf das Format klicken | **H** |
-| Ganzes Foto auf unscharfen Hintergrund | **Ganz** | **F** |
+| Ganzes Foto statt zuschneiden | **Ganz** (Pfeil: Rand wählen) | **F** |
+| Begradigen: Vorschlag übernehmen | Pfeil an **Drehen** | **B** |
+| Horizont selbst festlegen | **Strg** halten und am Horizont entlang ziehen | – |
+| Automatisch verbessern | Pfeil an **Drehen** | **E** |
+| Hilfslinien wechseln | – | **O**, drehen mit **Umschalt+O** |
 | Vorschau wie auf dem Rahmen | **Vorschau** | **V** |
 | Text aufs Bild an / aus | **Text** | **T** |
 | Textfeld (Ort, Notiz, Stil) | kleiner Pfeil an **Text** | – |
@@ -66,6 +74,7 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Foto groß ansehen | rechte Maustaste auf Filmstreifen, Galerie oder Ordner halten | – |
 | Serie vergleichen | gelber Hinweis „Serie“ | **S** |
 | Behaltene ansehen, Diashow | grünes ♥ in der oberen Leiste, dort **Diashow** | **G** |
+| Behaltenes Bild nachbearbeiten | in der Galerie **Bearbeiten** oder Doppelklick | – |
 | Einstellungen | Zahnrad oben | Strg+B |
 | Schrift größer / kleiner | – | **Strg +** / **Strg −** (Strg 0 = normal) |
 | Vollbild | – | F11 |
@@ -80,13 +89,51 @@ neue Taste drücken. Rechtsklick leert ein Feld.
 Zuschnitt, Auflösung und Text. In der Galerie der behaltenen Bilder startet **Diashow** alle
 Bilder nacheinander (alle 8 Sekunden). **Leertaste** pausiert, **← →** blättern, **Esc** schließt.
 
-## Unscharfer Hintergrund statt Abschneiden
+## Ganzes Foto statt Abschneiden
 
-Mit **F** wird ein Foto nicht zugeschnitten, sondern **ganz** auf den Rahmen gelegt. Den Rand
-füllt eine unscharfe, etwas dunklere Kopie des Fotos. Ideal für Hochkant-Fotos auf einem
-Quer-Rahmen: Ein Hochkant-Foto wird dabei automatisch auf **Quer** gestellt und landet
-im Ordner `Quer`. Mit **H** kannst du das wie gewohnt umstellen, der Ordner passt sich an.
-Normal bleibt das Zuschneiden, F gilt nur für das jeweilige Bild.
+Mit **F** wird ein Foto nicht zugeschnitten, sondern **ganz** auf den Rahmen gelegt. Ideal für
+Hochkant-Fotos auf einem Quer-Rahmen: Ein Hochkant-Foto wird dabei automatisch auf **Quer**
+gestellt und landet im Ordner `Quer`. Mit **H** kannst du das wie gewohnt umstellen.
+
+- **Größe und Lage:** Auch hier zoomt das **Mausrad** und die **rechte Maustaste** verschiebt.
+  Kleiner lässt mehr Rand, größer schneidet an. Doppelklick setzt zurück.
+- **Rand:** Der Pfeil an **Ganz** wählt *Unscharf* (mit Regler für die Stärke), *Fotofarbe*,
+  *Schwarz* oder *Weiß*. **Als Standard** übernimmt die Wahl für alle neuen Bilder (auch unter
+  Einstellungen → *Rahmen und Format*).
+
+## Hilfslinien
+
+**O** wechselt die Hilfslinien beim Zuschnitt wie in Lightroom: *Drittel*, *Goldener Schnitt*,
+*Raster*, *Diagonale*, *Goldenes Dreieck*, *Goldene Spirale* und *aus*. **Umschalt+O** dreht bzw.
+spiegelt Dreieck und Spirale.
+
+## Begradigen und Licht
+
+Der Pfeil an **Drehen** öffnet ein kleines Feld:
+
+- **Begradigen** um bis zu ±10°. Findet das Programm einen schiefen Horizont, steht dort ein
+  **Vorschlag** (Taste **B**). Selbst festlegen: **Strg** gedrückt halten und mit der linken
+  Maustaste eine Linie am Horizont (oder an einer Hauswand) entlang ziehen.
+- **Licht:** *Automatisch verbessern* (Taste **E**) sowie **Helligkeit** und **Kontrast**.
+
+## Doppelte Fotos
+
+Liegt dasselbe Foto in zwei Ordnern (auch umbenannt oder verkleinert), erscheint ein gelber
+Hinweis **„Schon behalten“** mit kleinem Vorschaubild. Ein Klick zeigt das frühere Bild groß.
+Erkannt wird am Bildinhalt und an der Aufnahmezeit, nicht am Dateinamen.
+
+## Behaltene nachbearbeiten
+
+In der Galerie (grünes ♥) hat jedes Bild **Bearbeiten**. Du landest in der gewohnten Ansicht
+mit allen Werkzeugen (Zuschnitt, Ganz, Text, Begradigen, Licht). **Behalten** speichert das
+Bild neu und ersetzt das alte, **Weg** nimmt es aus den Behaltenen, **Esc** bricht ab.
+Löschst du Bilder direkt im Zielordner, verschwinden sie auch hier und gelten als aussortiert.
+
+## Mehrere Rahmen
+
+Einstellungen → *Rahmen und Format* → **+ Weiterer Rahmen**, z. B. für die Großeltern. Jeder
+Rahmen hat sein eigenes Format und seinen eigenen Zielordner (`Bilderrahmen <Name>`), und
+dasselbe Foto kann für jeden Rahmen behalten werden. Umschalten per Klick auf den Namen.
 
 ## Text aufs Bild
 
@@ -137,6 +184,9 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
   aus dem Microsoft Store installiert sind.
 - Handy-Fotos werden automatisch richtig herum gedreht.
 - Einstellungen gelten für alle Bilder, die du **ab jetzt** behältst.
+- **Sicherung:** Dein Fortschritt liegt im Zielordner und zusätzlich unter
+  `%LOCALAPPDATA%\Bilderrahmen-Swiper\sicherung`. Geht die Datei im Zielordner verloren,
+  wird sie von dort wiederhergestellt.
 - **Falls etwas schiefgeht:** Unten links in den Einstellungen steht die Version und der Link
   **„Fehlerprotokoll“**. Die Datei
   `%LOCALAPPDATA%\Bilderrahmen-Swiper\protokoll.txt` hilft bei der Fehlersuche.

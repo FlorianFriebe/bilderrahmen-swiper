@@ -12,7 +12,7 @@ use egui::{
 
 use super::kit::{self, Primary, Tone};
 use super::style::*;
-use super::{contain, cover_uv, dialogs, ellipsize, icons, FULL_UV};
+use super::{cover_uv, dialogs, ellipsize, icons, FULL_UV};
 use crate::app::{Anim, Dialog, SwiperApp, View};
 use crate::folders;
 use crate::imaging::{self, Orient};
@@ -46,6 +46,28 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect, ws: Rect, now: f64) {
     let mut card_top = ws.top() + size::TOPBAR + sp::XL;
     if let Some(h) = burst_chip(app, ui, ws, card_top) {
         card_top += h + sp::M;
+    }
+    if let Some(h) = dup_chip(app, ui, ws, card_top) {
+        card_top += h + sp::M;
+    }
+    if app.reedit.is_some() {
+        let label = format!(
+            "Nachbearbeiten  ·  {} speichert neu  ·  Esc bricht ab",
+            app.key_label("keep")
+        );
+        let w = kit::chip_width(ui, icons::PENCIL, &label);
+        let r = Rect::from_center_size(pos2(ws.center().x, card_top + 18.0), vec2(w, 36.0));
+        if kit::chip(ui, r, icons::PENCIL, false, &label, Tone::Accent)
+            .on_hover_text("Klick: abbrechen und zurück zur Galerie")
+            .clicked()
+        {
+            app.cancel_reedit();
+            return;
+        }
+        card_top += 36.0 + sp::M;
+    }
+    if card_top > ws.top() + size::TOPBAR + sp::XL + 1.0 {
+        app.spots.chips_bottom = Some(card_top - sp::M);
     }
 
     let dock = Rect::from_min_max(pos2(ws.left(), ws.bottom() - size::DOCK), ws.max);
@@ -244,7 +266,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         .clicked()
     {
         app.finish_anim();
-        app.view = View::Gallery;
+        app.open_gallery();
         return false;
     }
     x += kept_w + gap;
@@ -272,6 +294,46 @@ fn burst_chip(app: &mut SwiperApp, ui: &Ui, ws: Rect, y: f32) -> Option<f32> {
     let r = Rect::from_center_size(pos2(ws.center().x, y + 18.0), vec2(w, 36.0));
     if kit::chip(ui, r, icons::STACK, false, &label, Tone::Warn).clicked() {
         app.open_burst();
+    }
+    Some(36.0)
+}
+
+/// Hinweis, wenn dasselbe Motiv schon behalten wurde (z. B. als Kopie in einem
+/// anderen Ordner). Mit kleinem Vorschaubild; Klick zeigt das frühere Bild groß.
+fn dup_chip(app: &mut SwiperApp, ui: &Ui, ws: Rect, y: f32) -> Option<f32> {
+    let cur = app.current().cloned()?;
+    if app.status.bilder.get(&cur).is_some_and(|e| e.d == "keep") {
+        return None;
+    }
+    let (other, out) = app.duplicate_of(&cur)?;
+    let folder = other.parent().map(folders::file_name).unwrap_or_default();
+    let label = format!(
+        "Schon behalten: {} aus „{}“  ·  ansehen",
+        ellipsize(&folders::file_name(&other), 24),
+        ellipsize(&folder, 24)
+    );
+    let th = 28.0;
+    let w = kit::chip_width(ui, icons::STACK, &label) + th + sp::S;
+    let r = Rect::from_center_size(pos2(ws.center().x, y + 18.0), vec2(w, 36.0));
+    let resp = kit::chip(ui, r, icons::STACK, false, &label, Tone::Warn).on_hover_text(
+        "Gleiches Motiv mit gleicher Aufnahmezeit (oder praktisch identisch) wurde schon behalten.\nRechte Maustaste halten: groß ansehen",
+    );
+    // kleines Vorschaubild rechts im Chip
+    let tr = Rect::from_center_size(
+        pos2(r.right() - sp::S - th / 2.0, r.center().y),
+        vec2(th, th),
+    );
+    if let Some((id, size)) = app.thumb(&other) {
+        super::image_cover(ui, tr, radius::S, id, size, Color32::WHITE);
+    }
+    let title = format!("Schon behalten: {}", folders::file_name(&other));
+    if kit::peek_pressed(ui, &resp) {
+        app.peek(vec![out.clone()], 0, title);
+    } else if resp.clicked() {
+        use crate::ui::viewer::{Mode, Source, Viewer};
+        let mut v = Viewer::new(vec![Source::File(out)], 0, Mode::Frame, title);
+        v.frame = app.frame_res();
+        app.viewer = Some(v);
     }
     Some(36.0)
 }
@@ -366,8 +428,12 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
     let tr = |p: Pos2| pivot + rot * (p - pivot);
     let rad = radius::CARD;
 
-    handle_card_input(app, ui, &resp, area, card, fill, now, &mut edit);
-    let (x, y, cw, ch) = imaging::crop_rect(size.x, size.y, ratio, &mut edit);
+    handle_card_input(app, ui, &resp, area, card, now, &mut edit);
+    let (x, y, cw, ch) = if fill {
+        imaging::fill_rect(size.x, size.y, ratio, &mut edit)
+    } else {
+        imaging::crop_rect(size.x, size.y, ratio, &mut edit)
+    };
     app.edits.insert(path.clone(), edit);
 
     // Stapel dahinter und Schatten
@@ -391,28 +457,75 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
     painter.add(sh.as_shape(card, rad).with_angle_and_pivot(angle, pivot));
 
     let out_r = if fill {
-        let blur_id = app.tex.as_ref().map(|t| t.blur.id()).unwrap_or(tex_id);
-        painter.add(
-            RectShape::filled(card, rad, Color32::from_gray(158))
-                .with_texture(blur_id, cover_uv(size, card.size()))
-                .with_angle_and_pivot(angle, pivot),
-        );
-        painter.add(
-            RectShape::filled(contain(size, card), 0, Color32::WHITE)
-                .with_texture(tex_id, FULL_UV)
-                .with_angle_and_pivot(angle, pivot),
-        );
-        card
-    } else {
+        let bg = app.fill_bg_of(&edit);
+        let bg_id = app.fill_bg_texture(ui.ctx(), ratio, bg).unwrap_or(tex_id);
         painter.add(
             RectShape::filled(card, rad, Color32::WHITE)
-                .with_texture(tex_id, FULL_UV)
+                .with_texture(bg_id, FULL_UV)
                 .with_angle_and_pivot(angle, pivot),
         );
+        // Foto an seiner Stelle; was über den Rand ragt, wird abgeschnitten
+        let pr = Rect::from_min_size(
+            card.min + vec2(x * card.width(), y * card.height()),
+            vec2(cw * card.width(), ch * card.height()),
+        );
+        let vis = pr.intersect(card);
+        if vis.is_positive() {
+            let uv = Rect::from_min_max(
+                pos2(
+                    (vis.left() - pr.left()) / pr.width(),
+                    (vis.top() - pr.top()) / pr.height(),
+                ),
+                pos2(
+                    (vis.right() - pr.left()) / pr.width(),
+                    (vis.bottom() - pr.top()) / pr.height(),
+                ),
+            );
+            let near = |a: f32, b: f32| (a - b).abs() < 0.75;
+            let crad = if vis == card {
+                CornerRadius::same(rad)
+            } else {
+                kit::corners(
+                    near(vis.left(), card.left()) && near(vis.top(), card.top()),
+                    near(vis.right(), card.right()) && near(vis.top(), card.top()),
+                    near(vis.left(), card.left()) && near(vis.bottom(), card.bottom()),
+                    near(vis.right(), card.right()) && near(vis.bottom(), card.bottom()),
+                    rad,
+                )
+            };
+            if edit.angle.abs() < 0.01 {
+                painter.add(
+                    RectShape::filled(vis, crad, Color32::WHITE)
+                        .with_texture(tex_id, uv)
+                        .with_angle_and_pivot(angle, pivot),
+                );
+            } else {
+                straightened(&painter, vis, pr, tex_id, size, edit.angle, angle, pivot);
+            }
+        }
+        card
+    } else {
+        if edit.angle.abs() < 0.01 {
+            painter.add(
+                RectShape::filled(card, rad, Color32::WHITE)
+                    .with_texture(tex_id, FULL_UV)
+                    .with_angle_and_pivot(angle, pivot),
+            );
+        } else {
+            straightened(&painter, card, card, tex_id, size, edit.angle, angle, pivot);
+        }
         let cr = Rect::from_min_size(card.min + vec2(x * s, y * s), vec2(cw * s, ch * s));
-        crop_frame(&painter, card, cr, angle, pivot, &tr);
+        crop_frame(&painter, card, cr, angle, pivot);
         cr
     };
+    guides(&painter, out_r, app.cfg.guide, app.cfg.guide_flip, &tr);
+    // Horizont-Linie, die gerade mit Strg gezogen wird
+    if let Some((a, b)) = app.horizon_line {
+        let st = Stroke::new(2.0, Color32::from_rgb(0xFF, 0xD2, 0x4A));
+        painter.line_segment([a, b], st);
+        painter.circle_filled(a, 4.0, st.color);
+        painter.circle_filled(b, 4.0, st.color);
+    }
     // feiner Rand um die ganze Karte
     painter.add(
         RectShape::stroke(
@@ -451,11 +564,17 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
             angle,
         );
         let mut right = if fill {
-            "Ganzes Foto · unscharfer Hintergrund".to_string()
+            format!("Ganzes Foto · {}", app.fill_bg_of(&edit).label())
         } else {
             format!("Zuschnitt {}", app.ratio_label(orient))
         };
-        if !fill && edit.zoom > 1.001 {
+        if edit.angle.abs() >= 0.05 {
+            right = format!("{right}  ·  {:+.1}°", edit.angle).replace('.', ",");
+        }
+        if !edit.tone.is_neutral() {
+            right = format!("{right}  ·  Licht");
+        }
+        if (edit.zoom - 1.0).abs() > 0.001 {
             right = format!("{right}  ·  {:.0} %", edit.zoom * 100.0);
         }
         photo_chip(
@@ -480,20 +599,47 @@ fn handle_card_input(
     resp: &egui::Response,
     area: Rect,
     card: Rect,
-    fill: bool,
     now: f64,
     edit: &mut imaging::Edit,
 ) {
-    if resp.drag_started_by(PointerButton::Primary) {
+    let ctrl = ui.input(|i| i.modifiers.command);
+    if resp.drag_started_by(PointerButton::Primary) && ctrl {
+        if let Some(p) = resp.interact_pointer_pos() {
+            app.horizon_line = Some((p, p));
+        }
+    } else if resp.drag_started_by(PointerButton::Primary) {
         app.anim = None;
         app.swiping = true;
+    }
+    if let Some((a, _)) = app.horizon_line {
+        if resp.dragged_by(PointerButton::Primary) {
+            if let Some(p) = resp.interact_pointer_pos() {
+                app.horizon_line = Some((a, p));
+            }
+        }
+        if resp.drag_stopped() {
+            if let Some((a, b)) = app.horizon_line.take() {
+                let d = b - a;
+                if d.length() > 30.0 {
+                    // fast waagrecht: an der Waagrechten ausrichten, sonst an der Senkrechten
+                    let phi = if d.x.abs() >= d.y.abs() {
+                        (d.y / d.x).atan()
+                    } else {
+                        -(d.x / d.y).atan()
+                    };
+                    edit.angle = (edit.angle - phi.to_degrees())
+                        .clamp(-imaging::MAX_ANGLE, imaging::MAX_ANGLE);
+                }
+            }
+        }
+        return;
     }
     if app.swiping && resp.dragged_by(PointerButton::Primary) {
         let d = resp.drag_delta();
         app.dx += d.x;
         app.dy += d.y * 0.3;
     }
-    if resp.dragged_by(PointerButton::Secondary) && !fill {
+    if resp.dragged_by(PointerButton::Secondary) {
         let d = resp.drag_delta();
         edit.cx += d.x / card.width();
         edit.cy += d.y / card.height();
@@ -522,9 +668,7 @@ fn handle_card_input(
     }
     if resp.hovered() {
         let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
-        if !fill {
-            edit.zoom *= (scroll * 0.003).exp() * zoom;
-        }
+        edit.zoom *= (scroll * 0.003).exp() * zoom;
         ui.ctx().set_cursor_icon(if app.swiping {
             egui::CursorIcon::Grabbing
         } else {
@@ -533,15 +677,32 @@ fn handle_card_input(
     }
 }
 
-/// Abgedunkelte Ränder außerhalb des Ausschnitts, Drittel-Linien und heller Rahmen.
-fn crop_frame(
+/// Foto um `deg` gedreht und vergrößert (wie beim Speichern), auf `clip` beschnitten.
+#[allow(clippy::too_many_arguments)]
+fn straightened(
     painter: &Painter,
-    card: Rect,
-    cr: Rect,
-    angle: f32,
+    clip: Rect,
+    photo: Rect,
+    tex: egui::TextureId,
+    size: egui::Vec2,
+    deg: f32,
+    swipe_angle: f32,
     pivot: Pos2,
-    tr: &dyn Fn(Pos2) -> Pos2,
 ) {
+    let k = imaging::straighten_scale(size.x, size.y, deg);
+    let big = Rect::from_center_size(photo.center(), photo.size() * k);
+    let rot = Rot2::from_angle(swipe_angle);
+    let c = pivot + rot * (big.center() - pivot);
+    let p = painter.with_clip_rect(clip.intersect(painter.clip_rect()));
+    p.add(
+        RectShape::filled(Rect::from_center_size(c, big.size()), 0, Color32::WHITE)
+            .with_texture(tex, FULL_UV)
+            .with_angle_and_pivot(swipe_angle + deg.to_radians(), c),
+    );
+}
+
+/// Abgedunkelte Ränder außerhalb des Ausschnitts, Drittel-Linien und heller Rahmen.
+fn crop_frame(painter: &Painter, card: Rect, cr: Rect, angle: f32, pivot: Pos2) {
     let dark = Color32::from_black_alpha(140);
     let bands = [
         Rect::from_min_max(card.min, pos2(card.right(), cr.top())),
@@ -564,13 +725,6 @@ fn crop_frame(
         );
         painter.add(RectShape::filled(b, crad, dark).with_angle_and_pivot(angle, pivot));
     }
-    let thin = Stroke::new(1.0, Color32::from_white_alpha(56));
-    for k in [1.0 / 3.0, 2.0 / 3.0] {
-        let xx = cr.left() + cr.width() * k;
-        let yy = cr.top() + cr.height() * k;
-        painter.line_segment([tr(pos2(xx, cr.top())), tr(pos2(xx, cr.bottom()))], thin);
-        painter.line_segment([tr(pos2(cr.left(), yy)), tr(pos2(cr.right(), yy))], thin);
-    }
     // Ecken rund lassen, wo der Ausschnitt an die Karte stößt
     let near = |a: f32, b: f32| (a - b).abs() < 0.75;
     let crad = kit::corners(
@@ -589,6 +743,141 @@ fn crop_frame(
         )
         .with_angle_and_pivot(angle, pivot),
     );
+}
+
+pub const GUIDES: [&str; 7] = [
+    "aus",
+    "Drittel",
+    "Goldener Schnitt",
+    "Raster",
+    "Diagonale",
+    "Goldenes Dreieck",
+    "Goldene Spirale",
+];
+
+/// Hilfslinien wie in Lightroom über dem Ausschnitt `r`.
+/// `flip`: Bit 0 spiegelt waagrecht, Bit 1 senkrecht (für Dreieck, Spirale, Diagonale).
+fn guides(painter: &Painter, r: Rect, kind: u8, flip: u8, tr: &dyn Fn(Pos2) -> Pos2) {
+    if kind == 0 || r.width() < 4.0 {
+        return;
+    }
+    let st = Stroke::new(1.0, Color32::from_white_alpha(90));
+    let fx = flip & 1 != 0;
+    let fy = flip & 2 != 0;
+    // normierte Koordinaten (0..1) auf die Fläche, ggf. gespiegelt
+    let at = |u: f32, v: f32| {
+        let u = if fx { 1.0 - u } else { u };
+        let v = if fy { 1.0 - v } else { v };
+        tr(pos2(r.left() + u * r.width(), r.top() + v * r.height()))
+    };
+    let line = |a: (f32, f32), b: (f32, f32)| {
+        painter.line_segment([at(a.0, a.1), at(b.0, b.1)], st);
+    };
+    let (w, h) = (r.width(), r.height());
+    match kind {
+        1 | 2 => {
+            let k = if kind == 1 { 1.0 / 3.0 } else { 0.381_966 };
+            for t in [k, 1.0 - k] {
+                line((t, 0.0), (t, 1.0));
+                line((0.0, t), (1.0, t));
+            }
+        }
+        3 => {
+            let cell = w.min(h) / 6.0;
+            let st = Stroke::new(1.0, Color32::from_white_alpha(60));
+            let mut x = r.left() + (w % cell) / 2.0;
+            while x <= r.right() {
+                painter.line_segment([tr(pos2(x, r.top())), tr(pos2(x, r.bottom()))], st);
+                x += cell;
+            }
+            let mut y = r.top() + (h % cell) / 2.0;
+            while y <= r.bottom() {
+                painter.line_segment([tr(pos2(r.left(), y)), tr(pos2(r.right(), y))], st);
+                y += cell;
+            }
+        }
+        4 => {
+            // 45°-Linien aus allen vier Ecken
+            let s = w.min(h);
+            let (du, dv) = (s / w, s / h);
+            line((0.0, 0.0), (du, dv));
+            line((1.0, 0.0), (1.0 - du, dv));
+            line((0.0, 1.0), (du, 1.0 - dv));
+            line((1.0, 1.0), (1.0 - du, 1.0 - dv));
+        }
+        5 => {
+            // Diagonale und die Lote der beiden anderen Ecken darauf
+            line((0.0, 0.0), (1.0, 1.0));
+            let foot = |px: f32, py: f32| {
+                let (dx, dy) = (w, h);
+                let t = (px * w * dx + py * h * dy) / (dx * dx + dy * dy);
+                (t, t)
+            };
+            line((1.0, 0.0), foot(1.0, 0.0));
+            line((0.0, 1.0), foot(0.0, 1.0));
+        }
+        _ => {
+            // goldene Spirale aus Viertelkreisen, auf die Fläche gestreckt
+            const PHI: f32 = 1.618_034;
+            let wide = w >= h;
+            let map = |u: f32, v: f32| {
+                // u: 0..PHI entlang der langen Seite, v: 0..1 entlang der kurzen
+                if wide {
+                    (u / PHI, v)
+                } else {
+                    (v, u / PHI)
+                }
+            };
+            let (mut rx, mut ry, mut rw, mut rh) = (0.0f32, 0.0f32, PHI, 1.0f32);
+            let mut pts = vec![];
+            for i in 0..12 {
+                // Quadrat abtrennen (links, oben, rechts, unten), darin ein Viertelkreis
+                let (c, a0, s) = match i % 4 {
+                    0 => {
+                        let s = rh;
+                        let c = (rx + s, ry + s);
+                        rx += s;
+                        rw -= s;
+                        (c, 180.0f32, s)
+                    }
+                    1 => {
+                        let s = rw;
+                        let c = (rx, ry + s);
+                        ry += s;
+                        rh -= s;
+                        (c, 270.0, s)
+                    }
+                    2 => {
+                        let s = rh;
+                        let c = (rx + rw - s, ry);
+                        rw -= s;
+                        (c, 0.0, s)
+                    }
+                    _ => {
+                        let s = rw;
+                        let c = (rx + s, ry + rh - s);
+                        rh -= s;
+                        (c, 90.0, s)
+                    }
+                };
+                for k in 0..=16 {
+                    if k == 0 && !pts.is_empty() {
+                        continue;
+                    }
+                    let a = (a0 + 90.0 * k as f32 / 16.0).to_radians();
+                    pts.push((c.0 + s * a.cos(), c.1 + s * a.sin()));
+                }
+            }
+            let pts: Vec<Pos2> = pts
+                .into_iter()
+                .map(|(u, v)| {
+                    let (a, b) = map(u, v);
+                    at(a, b)
+                })
+                .collect();
+            painter.add(egui::Shape::line(pts, st));
+        }
+    }
 }
 
 /// Dunkler Chip auf dem Foto, dreht sich mit der Karte.
@@ -903,6 +1192,8 @@ enum Act {
     Fill,
     Text,
     TextPanel,
+    FillPanel,
+    AdjustPanel,
     Preview,
 }
 
@@ -916,7 +1207,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     let tool = size::TOOL;
     let caret = 24.0;
     let (skip_w, keep_w) = (152.0, 184.0);
-    let tools_w = tool * 5.0 + caret + sp::XS * 4.0;
+    let tools_w = tool * 5.0 + caret * 3.0 + sp::XS * 4.0;
     let w =
         pad + tool + pad + 1.0 + pad + skip_w + sp::S + keep_w + pad + 1.0 + pad + tools_w + pad;
     let dock = Rect::from_center_size(area.center(), vec2(w, size::DOCK));
@@ -981,15 +1272,43 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     divider_at(x);
     x += 1.0 + pad;
 
+    // Drehen: Klick dreht um 90°, der Pfeil öffnet Begradigen und Licht
+    let adjusted = app
+        .current()
+        .and_then(|p| app.edits.get(p))
+        .is_some_and(|e| e.angle.abs() >= 0.05 || !e.tone.is_neutral());
+    let r = row(x, tool + caret);
+    let rot_key = ks("rot_r");
+    let (main, arrow) = kit::split_tool(
+        ui,
+        r,
+        caret,
+        kit::Tool {
+            glyph: icons::ROTATE,
+            label: "Drehen",
+            key: &rot_key,
+            active: adjusted,
+            enabled: loaded,
+        },
+        app.adjust_panel,
+    );
+    if main
+        .on_hover_text(format!(
+            "Drehen ({}, andersherum {})",
+            k("rot_r"),
+            k("rot_l")
+        ))
+        .clicked()
+    {
+        clicked = Some(Act::Rotate);
+    }
+    if arrow.on_hover_text("Begradigen und Licht").clicked() {
+        clicked = Some(Act::AdjustPanel);
+    }
+    let adjust_anchor = r;
+    x += tool + caret + sp::XS;
+
     let tools = [
-        (
-            icons::ROTATE,
-            "Drehen",
-            "rot_r",
-            format!("Drehen ({}, andersherum {})", k("rot_r"), k("rot_l")),
-            false,
-            Act::Rotate,
-        ),
         (
             icons::SWAP,
             "Format",
@@ -997,17 +1316,6 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
             format!("Quer / Hochkant wechseln ({})", k("orient")),
             false,
             Act::Orient,
-        ),
-        (
-            icons::FILL,
-            "Ganz",
-            "fill",
-            format!(
-                "Ganzes Foto auf unscharfem Hintergrund statt zuschneiden ({})",
-                k("fill")
-            ),
-            app.current_fill(),
-            Act::Fill,
         ),
         (
             icons::EYE,
@@ -1042,6 +1350,40 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         }
         x += tool + sp::XS;
     }
+
+    // Ganz: Klick schaltet an/aus, der Pfeil daneben wählt den Rand
+    let r = row(x, tool + caret);
+    let fill_key = ks("fill");
+    let (main, arrow) = kit::split_tool(
+        ui,
+        r,
+        caret,
+        kit::Tool {
+            glyph: icons::FILL,
+            label: "Ganz",
+            key: &fill_key,
+            active: app.current_fill(),
+            enabled: loaded,
+        },
+        app.fill_panel,
+    );
+    if main
+        .on_hover_text(format!(
+            "Ganzes Foto auf den Rahmen statt zuschneiden ({})",
+            k("fill")
+        ))
+        .clicked()
+    {
+        clicked = Some(Act::Fill);
+    }
+    if arrow
+        .on_hover_text("Rand wählen: unscharf, Fotofarbe, Schwarz oder Weiß")
+        .clicked()
+    {
+        clicked = Some(Act::FillPanel);
+    }
+    let fill_anchor = r;
+    x += tool + caret + sp::XS;
 
     // Text: Klick schaltet an/aus, der Pfeil daneben öffnet das Feld
     let text_on = app.cfg.text.enabled;
@@ -1085,8 +1427,22 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         Some(Act::Fill) => app.toggle_fill(),
         Some(Act::Text) => toggle_text(app),
         Some(Act::TextPanel) => toggle_text_panel(app),
+        Some(Act::FillPanel) => {
+            app.fill_panel = !app.fill_panel;
+            app.adjust_panel = false;
+        }
+        Some(Act::AdjustPanel) => {
+            app.adjust_panel = !app.adjust_panel;
+            app.fill_panel = false;
+        }
         Some(Act::Preview) => app.open_frame_preview(false),
         None => {}
+    }
+    if app.fill_panel && app.dialog.is_none() {
+        dialogs::fill_panel(app, ui, fill_anchor);
+    }
+    if app.adjust_panel && app.dialog.is_none() {
+        dialogs::adjust_panel(app, ui, adjust_anchor);
     }
     dock
 }

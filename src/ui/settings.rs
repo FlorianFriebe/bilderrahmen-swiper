@@ -298,7 +298,91 @@ fn profile_tiles(app: &mut SwiperApp, ui: &mut Ui) {
     }
 }
 
+/// Mehrere Rahmen: Auswahl, neu, umbenennen, entfernen.
+fn profiles_ui(app: &mut SwiperApp, ui: &mut Ui) {
+    app.store_profile();
+    let id = ui.make_persistent_id("profile_new_name");
+    let mut naming: Option<String> = ui.data(|d| d.get_temp(id));
+    let mut switch = None;
+    let mut remove = None;
+    ui.horizontal_wrapped(|ui| {
+        for (i, p) in app.cfg.profiles.iter().enumerate() {
+            let on = i == app.cfg.profile;
+            let r = ui
+                .add(egui::Button::selectable(on, &p.name).min_size(egui::vec2(0.0, 28.0)))
+                .on_hover_text(format!("Zielordner: {}", p.target.display()));
+            if r.clicked() {
+                switch = Some(i);
+            }
+            if app.cfg.profiles.len() > 1 {
+                r.context_menu(|ui| {
+                    if ui.button("Aus der Liste nehmen (Bilder bleiben)").clicked() {
+                        remove = Some(i);
+                        ui.close();
+                    }
+                });
+            }
+        }
+        if naming.is_none() && ui.button("+ Weiterer Rahmen").on_hover_text(
+            "Zum Beispiel für einen zweiten Rahmen bei den Großeltern: eigenes Format, eigener Zielordner. Dasselbe Foto kann für jeden Rahmen behalten werden.",
+        ).clicked() {
+            naming = Some(String::new());
+        }
+    });
+    if let Some(name) = naming.as_mut() {
+        let mut done = false;
+        let mut cancel = false;
+        ui.horizontal(|ui| {
+            let r = ui.add(
+                egui::TextEdit::singleline(name)
+                    .hint_text("Name, z. B. Oma und Opa")
+                    .desired_width(200.0),
+            );
+            r.request_focus();
+            if ui.button("Anlegen").clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                done = true;
+            }
+            if ui.button("Abbrechen").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                cancel = true;
+            }
+        });
+        if done {
+            let n = name.clone();
+            app.add_profile(&n);
+            naming = None;
+        } else if cancel {
+            naming = None;
+        }
+    }
+    ui.data_mut(|d| match &naming {
+        Some(n) => {
+            d.insert_temp(id, n.clone());
+        }
+        None => d.remove::<String>(id),
+    });
+    if app.cfg.profiles.len() > 1 {
+        let i = app.cfg.profile;
+        ui.horizontal(|ui| {
+            ui.add_sized([78.0, 20.0], egui::Label::new("Name"));
+            ui.add(egui::TextEdit::singleline(&mut app.cfg.profiles[i].name).desired_width(180.0));
+        });
+        ui.colored_label(
+            muted(),
+            egui::RichText::new("Rechtsklick auf einen Rahmen: aus der Liste nehmen.").size(11.5),
+        );
+    }
+    if let Some(i) = switch {
+        app.switch_profile(i);
+    }
+    if let Some(i) = remove {
+        app.remove_profile(i);
+    }
+    ui.add_space(sp::M);
+}
+
 fn tab_frame(app: &mut SwiperApp, ui: &mut Ui) {
+    kit::section(ui, "Deine Rahmen");
+    profiles_ui(app, ui);
     ui.colored_label(
         muted(),
         egui::RichText::new(
@@ -406,6 +490,17 @@ fn tab_frame(app: &mut SwiperApp, ui: &mut Ui) {
         )
         .on_hover_text("Ziehen oder doppelklicken zum Eintippen. 0 = unbegrenzt.");
     });
+    ui.add_space(8.0);
+
+    kit::section(ui, "Rand bei „Ganz“");
+    super::dialogs::fill_bg_ui(ui, &mut app.cfg.fill_bg);
+    ui.colored_label(
+        muted(),
+        egui::RichText::new(
+            "Standard für neue Bilder. Pro Bild über den Pfeil an „Ganz“ änderbar.",
+        )
+        .size(11.5),
+    );
     ui.add_space(8.0);
 
     kit::section(ui, "Ziel");

@@ -57,6 +57,20 @@ pub struct Viewer {
     errors: HashMap<usize, String>,
     /// Bild, das gerade ausgeblendet wird (für die Überblendung)
     prev: Option<(usize, f64)>,
+    /// Zeitpunkt des Öffnens
+    pub opened: f64,
+    /// Ordner, dessen Menü bei kurzem Rechtsklick (statt Vorschau) aufgeht
+    pub menu_for: Option<std::path::PathBuf>,
+}
+
+/// So lange muss die rechte Maustaste gehalten werden, bis die Vorschau erscheint.
+pub const PEEK_DELAY: f64 = 0.22;
+
+impl Viewer {
+    /// Wurde die Vorschau nur kurz angetippt (kurzer Rechtsklick)?
+    pub fn was_tap(&self, now: f64) -> bool {
+        self.mode == Mode::Peek && now - self.opened < PEEK_DELAY
+    }
 }
 
 impl Viewer {
@@ -69,6 +83,8 @@ impl Viewer {
             playing: false,
             frame: None,
             since: -1.0,
+            opened: -1.0,
+            menu_for: None,
             loaded: Arc::new(Mutex::new(HashMap::new())),
             requested: HashMap::new(),
             tex: HashMap::new(),
@@ -179,6 +195,9 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
     if v.since < 0.0 {
         v.since = now;
     }
+    if v.opened < 0.0 {
+        v.opened = now;
+    }
     v.poll(&ctx);
     for d in [0i32, 1, -1] {
         let n = v.items.len() as i32;
@@ -245,6 +264,12 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
     }
     if fade < 1.0 || v.playing || !v.tex.contains_key(&v.idx) {
         ctx.request_repaint_after(std::time::Duration::from_millis(30));
+    }
+
+    // Vorschau erst nach kurzem Halten zeigen, ein kurzer Rechtsklick öffnet sonst ein Menü
+    if v.mode == Mode::Peek && now - v.opened < PEEK_DELAY {
+        ctx.request_repaint_after(std::time::Duration::from_millis(20));
+        return open;
     }
 
     egui::Area::new(ui.make_persistent_id("viewer"))

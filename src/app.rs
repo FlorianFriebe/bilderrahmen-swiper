@@ -45,7 +45,7 @@ pub const ACTIONS: &[(&str, &str, &[&str])] = &[
     ("rot_r", "Drehen (rechts herum)", &["R"]),
     ("rot_l", "Drehen (links herum)", &["L"]),
     ("orient", "Quer / Hochkant", &["H"]),
-    ("fill", "Unscharfer Hintergrund", &["F"]),
+    ("fill", "Ganzes Foto (Ganz)", &["F"]),
     ("text", "Text aufs Bild an / aus", &["T"]),
     ("preview", "Vorschau wie auf dem Rahmen", &["V"]),
     ("burst", "Serie vergleichen", &["S"]),
@@ -53,6 +53,13 @@ pub const ACTIONS: &[(&str, &str, &[&str])] = &[
     ("zoom_out", "Herauszoomen", &["Minus"]),
     ("reset", "Ausschnitt zurücksetzen", &["0"]),
     ("gallery", "Behaltene ansehen", &["G"]),
+    (
+        "guide",
+        "Hilfslinien wechseln (mit Umschalt: drehen)",
+        &["O"],
+    ),
+    ("straighten", "Horizont begradigen (Vorschlag)", &["B"]),
+    ("enhance", "Automatisch verbessern", &["E"]),
 ];
 
 pub const DATE_FORMATS: &[&str] = &[
@@ -140,10 +147,35 @@ pub struct Config {
     pub date_filter: Option<crate::daterange::DateRange>,
     /// Reihenfolge beim Kopieren (system::COPY_ORDERS)
     pub copy_order: u8,
+    /// Standard-Hintergrund für „Ganz“
+    pub fill_bg: imaging::FillBg,
+    /// Hilfslinien beim Zuschnitt (siehe `swipe::GUIDES`)
+    pub guide: u8,
+    /// Spiegelung der Hilfslinien (Bit 0 waagrecht, Bit 1 senkrecht)
+    pub guide_flip: u8,
     /// eigene Textstile
     pub text_styles: Vec<crate::textstyle::TextLook>,
     /// Textstil, der nur für einen Ordner gilt
     pub folder_looks: HashMap<PathBuf, crate::textstyle::TextLook>,
+    /// Mehrere Bilderrahmen, je mit eigenem Zielordner (leer = nur einer)
+    pub profiles: Vec<FrameProfile>,
+    /// aktiver Rahmen in `profiles`
+    pub profile: usize,
+}
+
+/// Ein Bilderrahmen mit eigenem Format und Zielordner. Die Einstellungen des
+/// aktiven Rahmens stehen direkt in `Config`, hier liegt jeweils eine Kopie.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(default)]
+pub struct FrameProfile {
+    pub name: String,
+    pub target: PathBuf,
+    pub ratio_quer: String,
+    pub ratio_hoch: String,
+    pub res_idx: usize,
+    pub max_mb: f32,
+    pub frame: String,
+    pub goal: u32,
 }
 
 impl Default for Config {
@@ -173,8 +205,13 @@ impl Default for Config {
             sessions: vec![],
             date_filter: None,
             copy_order: 0,
+            fill_bg: imaging::FillBg::default(),
+            guide: 1,
+            guide_flip: 0,
             text_styles: vec![],
             folder_looks: HashMap::new(),
+            profiles: vec![],
+            profile: 0,
         }
     }
 }
@@ -214,10 +251,30 @@ pub struct Tex {
     pub path: PathBuf,
     pub rot: u8,
     pub handle: TextureHandle,
-    /// winzige Version für den unscharfen Hintergrund
+    /// winzige Version für den Fensterhintergrund
     pub blur: TextureHandle,
+    /// kleine Version (höchstens 400 px) für den Hintergrund bei „Ganz“
+    pub small: image::RgbImage,
+    /// Hintergrund-Textur für (Füllung, Seitenverhältnis)
+    pub bg: Option<((imaging::FillBg, u32), TextureHandle)>,
     pub size: Vec2,
+    /// Licht-Einstellung, mit der die Textur berechnet wurde
+    pub tone: imaging::Tone,
+    /// Vorschlag fürs Begradigen (Neigung in Grad)
+    pub tilt: Option<f32>,
 }
+
+/// Stand vor dem Nachbearbeiten (Ordner, Liste, Position, Serien).
+pub struct Reedit {
+    folder: Option<PathBuf>,
+    items: Vec<PathBuf>,
+    pos: usize,
+    groups: Vec<(usize, usize)>,
+    finished: Option<PathBuf>,
+}
+
+/// (Foto, Anzahl behaltener, bekannte Abdrücke, Ergebnis)
+type DupCache = (PathBuf, usize, usize, Option<(PathBuf, PathBuf)>);
 
 /// Wo die Bedienelemente im letzten Frame lagen (für die Einführung).
 #[derive(Default, Clone, Copy)]
@@ -226,6 +283,8 @@ pub struct Spots {
     pub buttons: Option<egui::Rect>,
     pub strip: Option<egui::Rect>,
     pub menu: Option<egui::Rect>,
+    /// Unterkante der Hinweis-Chips über dem Foto (Meldungen erscheinen darunter)
+    pub chips_bottom: Option<f32>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -286,6 +345,10 @@ pub struct SwiperApp {
     pub loader: Loader,
     pub saver: Saver,
     pub thumbs: ThumbLoader,
+    /// Fingerabdrücke zum Erkennen doppelter Fotos
+    pub hashes: crate::dupes::Hashes,
+    /// (Foto, Anzahl behaltener, bekannte Abdrücke) -> Doppel (Quelle, Ausgabe)
+    dup_cache: Option<DupCache>,
     pub thumb_tex: HashMap<PathBuf, Option<TextureHandle>>,
     /// winzige Fassung der Vorschaubilder für den unscharfen Hintergrund
     pub thumb_blur: HashMap<PathBuf, TextureHandle>,
@@ -304,6 +367,16 @@ pub struct SwiperApp {
     /// Notiz pro Bild (für den Text aufs Bild)
     pub notes: HashMap<PathBuf, String>,
     pub text_panel: bool,
+    /// Feld für den Rand bei „Ganz“ offen
+    pub fill_panel: bool,
+    /// Nachbearbeiten eines behaltenen Bildes: vorheriger Stand zum Zurückkehren
+    pub reedit: Option<Reedit>,
+    /// Linie am Horizont, die gerade mit Strg gezogen wird (Bildschirmpunkte)
+    pub horizon_line: Option<(egui::Pos2, egui::Pos2)>,
+    /// Feld „Ausrichten und Licht“ offen
+    pub adjust_panel: bool,
+    /// Menü eines Ordners auf dem Startbildschirm (Ordner, Position)
+    pub folder_menu: Option<(PathBuf, egui::Pos2)>,
     pub dialog: Option<Dialog>,
     /// Großansicht (Vorschau, Diashow, rechte Maustaste)
     pub viewer: Option<crate::ui::viewer::Viewer>,
@@ -365,6 +438,8 @@ impl SwiperApp {
             loader: Loader::new(ctx.clone(), 3),
             saver: Saver::new(ctx.clone(), 2),
             thumbs: ThumbLoader::new(ctx.clone(), 2),
+            hashes: crate::dupes::Hashes::new(ctx.clone()),
+            dup_cache: None,
             thumb_tex: HashMap::new(),
             thumb_blur: HashMap::new(),
             tex: None,
@@ -378,6 +453,11 @@ impl SwiperApp {
             burst_sel: HashSet::new(),
             notes: HashMap::new(),
             text_panel: false,
+            fill_panel: false,
+            folder_menu: None,
+            horizon_line: None,
+            reedit: None,
+            adjust_panel: false,
             dialog: None,
             capture: None,
             intro_step: None,
@@ -436,6 +516,7 @@ impl SwiperApp {
 
     /// Kachel-Infos neu berechnen (Anzahl, erledigt, behalten).
     pub fn refresh_folders(&mut self) {
+        self.sync_target();
         let mut flat = vec![];
         folders::flatten(&self.tree, &self.cfg.excluded, &mut flat);
         let target = self.cfg.target.clone();
@@ -670,6 +751,7 @@ impl SwiperApp {
         self.status = folders::load_status(&self.cfg.target);
         self.status_target = self.cfg.target.clone();
         self.goal_announced = false;
+        self.sync_target();
     }
 
     pub fn flush_status(&mut self) {
@@ -710,7 +792,7 @@ impl SwiperApp {
         }
         self.items
             .get(self.pos)
-            .filter(|p| !self.status.bilder.contains_key(*p))
+            .filter(|p| self.reedit.is_some() || !self.status.bilder.contains_key(*p))
     }
 
     pub fn folder_done(&self) -> usize {
@@ -765,6 +847,7 @@ impl SwiperApp {
                 max_res: Some((l, s)),
                 max_mb: self.cfg.max_mb,
                 quality: 92,
+                fill_bg: self.cfg.fill_bg,
             };
         }
         OutputSettings {
@@ -773,6 +856,7 @@ impl SwiperApp {
             max_res: RESOLUTIONS.get(self.cfg.res_idx).and_then(|r| r.1),
             max_mb: self.cfg.max_mb,
             quality: 92,
+            fill_bg: self.cfg.fill_bg,
         }
     }
 
@@ -795,6 +879,12 @@ impl SwiperApp {
             }
         }
         if self.view == View::Swipe || self.view == View::Burst {
+            // das angezeigte Bild immer (auch wenn schon entschieden, z. B. beim Nachbearbeiten)
+            if let Some(c) = self.items.get(self.pos) {
+                if !wanted.contains(c) {
+                    wanted.push(c.clone());
+                }
+            }
             let mut i = self.pos;
             while i < self.items.len() && wanted.len() <= PRELOAD_AHEAD {
                 if !self.status.bilder.contains_key(&self.items[i])
@@ -870,6 +960,7 @@ impl SwiperApp {
             Entry {
                 d: if keep { "keep" } else { "skip" }.into(),
                 out: None,
+                edit: keep.then(|| self.edits.get(path).copied().unwrap_or_default()),
             },
         );
         self.status.verlauf.retain(|p| p != path);
@@ -893,6 +984,10 @@ impl SwiperApp {
         let Some(path) = self.current().cloned() else {
             return;
         };
+        if self.reedit.is_some() {
+            self.finish_reedit(&path, keep);
+            return;
+        }
         debug(&format!("commit keep={keep} {}", path.display()));
         self.record(&path, keep);
         self.dx = 0.0;
@@ -1338,6 +1433,321 @@ impl SwiperApp {
         v.into_iter().map(|(_, p, o)| (p, o)).collect()
     }
 
+    /// Im Zielordner gelöschte Bilder gelten als aussortiert: Sie verschwinden aus
+    /// Galerie und Zählern und kommen nicht wieder. Fehlt der ganze Zielordner
+    /// (z. B. USB-Platte abgezogen), wird nichts verändert.
+    pub fn sync_target(&mut self) {
+        if !self.status_target.is_dir() {
+            return;
+        }
+        let mut changed = 0;
+        for e in self.status.bilder.values_mut() {
+            if e.d == "keep" && e.out.as_ref().is_some_and(|o| !o.exists()) {
+                e.d = "skip".into();
+                e.out = None;
+                changed += 1;
+            }
+        }
+        if changed > 0 {
+            crate::system::log(&format!(
+                "{changed} Bilder fehlen im Zielordner, als aussortiert gemerkt"
+            ));
+            self.status_dirty = true;
+            self.stats = None;
+            self.total_kept = self
+                .status
+                .bilder
+                .values()
+                .filter(|e| e.d == "keep")
+                .count();
+            self.flush_status();
+        }
+    }
+
+    /// (aussortiert, entschieden) für die Fotos direkt in `folder`.
+    pub fn folder_decisions(&self, folder: &Path) -> (usize, usize) {
+        let mut skip = 0;
+        let mut all = 0;
+        for (p, e) in &self.status.bilder {
+            if p.parent() == Some(folder) {
+                all += 1;
+                if e.d == "skip" {
+                    skip += 1;
+                }
+            }
+        }
+        (skip, all)
+    }
+
+    /// Entscheidungen eines Ordners vergessen: nur die aussortierten oder alle.
+    /// Behaltene Bilder bleiben im Zielordner liegen.
+    pub fn reset_folder(&mut self, folder: &Path, only_skipped: bool) {
+        let before = self.status.bilder.len();
+        let mut old = vec![];
+        self.status.bilder.retain(|p, e| {
+            let keep = p.parent() != Some(folder) || (only_skipped && e.d != "skip");
+            if !keep {
+                if let Some(o) = &e.out {
+                    old.push((p.clone(), o.clone()));
+                }
+            }
+            keep
+        });
+        self.status.frueher.extend(old);
+        let n = before - self.status.bilder.len();
+        let bilder = &self.status.bilder;
+        self.status
+            .verlauf
+            .retain(|p| p.parent() != Some(folder) || bilder.contains_key(p));
+        if n == 0 {
+            return;
+        }
+        self.status_dirty = true;
+        self.stats = None;
+        self.flush_status();
+        self.refresh_folders();
+        let what = if only_skipped {
+            format!("{} aussortierte Fotos sind wieder offen.", fmt_int(n))
+        } else {
+            format!(
+                "„{}“ beginnt von vorn. Behaltene Bilder bleiben im Zielordner.",
+                folders::file_name(folder)
+            )
+        };
+        self.toast(what);
+    }
+
+    /// Wurde dieses Motiv schon einmal behalten (z. B. als Kopie in einem anderen
+    /// Ordner)? Liefert (Quelle, Ausgabe) des früheren Bildes.
+    pub fn duplicate_of(&mut self, p: &Path) -> Option<(PathBuf, PathBuf)> {
+        let kept: Vec<(PathBuf, PathBuf)> = self
+            .status
+            .bilder
+            .iter()
+            .filter(|(q, e)| e.d == "keep" && q.as_path() != p)
+            .filter_map(|(q, e)| e.out.clone().map(|o| (q.clone(), o)))
+            .collect();
+        if let Some((cp, n, known, res)) = &self.dup_cache {
+            if cp == p && *n == kept.len() && *known >= kept.len() {
+                return res.clone();
+            }
+        }
+        let h = self.hashes.get(p)?;
+        let srcs: Vec<PathBuf> = kept.iter().map(|k| k.0.clone()).collect();
+        let known = self.hashes.known(&srcs);
+        let when = |q: &Path| self.dates.get(q).map(|d| d.0);
+        let mine = match self.preview() {
+            Some(Ok(pre)) if self.current().map(|c| c.as_path()) == Some(p) => Some(pre.when),
+            _ => when(p),
+        };
+        let mut best: Option<(u32, PathBuf)> = None;
+        for (q, hq) in &known {
+            let same_time = mine.is_some() && when(q) == mine;
+            if crate::dupes::is_duplicate(h, *hq, same_time) {
+                let d = crate::dupes::distance(h, *hq);
+                if best.as_ref().is_none_or(|b| d < b.0) {
+                    best = Some((d, q.clone()));
+                }
+            }
+        }
+        let res = best.and_then(|(_, q)| kept.iter().find(|k| k.0 == q).cloned());
+        self.dup_cache = Some((p.to_path_buf(), kept.len(), known.len(), res.clone()));
+        res
+    }
+
+    /// Behaltenes Bild noch einmal bearbeiten (Zuschnitt, Ganz, Text, Licht …).
+    pub fn start_reedit(&mut self, src: &Path) {
+        let Some(e) = self.status.bilder.get(src) else {
+            return;
+        };
+        if e.d != "keep" || !src.exists() {
+            self.toast("Das Original ist nicht mehr da, Nachbearbeiten geht nicht.".into());
+            return;
+        }
+        if let Some(ed) = e.edit {
+            self.edits.insert(src.to_path_buf(), ed);
+        }
+        if self.reedit.is_none() {
+            self.reedit = Some(Reedit {
+                folder: self.folder.clone(),
+                items: std::mem::take(&mut self.items),
+                pos: self.pos,
+                groups: std::mem::take(&mut self.groups),
+                finished: self.finished.take(),
+            });
+        }
+        self.items = vec![src.to_path_buf()];
+        self.groups = vec![(0, 1)];
+        self.pos = 0;
+        self.scan = None;
+        self.anim = None;
+        self.dx = 0.0;
+        self.dy = 0.0;
+        self.view = View::Swipe;
+    }
+
+    /// Nachbearbeiten beenden: `Some(true)` neu speichern, `Some(false)` aus den
+    /// Behaltenen nehmen, `None` abbrechen. Danach zurück zur Galerie.
+    fn end_reedit(&mut self) {
+        if let Some(r) = self.reedit.take() {
+            self.folder = r.folder;
+            self.items = r.items;
+            self.pos = r.pos;
+            self.groups = r.groups;
+            self.finished = r.finished;
+        }
+        self.dx = 0.0;
+        self.dy = 0.0;
+        self.anim = None;
+        self.fill_panel = false;
+        self.adjust_panel = false;
+        self.text_panel = false;
+        self.open_gallery();
+    }
+
+    pub fn cancel_reedit(&mut self) {
+        self.end_reedit();
+    }
+
+    fn finish_reedit(&mut self, path: &Path, keep: bool) {
+        if keep {
+            let old = self.status.bilder.get(path).and_then(|e| e.out.clone());
+            self.record(path, true);
+            // war schon behalten: nicht doppelt zählen, alte Datei nach dem Speichern ersetzen
+            self.total_kept = self.total_kept.saturating_sub(1);
+            if let Some(o) = old {
+                self.status.frueher.insert(path.to_path_buf(), o);
+            }
+            // Rückgängig soll das neu gespeicherte Bild nicht ganz verwerfen
+            self.status.verlauf.retain(|p| p != path);
+            self.toast("Neu gespeichert".into());
+        } else {
+            self.discard_kept(path);
+            self.toast("Aus den Behaltenen genommen".into());
+        }
+        self.end_reedit();
+    }
+
+    // ------------------------------------------------------------------ Rahmen-Profile
+
+    fn profile_snapshot(&self, name: String) -> FrameProfile {
+        let c = &self.cfg;
+        FrameProfile {
+            name,
+            target: c.target.clone(),
+            ratio_quer: c.ratio_quer.clone(),
+            ratio_hoch: c.ratio_hoch.clone(),
+            res_idx: c.res_idx,
+            max_mb: c.max_mb,
+            frame: c.frame.clone(),
+            goal: c.goal,
+        }
+    }
+
+    /// Name des aktiven Rahmens (nur wenn es mehrere gibt).
+    pub fn profile_name(&self) -> Option<String> {
+        (self.cfg.profiles.len() > 1)
+            .then(|| {
+                self.cfg
+                    .profiles
+                    .get(self.cfg.profile)
+                    .map(|p| p.name.clone())
+            })
+            .flatten()
+    }
+
+    /// Aktive Einstellungen in die Liste zurückschreiben (legt den ersten Rahmen an).
+    pub fn store_profile(&mut self) {
+        if self.cfg.profiles.is_empty() {
+            let snap = self.profile_snapshot("Mein Rahmen".into());
+            self.cfg.profiles.push(snap);
+            self.cfg.profile = 0;
+            return;
+        }
+        let i = self.cfg.profile.min(self.cfg.profiles.len() - 1);
+        let name = self.cfg.profiles[i].name.clone();
+        self.cfg.profiles[i] = self.profile_snapshot(name);
+    }
+
+    pub fn switch_profile(&mut self, i: usize) {
+        if i == self.cfg.profile || i >= self.cfg.profiles.len() {
+            return;
+        }
+        if self.saver.queued() > 0 {
+            self.toast("Einen Moment, es werden noch Bilder gespeichert.".into());
+            return;
+        }
+        self.store_profile();
+        let p = self.cfg.profiles[i].clone();
+        self.cfg.profile = i;
+        self.cfg.ratio_quer = p.ratio_quer;
+        self.cfg.ratio_hoch = p.ratio_hoch;
+        self.cfg.res_idx = p.res_idx;
+        self.cfg.max_mb = p.max_mb;
+        self.cfg.frame = p.frame;
+        self.cfg.goal = p.goal;
+        self.custom_frame = false;
+        self.stats = None;
+        self.set_target(p.target);
+        self.toast(format!("Rahmen „{}“", p.name));
+    }
+
+    /// Neuen Rahmen anlegen (Kopie der aktuellen Einstellungen, eigener Zielordner).
+    pub fn add_profile(&mut self, name: &str) {
+        self.store_profile();
+        let name = name.trim();
+        let name = if name.is_empty() {
+            format!("Rahmen {}", self.cfg.profiles.len() + 1)
+        } else {
+            name.to_string()
+        };
+        let base = self
+            .cfg
+            .target
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| self.cfg.target.clone());
+        let clean: String = name
+            .chars()
+            .map(|c| if "\\/:*?\"<>|".contains(c) { '_' } else { c })
+            .collect();
+        let mut target = base.join(format!("Bilderrahmen {clean}"));
+        let mut n = 2;
+        while self.cfg.profiles.iter().any(|p| p.target == target) {
+            target = base.join(format!("Bilderrahmen {clean} {n}"));
+            n += 1;
+        }
+        let mut p = self.profile_snapshot(name);
+        p.target = target;
+        self.cfg.profiles.push(p);
+        let i = self.cfg.profiles.len() - 1;
+        self.switch_profile(i);
+    }
+
+    /// Rahmen aus der Liste nehmen (der Zielordner mit seinen Bildern bleibt).
+    pub fn remove_profile(&mut self, i: usize) {
+        if self.cfg.profiles.len() <= 1 || i >= self.cfg.profiles.len() {
+            return;
+        }
+        if i == self.cfg.profile {
+            let other = if i == 0 { 1 } else { 0 };
+            self.switch_profile(other);
+            if self.cfg.profile == i {
+                return;
+            }
+        }
+        self.cfg.profiles.remove(i);
+        if self.cfg.profile > i {
+            self.cfg.profile -= 1;
+        }
+    }
+
+    /// Galerie öffnen (vorher gelöschte Dateien abgleichen).
+    pub fn open_gallery(&mut self) {
+        self.sync_target();
+        self.view = View::Gallery;
+    }
+
     pub fn discard_kept(&mut self, src: &Path) {
         if let Some(e) = self.status.bilder.get_mut(src) {
             if let Some(out) = e.out.take() {
@@ -1363,6 +1773,12 @@ impl SwiperApp {
             match res {
                 Ok(out) => {
                     self.stats = None;
+                    if let Some(old) = self.status.frueher.remove(&path) {
+                        if old != out {
+                            let _ = std::fs::remove_file(&old);
+                        }
+                        self.status_dirty = true;
+                    }
                     if let Some(e) = self.status.bilder.get_mut(&path) {
                         e.out = Some(out);
                         self.status_dirty = true;
@@ -1422,32 +1838,148 @@ impl SwiperApp {
     pub fn ensure_texture(&mut self, ui: &Ui) -> Option<(Edit, Vec2, TextureId)> {
         let path = self.current()?.clone();
         let edit = self.edits.get(&path).copied().unwrap_or_default();
-        let ok = matches!(&self.tex, Some(t) if t.path == path && t.rot == edit.rot % 4);
+        let ok = matches!(&self.tex, Some(t) if t.path == path && t.rot == edit.rot % 4 && t.tone == edit.tone);
         if !ok {
             let preview = match self.loader.get(&path) {
                 Some(Ok(p)) => p,
                 _ => return None,
             };
-            let img = rotate_color_image(&preview.image, edit.rot);
+            let mut img = rotate_color_image(&preview.image, edit.rot);
+            // Neigung nur einmal je Foto und Drehung schätzen
+            let tilt = match &self.tex {
+                Some(t) if t.path == path && t.rot == edit.rot % 4 => t.tilt,
+                _ => None,
+            };
+            let tilt_known =
+                matches!(&self.tex, Some(t) if t.path == path && t.rot == edit.rot % 4);
+            if !edit.tone.is_neutral() {
+                let raw: Vec<u8> = img
+                    .pixels
+                    .iter()
+                    .flat_map(|c| [c.r(), c.g(), c.b()])
+                    .collect();
+                if let Some(rgb) =
+                    image::RgbImage::from_raw(img.size[0] as u32, img.size[1] as u32, raw)
+                {
+                    let lut = imaging::tone_lut(&rgb, edit.tone);
+                    for c in img.pixels.iter_mut() {
+                        *c = egui::Color32::from_rgb(
+                            lut[c.r() as usize],
+                            lut[c.g() as usize],
+                            lut[c.b() as usize],
+                        );
+                    }
+                }
+            }
             let size = egui::vec2(img.size[0] as f32, img.size[1] as f32);
             let blur =
                 ui.ctx()
                     .load_texture("unscharf", tiny_image(&img, 40), TextureOptions::LINEAR);
+            let small = {
+                let t = tiny_image(&img, 400);
+                let raw: Vec<u8> = t
+                    .pixels
+                    .iter()
+                    .flat_map(|c| [c.r(), c.g(), c.b()])
+                    .collect();
+                image::RgbImage::from_raw(t.size[0] as u32, t.size[1] as u32, raw)
+                    .unwrap_or_default()
+            };
             let handle = ui.ctx().load_texture(
                 "bild",
                 img,
                 TextureOptions::LINEAR.with_mipmap_mode(Some(egui::TextureFilter::Linear)),
             );
+            let tilt = if tilt_known {
+                tilt
+            } else {
+                imaging::suggest_angle(&small)
+            };
             self.tex = Some(Tex {
                 path,
                 rot: edit.rot % 4,
                 handle,
                 blur,
+                small,
+                bg: None,
                 size,
+                tone: edit.tone,
+                tilt,
             });
         }
         let t = self.tex.as_ref()?;
         Some((edit, t.size, t.handle.id()))
+    }
+}
+
+impl SwiperApp {
+    /// Hintergrund für „Ganz“ zum angezeigten Foto (wird nur bei Änderung neu gerechnet).
+    pub fn fill_bg_texture(
+        &mut self,
+        ctx: &egui::Context,
+        ratio: f32,
+        bg: imaging::FillBg,
+    ) -> Option<TextureId> {
+        let t = self.tex.as_mut()?;
+        let key = (bg, ratio.to_bits());
+        if t.bg.as_ref().map(|b| b.0) != Some(key) {
+            let cw = 480u32;
+            let ch = ((cw as f32) / ratio).round().max(1.0) as u32;
+            let img = imaging::fill_background(&t.small, cw, ch, bg);
+            let ci = egui::ColorImage::from_rgb([cw as usize, ch as usize], img.as_raw());
+            t.bg = Some((
+                key,
+                ctx.load_texture("hintergrund", ci, TextureOptions::LINEAR),
+            ));
+        }
+        t.bg.as_ref().map(|b| b.1.id())
+    }
+
+    /// Neigungsvorschlag für das angezeigte Foto.
+    pub fn tilt_suggestion(&self) -> Option<f32> {
+        self.tex
+            .as_ref()
+            .filter(|t| Some(&t.path) == self.current())
+            .and_then(|t| t.tilt)
+    }
+
+    /// Vorschlag übernehmen; ist er schon übernommen, wieder gerade stellen.
+    pub fn apply_straighten(&mut self) {
+        let Some(tilt) = self.tilt_suggestion() else {
+            self.toast(
+                "Kein schiefer Horizont erkannt. Strg + ziehen: Linie selbst ziehen.".into(),
+            );
+            return;
+        };
+        if let Some(e) = self.edit_mut() {
+            e.angle = if (e.angle + tilt).abs() < 0.05 {
+                0.0
+            } else {
+                -tilt
+            };
+        }
+    }
+
+    pub fn toggle_enhance(&mut self) {
+        let on = self.edit_mut().map(|e| {
+            e.tone.auto = !e.tone.auto;
+            e.tone.auto
+        });
+        if let Some(on) = on {
+            self.toast(
+                if on {
+                    "Automatisch verbessert"
+                } else {
+                    "Verbessern aus"
+                }
+                .into(),
+            );
+        }
+    }
+
+    /// Füllung des aktuellen Bildes (eigene oder Standard).
+    pub fn fill_bg_of(&self, e: &Edit) -> imaging::FillBg {
+        e.bg.unwrap_or(self.cfg.fill_bg)
     }
 }
 
@@ -1552,8 +2084,12 @@ impl eframe::App for SwiperApp {
         if self.view != View::Home {
             self.sync_session();
         }
+        if !self.cfg.profiles.is_empty() {
+            self.store_profile();
+        }
         eframe::set_value(storage, eframe::APP_KEY, &self.cfg);
         self.flush_status();
+        self.hashes.save_if_dirty();
     }
 }
 
@@ -1568,7 +2104,11 @@ impl Drop for SwiperApp {
                 }
             }
         }
+        for (_, old) in self.status.frueher.drain() {
+            let _ = std::fs::remove_file(old);
+        }
         self.status_dirty = true;
         self.flush_status();
+        self.hashes.save_if_dirty();
     }
 }
