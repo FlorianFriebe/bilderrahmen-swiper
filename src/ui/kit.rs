@@ -329,6 +329,14 @@ pub fn pill(ui: &Ui, r: Rect, glyph: &str, label: &str, tone: Tone) -> Response 
     let (fill, _, fg) = tone_colors(tone);
     let p = ui.painter();
     p.rect_filled(r, radius::M, mix(fill, fill.gamma_multiply(1.7), t));
+    if t > 0.0 {
+        p.rect_stroke(
+            r,
+            radius::M,
+            Stroke::new(1.0, fg.gamma_multiply(0.45 * t)),
+            StrokeKind::Inside,
+        );
+    }
     let f = font(ts::BODY, W::Semibold);
     let lw = text_size(ui, label, f.clone()).x;
     let x = r.center().x - (16.0 + sp::S - 2.0 + lw) / 2.0;

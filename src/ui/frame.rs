@@ -18,6 +18,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     apply_appearance(app, &ctx);
     handle_drops(app, ui);
     app.poll_saver();
+    app.poll_export();
     app.poll_scan();
     app.poll_library_scan();
     app.poll_thumbs(&ctx);

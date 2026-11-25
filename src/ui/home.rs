@@ -549,7 +549,18 @@ fn folder_menu(app: &mut SwiperApp, ui: &mut Ui) {
     };
     let (skipped, decided) = app.folder_decisions(&folder);
     let name = folders::file_name(&folder);
-    let rows: [(&str, String, String, bool); 3] = [
+    let kept = app.kept_of_folder(&folder).len();
+    let rows: [(&str, String, String, bool); 4] = [
+        (
+            icons::DOWNLOAD,
+            "Exportieren …".into(),
+            if kept == 0 {
+                "Noch nichts behalten".into()
+            } else {
+                format!("{} an einen Ort deiner Wahl kopieren", fotos(kept))
+            },
+            kept > 0 && app.export.is_none(),
+        ),
         (
             icons::UNDO,
             "Aussortierte nochmal zeigen".into(),
@@ -633,7 +644,7 @@ fn folder_menu(app: &mut SwiperApp, ui: &mut Ui) {
                     p.rect_filled(rr, radius::M, glass_hover().gamma_multiply(t));
                 }
                 let a = if *enabled { 1.0 } else { 0.4 };
-                let col = if i == 2 {
+                let col = if i == 3 {
                     kit::mix(text(), skip(), t)
                 } else {
                     text()
@@ -678,9 +689,10 @@ fn folder_menu(app: &mut SwiperApp, ui: &mut Ui) {
             .contains(ui.input(|i| i.pointer.interact_pos()).unwrap_or_default())
         || ui.input(|i| i.key_pressed(egui::Key::Escape));
     match chosen {
-        Some(0) => app.reset_folder(&folder, true),
-        Some(1) => app.reset_folder(&folder, false),
-        Some(2) => app.remove_folder(&folder),
+        Some(0) => app.export_folder(&folder),
+        Some(1) => app.reset_folder(&folder, true),
+        Some(2) => app.reset_folder(&folder, false),
+        Some(3) => app.remove_folder(&folder),
         _ => {}
     }
     if chosen.is_some() || outside {
@@ -707,14 +719,13 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let p = ui.painter().clone();
     let pad = sp::S;
     let h = size::CONTROL;
-    let gap = sp::XS;
     let sep = sp::M * 2.0 + 1.0;
     let set_w = h;
     let kept = (app.total_kept > 0).then(|| format!("{} behalten", fmt_int(app.total_kept)));
     let kept_w = kept.as_ref().map(|k| kit::pill_width(ui, k)).unwrap_or(0.0);
     let mut total = pad * 2.0 + set_w + sep + h;
     if kept.is_some() {
-        total += sep + kept_w + gap + h + gap + h;
+        total += sep + kept_w;
     }
     let bar = Rect::from_center_size(
         pos2(ws.center().x, ws.top() + size::TOPBAR / 2.0),
@@ -737,13 +748,6 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         kit::vsep(&p, x, cy);
         x += 1.0 + sp::M;
         if kit::pill(ui, row(x, kept_w), icons::HEART, &kept, Tone::Keep)
-            .on_hover_text("Behaltene Bilder ansehen")
-            .clicked()
-        {
-            app.open_gallery();
-        }
-        x += kept_w + gap;
-        if kit::icon_button(ui, row(x, h), icons::GALLERY, true)
             .on_hover_text(format!(
                 "Behaltene Bilder ansehen ({})",
                 app.key_label("gallery")
@@ -752,14 +756,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         {
             app.open_gallery();
         }
-        x += h + gap;
-        if kit::icon_button(ui, row(x, h), icons::USB, true)
-            .on_hover_text("Auf USB-Stick / SD-Karte kopieren")
-            .clicked()
-        {
-            app.dialog = Some(Dialog::Copy);
-        }
-        x += h + sp::M;
+        x += kept_w + sp::M;
     }
     kit::vsep(&p, x, cy);
     x += 1.0 + sp::M;
@@ -1710,7 +1707,9 @@ fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction
         let xr = Rect::from_center_size(pos2(r.right() - 22.0, r.top() + 22.0), vec2(28.0, 28.0));
         let x = ui
             .interact(xr, ui.make_persistent_id(("menu", &f.path)), Sense::click())
-            .on_hover_text("Mehr: Aussortierte nochmal zeigen, von vorn beginnen, entfernen");
+            .on_hover_text(
+                "Mehr: exportieren, Aussortierte nochmal zeigen, von vorn beginnen, entfernen",
+            );
         let on = x.hovered() || menu_open;
         if on {
             p.rect_filled(xr, radius::S, glass_hover());

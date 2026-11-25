@@ -422,6 +422,8 @@ pub struct SwiperApp {
     pub intro_step: Option<usize>,
     pub spots: Spots,
     pub copy: Option<Arc<Mutex<CopyProgress>>>,
+    /// laufender Export eines Ordners: fertig-Meldung, sobald da
+    pub export: Option<Arc<Mutex<Option<String>>>>,
     pub copy_dest: Option<PathBuf>,
     pub stats: Option<(f64, Stats)>,
     pub update: Arc<Mutex<Option<String>>>,
@@ -505,6 +507,7 @@ impl SwiperApp {
             intro_step: None,
             spots: Spots::default(),
             copy: None,
+            export: None,
             copy_dest: None,
             stats: None,
             update: system::check_update(ctx.clone()),
@@ -1615,6 +1618,77 @@ impl SwiperApp {
     }
 
     /// (aussortiert, entschieden) für die Fotos direkt in `folder`.
+    /// Behaltene Bilder eines Ordners (fertig gespeichert).
+    pub fn kept_of_folder(&self, folder: &Path) -> Vec<PathBuf> {
+        let mut v: Vec<PathBuf> = self
+            .status
+            .bilder
+            .iter()
+            .filter(|(p, e)| p.parent() == Some(folder) && e.d == "keep")
+            .filter_map(|(_, e)| e.out.clone().filter(|o| o.exists()))
+            .collect();
+        v.sort();
+        v
+    }
+
+    /// Behaltene Bilder eines Ordners an einen frei gewählten Ort kopieren.
+    pub fn export_folder(&mut self, folder: &Path) {
+        let files = self.kept_of_folder(folder);
+        if files.is_empty() {
+            return;
+        }
+        let Some(dest) = rfd::FileDialog::new()
+            .set_title(format!(
+                "Behaltene Bilder aus „{}“ exportieren nach …",
+                folders::file_name(folder)
+            ))
+            .pick_folder()
+        else {
+            return;
+        };
+        let res = Arc::new(Mutex::new(None));
+        let r2 = res.clone();
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            let mut done = 0;
+            let mut err = None;
+            for f in &files {
+                let Some(name) = f.file_name() else { continue };
+                let to = dest.join(name);
+                let same =
+                    to.metadata().ok().map(|m| m.len()) == f.metadata().ok().map(|m| m.len());
+                if same || std::fs::copy(f, &to).is_ok() {
+                    done += 1;
+                } else {
+                    err = Some(to.display().to_string());
+                    break;
+                }
+            }
+            *r2.lock().unwrap() = Some(match err {
+                None => format!(
+                    "{} nach „{}“ exportiert",
+                    if done == 1 {
+                        "1 Bild".to_string()
+                    } else {
+                        format!("{done} Bilder")
+                    },
+                    folders::file_name(&dest)
+                ),
+                Some(e) => format!("Export abgebrochen: {e} ließ sich nicht schreiben"),
+            });
+            ctx.request_repaint();
+        });
+        self.export = Some(res);
+    }
+
+    pub fn poll_export(&mut self) {
+        let msg = self.export.as_ref().and_then(|r| r.lock().unwrap().take());
+        if let Some(m) = msg {
+            self.export = None;
+            self.toast(m);
+        }
+    }
+
     pub fn folder_decisions(&self, folder: &Path) -> (usize, usize) {
         let mut skip = 0;
         let mut all = 0;
