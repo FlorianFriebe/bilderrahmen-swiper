@@ -9,7 +9,6 @@ use super::style::*;
 use super::{bilder, ellipsize, icons, image_cover};
 use crate::app::{Dialog, SwiperApp, View};
 use crate::folders;
-use crate::imaging::Orient;
 use crate::session::{Session, SessionProgress};
 use crate::system;
 use crate::util::{fmt_int, open_folder};
@@ -702,18 +701,6 @@ fn section_label(ui: &Ui, at: egui::Pos2, label: &str) {
     );
 }
 
-/// Die letzten zwei Ordner eines Pfads, z. B. „Bilder\Bilderrahmen“.
-fn short_path(p: &std::path::Path) -> String {
-    let parts: Vec<String> = p
-        .components()
-        .rev()
-        .take(2)
-        .map(|c| c.as_os_str().to_string_lossy().to_string())
-        .collect();
-    let sep = std::path::MAIN_SEPARATOR.to_string();
-    parts.into_iter().rev().collect::<Vec<_>>().join(&sep)
-}
-
 // ------------------------------------------------------------------ obere Leiste
 
 fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
@@ -1068,27 +1055,12 @@ enum SessionAction {
 /// Einstellungsleiste unter dem Start-Knopf: Zeitraum, Ablauf, Rahmen, Text, Zielordner.
 /// Immer so breit wie der Start-Knopf.
 fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
-    let frame = match (app.profile_name(), app.frame_res()) {
-        (Some(n), _) => n,
-        (None, Some((w, h))) => format!("{w} × {h}"),
-        (None, None) => format!(
-            "{} · {}",
-            app.ratio_label(Orient::Quer),
-            app.ratio_label(Orient::Hochkant)
-        ),
-    };
     let text_lbl = if app.cfg.text.enabled {
         "Mit Text"
     } else {
         "Kein Text"
     }
     .to_string();
-    let target_name = app
-        .cfg
-        .target
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| short_path(&app.cfg.target));
     let range = app
         .cfg
         .date_filter
@@ -1104,22 +1076,16 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
         (icons::CALENDAR, range, 0, "Zeitraum"),
         (mode_glyph, mode.to_string(), 1, "Ablauf"),
         (
-            icons::FRAME,
-            frame,
-            10 + super::settings::TAB_FRAME,
-            "Rahmen",
-        ),
-        (
             icons::TEXT,
             text_lbl,
             10 + super::settings::TAB_TEXT,
             "Text",
         ),
         (
-            icons::FOLDER_OPEN,
-            target_name,
-            10 + super::settings::TAB_TARGET,
-            "Zielordner",
+            icons::FRAME,
+            String::new(),
+            10 + super::settings::TAB_FRAME,
+            "Format, Größe und Zielordner",
         ),
     ];
     let f = font(ts::SMALL, W::Medium);
@@ -1130,7 +1096,13 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
     let avail = total - sp::XS * 2.0 - gear_w - items.len() as f32 * sp::XS;
     let natural: Vec<f32> = items
         .iter()
-        .map(|(_, l, _, _)| kit::text_size(ui, l, f.clone()).x + chrome)
+        .map(|(_, l, _, _)| {
+            if l.is_empty() {
+                16.0 + sp::M * 2.0
+            } else {
+                kit::text_size(ui, l, f.clone()).x + chrome
+            }
+        })
         .collect();
     let mut widths = natural.clone();
     let sum: f32 = natural.iter().sum();
@@ -1156,11 +1128,7 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
         for (k, it) in items.iter_mut().enumerate() {
             if widths[k] < natural[k] {
                 let max = widths[k] - chrome;
-                it.1 = if it.2 == 10 + super::settings::TAB_TARGET {
-                    fit_start(ui, &it.1, f.clone(), max)
-                } else {
-                    fit_end(ui, &it.1, f.clone(), max)
-                };
+                it.1 = fit_end(ui, &it.1, f.clone(), max);
             }
         }
     } else {
@@ -1195,9 +1163,14 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
             p.rect_filled(r, radius::M, glass_hover().gamma_multiply(t));
         }
         let col = kit::mix(text_soft(), text(), t);
-        let content = 16.0 + sp::S + kit::text_size(ui, label, f.clone()).x;
+        let content = if label.is_empty() {
+            16.0
+        } else {
+            16.0 + sp::S + kit::text_size(ui, label, f.clone()).x
+        };
         let cx = r.center().x - content / 2.0;
-        kit::icon(&p, pos2(cx + 8.0, r.center().y), glyph, 16.0, muted());
+        let icon_col = if label.is_empty() { col } else { muted() };
+        kit::icon(&p, pos2(cx + 8.0, r.center().y), glyph, 16.0, icon_col);
         p.text(
             pos2(cx + 16.0 + sp::S, r.center().y),
             Align2::LEFT_CENTER,

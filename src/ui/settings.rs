@@ -14,7 +14,6 @@ use crate::util::open_folder;
 pub const TAB_FRAME: usize = 0;
 /// Bild: Ausschnitt, Ablauf, Rand bei „Ganz“, Text
 pub const TAB_TEXT: usize = 1;
-pub const TAB_TARGET: usize = 0;
 /// App: Farben, Schrift, Tasten, Hilfe
 pub const TAB_KEYS: usize = 2;
 

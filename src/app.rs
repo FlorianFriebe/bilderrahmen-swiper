@@ -1298,6 +1298,20 @@ impl SwiperApp {
     }
 
     /// Sehr kurze Beschriftung der ersten Taste für die Knöpfe unten, z. B. "⌫" oder "R".
+    /// Wie `key_short`, aber leer, solange die Taste nicht geändert wurde
+    /// (z. B. für die Pfeil-Knöpfe, deren Symbol die Taste schon zeigt).
+    pub fn key_changed(&self, action: &str) -> String {
+        let default: Vec<String> = ACTIONS
+            .iter()
+            .find(|a| a.0 == action)
+            .map(|a| a.2.iter().map(|s| s.to_string()).collect())
+            .unwrap_or_default();
+        match self.cfg.keys.get(action) {
+            Some(v) if *v != default => self.key_short(action),
+            _ => String::new(),
+        }
+    }
+
     pub fn key_short(&self, action: &str) -> String {
         use egui::Key::*;
         match self.keys_for(action).first() {
@@ -1853,18 +1867,6 @@ impl SwiperApp {
             frame: c.frame.clone(),
             goal: c.goal,
         }
-    }
-
-    /// Name des aktiven Rahmens (nur wenn es mehrere gibt).
-    pub fn profile_name(&self) -> Option<String> {
-        (self.cfg.profiles.len() > 1)
-            .then(|| {
-                self.cfg
-                    .profiles
-                    .get(self.cfg.profile)
-                    .map(|p| p.name.clone())
-            })
-            .flatten()
     }
 
     /// Aktive Einstellungen in die Liste zurückschreiben (legt den ersten Rahmen an).

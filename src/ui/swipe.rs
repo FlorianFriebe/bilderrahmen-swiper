@@ -3,6 +3,8 @@
 //! Die Leiste unten ist nach Wichtigkeit geordnet: in der Mitte die beiden
 //! Entscheidungen (groß, farbig), links „Zurück“, rechts die Werkzeuge fürs Bild.
 
+use std::path::PathBuf;
+
 use egui::emath::Rot2;
 use egui::epaint::{CornerRadius, RectShape, Shadow, TextShape};
 use egui::{
@@ -471,7 +473,62 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
     let rad = radius::CARD;
 
     let quick = app.quick_sort();
-    handle_card_input(app, ui, &resp, card, size, ratio, fill, s, &mut edit);
+    // Schnell sortieren: nur ansehen, Mausrad und zwei Finger zoomen ans Bild heran,
+    // gezoomt verschiebt Ziehen den Ausschnitt, Doppelklick zeigt wieder alles.
+    let view_id = Id::unique("quick_view");
+    let mut view: Rect = ui
+        .ctx()
+        .data(|d| d.get_temp::<(PathBuf, Rect)>(view_id))
+        .filter(|(p, _)| *p == path)
+        .map(|(_, r)| r)
+        .unwrap_or(FULL_UV);
+    let zoomed = quick && !fill && view.width() < 0.999;
+    if quick && !fill && app.anim.is_none() && app.dx.abs() < 0.5 {
+        if resp.hovered() {
+            let (scroll, pinch, hover) = ui.input(|i| {
+                (
+                    i.smooth_scroll_delta.y,
+                    i.zoom_delta(),
+                    i.pointer.hover_pos(),
+                )
+            });
+            let f = (scroll * 0.003).exp() * pinch;
+            if (f - 1.0).abs() > 1e-4 {
+                let at = hover.unwrap_or(card.center());
+                let rel = ((at - card.min) / card.size()).clamp(vec2(0.0, 0.0), vec2(1.0, 1.0));
+                let p_uv = view.min + rel * view.size();
+                let w = (view.width() / f).clamp(1.0 / 8.0, 1.0);
+                let min = p_uv - rel * w;
+                view = Rect::from_min_size(min, vec2(w, w));
+            }
+        }
+        if zoomed && resp.dragged_by(PointerButton::Primary) {
+            let d = resp.drag_delta() / card.size() * view.size();
+            view = view.translate(-d);
+        }
+        if resp.double_clicked() {
+            view = FULL_UV;
+        }
+        // im Bild bleiben
+        let w = view.width();
+        let min = pos2(
+            view.min.x.clamp(0.0, 1.0 - w),
+            view.min.y.clamp(0.0, 1.0 - w),
+        );
+        view = Rect::from_min_size(min, vec2(w, w));
+        ui.ctx()
+            .data_mut(|d| d.insert_temp(view_id, (path.clone(), view)));
+    }
+    if !zoomed {
+        handle_card_input(app, ui, &resp, card, size, ratio, fill, s, &mut edit);
+    } else if resp.hovered() {
+        ui.ctx().set_cursor_icon(if resp.dragged() {
+            egui::CursorIcon::Grabbing
+        } else {
+            egui::CursorIcon::Grab
+        });
+    }
+    let quick_uv = if quick && !fill { view } else { FULL_UV };
     let (x, y, cw, ch) = if fill {
         imaging::fill_rect(size.x, size.y, ratio, &mut edit)
     } else {
@@ -548,10 +605,10 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
         }
         card
     } else {
-        if edit.angle.abs() < 0.01 {
+        if edit.angle.abs() < 0.01 || quick_uv != FULL_UV {
             painter.add(
                 RectShape::filled(card, rad, Color32::WHITE)
-                    .with_texture(tex_id, FULL_UV)
+                    .with_texture(tex_id, quick_uv)
                     .with_angle_and_pivot(angle, pivot),
             );
         } else {
@@ -1544,7 +1601,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         divider_at(x);
         x += 1.0 + pad;
         let r = row(x, skip_w);
-        if kit::nav_button(ui, r, icons::ARROW_LEFT, &ks("skip"), i > 1)
+        if kit::nav_button(ui, r, icons::ARROW_LEFT, &app.key_changed("skip"), i > 1)
             .on_hover_text(format!("Vorheriges Foto ({})", k("skip")))
             .clicked()
         {
@@ -1552,7 +1609,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         }
         x = r.right() + sp::S;
         let r = row(x, keep_w);
-        if kit::nav_button(ui, r, icons::ARROW_RIGHT, &ks("keep"), loaded)
+        if kit::nav_button(ui, r, icons::ARROW_RIGHT, &app.key_changed("keep"), loaded)
             .on_hover_text(if i < n {
                 format!("Speichern und nächstes Foto ({})", k("keep"))
             } else {
@@ -1586,15 +1643,22 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         x += 1.0 + pad;
 
         let r = row(x, skip_w);
-        if kit::primary_button(ui, r, Primary::Skip, "", &ks("skip"), has_current)
-            .on_hover_text(format!("Weg: aussortieren ({})", k("skip")))
-            .clicked()
+        if kit::primary_button(
+            ui,
+            r,
+            Primary::Skip,
+            "",
+            &app.key_changed("skip"),
+            has_current,
+        )
+        .on_hover_text(format!("Weg: aussortieren ({})", k("skip")))
+        .clicked()
         {
             clicked = Some(Act::Skip);
         }
         x = r.right() + sp::S;
         let r = row(x, keep_w);
-        if kit::primary_button(ui, r, Primary::Keep, "", &ks("keep"), loaded)
+        if kit::primary_button(ui, r, Primary::Keep, "", &app.key_changed("keep"), loaded)
             .on_hover_text(if app.reedit.is_some() {
                 format!("Neu speichern ({})", k("keep"))
             } else {

@@ -89,6 +89,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let mut discard = None;
     let mut edit = None;
     let mut peek = None;
+    let mut view = None;
     let mut visible = vec![];
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(area));
     egui::ScrollArea::vertical()
@@ -109,6 +110,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                         Some(TileAct::Discard) => discard = Some(src.clone()),
                         Some(TileAct::Peek) => peek = Some(i),
                         Some(TileAct::Edit) => edit = Some(src.clone()),
+                        Some(TileAct::View) => view = Some(i),
                         None => {}
                     }
                 }
@@ -123,6 +125,20 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     if let Some(src) = edit {
         app.start_reedit(&src);
         return;
+    }
+    if let Some(i) = view {
+        use super::viewer::{Mode, Source, Viewer};
+        let items: Vec<Source> = list.iter().map(|(_, o)| Source::File(o.clone())).collect();
+        // gleiche Ansicht wie die Diashow, nur angehalten beim gewählten Bild:
+        // Pfeile blättern, Leertaste oder ▶ spielt ab
+        let mut v = Viewer::new(items, i, Mode::Frame, "Behaltene Bilder".into());
+        v.frame = app.frame_res();
+        v.secs = app.cfg.slide_secs.clamp(2, 600) as f64;
+        v.trans = app.cfg.slide_trans;
+        if app.cfg.slide_date {
+            v.date_src = list.iter().map(|(s, _)| s.clone()).collect();
+        }
+        app.viewer = Some(v);
     }
     if let Some(i) = peek {
         let files: Vec<PathBuf> = list.iter().map(|(_, o)| o.clone()).collect();
@@ -373,12 +389,14 @@ fn slide_settings(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect) -> bool {
 }
 
 enum TileAct {
+    View,
     Discard,
     Peek,
     Edit,
 }
 
-/// Eine Kachel: rauswerfen, bearbeiten (Knopf oder Doppelklick) oder Vorschau (rechte Maustaste).
+/// Eine Kachel: Doppelklick zeigt groß (Pfeile blättern), rauswerfen und bearbeiten nur über
+/// die Knöpfe, rechte Maustaste halten zeigt kurz groß.
 fn tile(
     app: &SwiperApp,
     ui: &Ui,
@@ -392,7 +410,7 @@ fn tile(
         return Some(TileAct::Peek);
     }
     if resp.double_clicked() {
-        return Some(TileAct::Edit);
+        return Some(TileAct::View);
     }
     let t = kit::anim(ui, resp.id, resp.contains_pointer());
     let p = ui.painter();
@@ -458,7 +476,7 @@ fn tile(
     let ed = ui
         .interact(er, ui.make_persistent_id(("reedit", i)), Sense::click())
         .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Zuschnitt, Ganz, Text, Begradigen und Licht ändern und neu speichern (auch Doppelklick)");
+        .on_hover_text("Zuschnitt, Ganz, Text, Begradigen und Licht ändern und neu speichern");
     let eh = kit::anim(ui, ed.id, ed.hovered());
     p.rect_filled(
         er,

@@ -390,7 +390,7 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
                 if let Some((w, h)) = v.frame {
                     label.push_str(&format!("  ·  {w} × {h}"));
                 }
-                if v.items.len() > 1 {
+                if v.items.len() > 1 && v.playing {
                     label.push_str(&format!("  ·  alle {} s", v.secs as u32));
                 }
             } else if v.items.len() > 1 {
