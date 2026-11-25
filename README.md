@@ -1,3 +1,5 @@
+<img src="assets/icon.png" width="96" alt="Bilderrahmen-Swiper Icon">
+
 # Bilderrahmen-Swiper
 
 Windows-Programm zum Aussortieren von Fotos für einen digitalen Bilderrahmen. Fotos werden
