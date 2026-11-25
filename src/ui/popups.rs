@@ -160,10 +160,10 @@ fn field_row(ui: &mut Ui, label: &str, add: impl FnOnce(&mut Ui)) {
     ui.horizontal(|ui| {
         ui.add_space(sp::M);
         ui.allocate_ui_with_layout(
-            vec2(86.0, 26.0),
+            vec2(104.0, 26.0),
             egui::Layout::left_to_right(egui::Align::Center),
             |ui| {
-                ui.set_min_size(vec2(86.0, 26.0));
+                ui.set_min_size(vec2(104.0, 26.0));
                 ui.label(egui::RichText::new(label).color(text_soft()));
             },
         );
@@ -205,15 +205,42 @@ pub fn text_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool
             }
         }
         divider_line(ui);
+        ui.add_space(sp::XS);
         let look = app.cfg.text.look();
-        if menu_row(ui, "Stil", &look.summary(), false)
-            .on_hover_text("Schrift, Größe, Farbe, Hintergrund und Position – mit Vorschau")
-            .clicked()
-        {
+        let mut styles = crate::textstyle::presets();
+        styles.extend(app.cfg.text_styles.iter().cloned());
+        let mut edit = false;
+        let mut pick = None;
+        field_row(ui, "Stil", |ui| {
+            let shown = if look.name.is_empty() {
+                look.summary()
+            } else {
+                look.name.clone()
+            };
+            egui::ComboBox::from_id_salt("pop_text_style")
+                .width(ui.available_width() - sp::M)
+                .selected_text(shown)
+                .show_ui(ui, |ui| {
+                    for l in &styles {
+                        if ui.selectable_label(l.name == look.name, &l.name).clicked() {
+                            pick = Some(l.clone());
+                        }
+                    }
+                    ui.separator();
+                    if ui.selectable_label(false, "Stil bearbeiten …").clicked() {
+                        edit = true;
+                    }
+                })
+                .response
+                .on_hover_text("Schrift, Größe, Farbe, Hintergrund und Position");
+        });
+        if let Some(l) = pick {
+            app.cfg.text.look = Some(l);
+        }
+        if edit {
             super::textstyles::open(app);
             close = true;
         }
-        ui.add_space(sp::XS);
         let t = &mut app.cfg.text;
         field_row(ui, "Datumsformat", |ui| {
             egui::ComboBox::from_id_salt("pop_date_fmt")
@@ -226,7 +253,14 @@ pub fn text_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool
                 });
         });
         field_row(ui, "Notiz", |ui| {
-            ui.checkbox(&mut t.note, "eigene Notiz je Bild")
+            egui::ComboBox::from_id_salt("pop_note")
+                .width(ui.available_width() - sp::M)
+                .selected_text(if t.note { "Je Bild" } else { "Keine" })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut t.note, false, "Keine");
+                    ui.selectable_value(&mut t.note, true, "Je Bild");
+                })
+                .response
                 .on_hover_text("Die Notiz trägst du beim Sortieren im Text-Feld ein.");
         });
         ui.add_space(sp::XS);
@@ -484,7 +518,8 @@ fn format_size_ui(app: &mut SwiperApp, ui: &mut Ui) {
         });
     }
     field_row(ui, "Max. Datei", |ui| {
-        ui.add(
+        ui.add_sized(
+            [ui.available_width() - sp::M, 26.0],
             egui::DragValue::new(&mut app.cfg.max_mb)
                 .range(0.0..=50.0)
                 .speed(0.05)
@@ -510,7 +545,8 @@ fn format_size_ui(app: &mut SwiperApp, ui: &mut Ui) {
     });
     let before = app.cfg.goal;
     field_row(ui, "Ziel", |ui| {
-        ui.add(
+        ui.add_sized(
+            [ui.available_width() - sp::M, 26.0],
             egui::DragValue::new(&mut app.cfg.goal)
                 .range(0..=100_000)
                 .speed(5.0)
@@ -623,12 +659,7 @@ pub fn app_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool 
         });
         field_row(ui, "Schrift", |ui| {
             let mut pct = (app.cfg.ui_scale * 100.0).round();
-            let r = ui.add(
-                egui::Slider::new(&mut pct, 70.0..=180.0)
-                    .step_by(10.0)
-                    .fixed_decimals(0)
-                    .suffix(" %"),
-            );
+            let r = flush_slider(ui, &mut pct, 70.0..=180.0, 10.0);
             if r.drag_stopped() || (r.changed() && !r.dragged()) {
                 app.cfg.ui_scale = pct / 100.0;
             }
@@ -724,4 +755,27 @@ pub fn keys_dialog(app: &mut SwiperApp, ui: &mut Ui) {
     if (resp.inner || resp.should_close()) && app.capture.is_none() {
         app.dialog = None;
     }
+}
+
+/// Schieberegler mit Wert rechts daneben, der genau mit den Feldern darüber abschließt.
+pub fn flush_slider(
+    ui: &mut Ui,
+    v: &mut f32,
+    range: std::ops::RangeInclusive<f32>,
+    step: f64,
+) -> egui::Response {
+    let val_w = 56.0;
+    let gap = ui.spacing().item_spacing.x;
+    ui.spacing_mut().slider_width = (ui.available_width() - sp::M - val_w - gap).max(60.0);
+    let r = ui.add(egui::Slider::new(v, range).step_by(step).show_value(false));
+    let (vr, _) = ui.allocate_exact_size(vec2(val_w, 26.0), Sense::hover());
+    ui.painter().rect_filled(vr, radius::S, field());
+    ui.painter().text(
+        vr.center(),
+        Align2::CENTER_CENTER,
+        format!("{:.0} %", *v),
+        font(ts::BODY, W::Regular),
+        text(),
+    );
+    r
 }

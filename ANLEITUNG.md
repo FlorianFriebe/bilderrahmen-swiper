@@ -20,7 +20,7 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    *Vorlage* wählst du dein Gerät (z. B. *10 Zoll · 1280 × 800*) oder tippst eine eigene
    Auflösung ein, dann passen Format und Größe automatisch. Ohne Vorlage stellst du *Quer*,
    *Hochkant* und *Auflösung* selbst ein. Die Leiste hat außerdem **Zeitraum**, **Ablauf** und
-   **Text** (Aus, Datum oder Datum + Ort, darunter der Stil), jeweils als kleines Popup.
+   **Text** (Aus, Datum oder Datum + Ort, darunter Stil, Datumsformat und Notiz als Auswahl), jeweils als kleines Popup.
    Das **Zahnrad** ganz rechts enthält, was man einmal einstellt: Zielordner, Farben,
    Schriftgröße, Tasten und Hilfe.
 2. **Ordner wählen:** Ordner aus dem Explorer auf die Fläche **„Ordner hierher ziehen“**
@@ -52,7 +52,9 @@ Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zum Startbildschirm,
 deinen Stand), das Zahnrad (Zielordner, Farben, Schrift, Tasten, Hilfe), die beiden Symbole **Quer / Hochkant**
 (nicht beim schnellen Sortieren; das Format steht im Tooltip), ein kleiner Hinweis auf den Schritt
 (*Schnell sortieren*, *Feinschliff 3 / 12*), Ordner und Fortschritt und die Zahl der behaltenen
-Bilder. Alle Tastenkürzel zeigt **?** (oder **F1**).
+Bilder. Hast du mehrere Ordner zusammen ausgewählt, öffnet ein Klick auf den Ordnernamen
+die Liste aller Ordner der Auswahl; ein Klick springt zum ersten offenen Foto dieses Ordners.
+Dein Stand in den anderen Ordnern bleibt erhalten. Alle Tastenkürzel zeigt **?** (oder **F1**).
 
 Auf dem Startbildschirm steht oben nur der grüne Zähler der behaltenen Bilder; ein Klick
 öffnet die Galerie. Alle Einstellungen sitzen in der Leiste unter dem Start-Knopf.

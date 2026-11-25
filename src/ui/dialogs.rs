@@ -678,12 +678,10 @@ pub fn fill_bg_ui(ui: &mut Ui, bg: &mut imaging::FillBg) -> bool {
     if bg.kind == 0 {
         ui.horizontal(|ui| {
             ui.label("Unschärfe");
-            ui.add(
-                egui::Slider::new(&mut bg.blur, 0..=100)
-                    .suffix(" %")
-                    .show_value(true),
-            )
-            .on_hover_text("Weniger = Umgebung bleibt erkennbar, mehr = ruhige Farbfläche");
+            let mut v = bg.blur as f32;
+            super::popups::flush_slider(ui, &mut v, 0.0..=100.0, 1.0)
+                .on_hover_text("Weniger = Umgebung bleibt erkennbar, mehr = ruhige Farbfläche");
+            bg.blur = v.round() as u8;
         });
     }
     *bg != before

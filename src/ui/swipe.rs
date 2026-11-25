@@ -197,7 +197,10 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     let kept_w = kit::pill_width(ui, &kept);
     let gap = sp::XS;
     let sep = sp::M * 2.0 + 1.0;
-    let mut meta_w = sp::S + nw + sp::M + cw + sp::M + mini + sp::S;
+    // mehrere Ordner in der Auswahl: Klick auf den Namen springt zu einem anderen Ordner
+    let multi = app.queue.len() > 1 && app.reedit.is_none();
+    let caret_w = if multi { 14.0 + sp::XS } else { 0.0 };
+    let mut meta_w = sp::S + nw + caret_w + sp::M + cw + sp::M + mini + sp::S;
     let seg_part = if quick { 0.0 } else { seg_w + sep };
     let step_part = if step.is_some() { step_w + sp::M } else { 0.0 };
     let fixed = pad * 2.0 + pause_w + gap + h + sep + seg_part + step_part + gap + kept_w;
@@ -286,8 +289,46 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     // Ordner und Fortschritt
     let mut mx = x + sp::S;
     if show_name {
-        p.text(pos2(mx, cy), Align2::LEFT_CENTER, &name, nf, text_soft());
-        mx += nw + sp::M;
+        let jump_id = egui::Id::unique("folder_jump");
+        let mut open: bool = ui.ctx().data(|d| d.get_temp(jump_id)).unwrap_or(false);
+        let nr = Rect::from_min_size(
+            pos2(mx - sp::S, cy - 16.0),
+            vec2(nw + caret_w + sp::S * 2.0, 32.0),
+        );
+        let mut col = text_soft();
+        if multi {
+            let resp = ui
+                .interact(nr, ui.make_persistent_id("folder_jump_btn"), Sense::click())
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .on_hover_text("Zu einem anderen Ordner der Auswahl springen");
+            let t = kit::anim(ui, resp.id, resp.hovered() || open);
+            if t > 0.0 {
+                p.rect_filled(nr, radius::M, glass_hover().gamma_multiply(t));
+            }
+            col = kit::mix(text_soft(), text(), t);
+            if resp.clicked() {
+                open = !open;
+            }
+        }
+        p.text(pos2(mx, cy), Align2::LEFT_CENTER, &name, nf, col);
+        if multi {
+            kit::icon(
+                &p,
+                pos2(mx + nw + sp::XS + 7.0, cy),
+                if open {
+                    icons::CARET_UP
+                } else {
+                    icons::CARET_DOWN
+                },
+                14.0,
+                col,
+            );
+        }
+        if open && !folder_jump(app, ui, nr) {
+            open = false;
+        }
+        ui.ctx().data_mut(|d| d.insert_temp(jump_id, open));
+        mx += nw + caret_w + sp::M;
     }
     p.text(pos2(mx, cy), Align2::LEFT_CENTER, &count, cf, text());
     mx += cw + sp::M;
@@ -317,6 +358,56 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         return false;
     }
     true
+}
+
+/// Liste der Ordner dieser Auswahl; Klick springt zum ersten offenen Foto des Ordners.
+/// Gibt `false` zurück, wenn die Liste zugehen soll.
+fn folder_jump(app: &mut SwiperApp, ui: &Ui, item: Rect) -> bool {
+    let rows: Vec<(PathBuf, String, String, bool)> = app
+        .queue
+        .iter()
+        .map(|q| {
+            let f = app.folders.iter().find(|f| &f.path == q);
+            let label = f
+                .map(|f| f.label.clone())
+                .unwrap_or_else(|| folders::file_name(q));
+            let sub = match f {
+                Some(f) if f.open() == 0 => format!("fertig  ·  {} behalten", fmt_int(f.kept)),
+                Some(f) => format!(
+                    "{} offen von {}  ·  {} behalten",
+                    fmt_int(f.open()),
+                    fmt_int(f.total),
+                    fmt_int(f.kept)
+                ),
+                None => String::new(),
+            };
+            let open = f.is_none_or(|f| f.open() > 0);
+            (q.clone(), label, sub, open)
+        })
+        .collect();
+    let mut target = None;
+    let keep = super::popups::form_popup(ui, "folder_jump", item, 340.0, false, |ui| {
+        for (path, label, sub, open) in &rows {
+            let cur = app.folder.as_ref() == Some(path);
+            // fertige Ordner nur anzeigen, dort gibt es nichts mehr zu sortieren
+            let clicked = ui
+                .add_enabled_ui(*open || cur, |ui| {
+                    super::popups::menu_row(ui, label, sub, cur).clicked()
+                })
+                .inner;
+            if clicked {
+                target = Some(path.clone());
+            }
+        }
+        target.is_none()
+    });
+    if let Some(t) = target {
+        if app.folder.as_ref() != Some(&t) {
+            app.finish_anim();
+            app.start_folder(t, None);
+        }
+    }
+    keep
 }
 
 /// Hinweis auf eine Serie ähnlicher Fotos. Gibt die belegte Höhe zurück.

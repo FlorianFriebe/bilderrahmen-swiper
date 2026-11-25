@@ -35,6 +35,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Galerie der behaltenen Bilder mit Filter Quer / Hochkant und „Alle entfernen“ (mit Rückgängig); einzelne Bilder lassen sich wieder entfernen oder nachbearbeiten und neu speichern
 - Galerie: Doppelklick zeigt ein Bild groß (Pfeile blättern); Strg-/Shift-Klick markiert mehrere Bilder zum gemeinsamen Entfernen oder Exportieren
 - Export der behaltenen Bilder eines Ordners über dessen Drei-Punkte-Menü an einen frei gewählten Ort
+- Bei mehreren ausgewählten Ordnern: beim Sortieren über den Ordnernamen zu einem anderen Ordner der Auswahl springen
 - Diashow wie auf dem Rahmen: Dauer, Übergang, Reihenfolge, Quer / Hochkant, Aufnahmedatum und Vollbild einstellbar
 - Im Zielordner gelöschte Bilder gelten als aussortiert und verschwinden aus Galerie und Zählern
 - Große Ansicht per gedrückter rechter Maustaste auf Ordner, Bilderband und Galerie
