@@ -21,24 +21,28 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 
 **Auswählen**
 - Ordner (auch mehrere, inklusive Unterordner) per Dialog oder Drag-and-drop hinzufügen
-- Fotos nach Aufnahmedatum sortiert durchgehen; der Fortschritt pro Ordner bleibt gespeichert
+- Fotos nach Aufnahmedatum sortiert durchgehen; der Fortschritt pro Ordner bleibt gespeichert (im Zielordner und als Sicherung in AppData)
+- Ordner-Menü (⋯ oder kurzer Rechtsklick): aussortierte Fotos nochmal zeigen oder den Ordner ganz von vorn beginnen
 - Behalten oder Weg per Ziehen, Knopf oder Taste; Rückgängig auch nach einem Neustart
 - Zeitraum-Filter: nur Fotos aus einem Jahr oder einem frei wählbaren Monatsbereich durchgehen; die Aufnahmedaten werden einmal gelesen und zwischengespeichert
 - Verlauf: eine Auswahl von Ordnern lässt sich über das Haus-Symbol unterbrechen und später an derselben Stelle mit denselben Einstellungen fortsetzen; Einträge lassen sich umbenennen und entfernen
 - Filmstreifen mit den Nachbarbildern; ein Klick springt zu einem Bild oder ändert eine Entscheidung
 - Serien (Aufnahmen höchstens 2 Sekunden auseinander) werden erkannt und lassen sich nebeneinander vergleichen
-- Galerie der behaltenen Bilder mit Diashow; einzelne Bilder lassen sich wieder entfernen
+- Doppelte Fotos (auch umbenannt oder verkleinert) werden am Bildinhalt und an der Aufnahmezeit erkannt und mit Vorschau angezeigt
+- Galerie der behaltenen Bilder mit Diashow; einzelne Bilder lassen sich wieder entfernen oder nachbearbeiten und neu speichern
+- Im Zielordner gelöschte Bilder gelten als aussortiert und verschwinden aus Galerie und Zählern
 - Große Ansicht per gedrückter rechter Maustaste auf Ordner, Filmstreifen und Galerie
 - Optionales Ziel (z. B. 200 Bilder) mit Zähler
 
 **Aufbereiten**
 - Zuschnitt auf das Seitenverhältnis des Rahmens, getrennt für Quer und Hochkant
 - Ausschnitt verschieben und zoomen, Drehen in 90°-Schritten
-- Alternativ das ganze Foto statt Zuschnitt, frei zoombar, Rand unscharf, in Fotofarbe, schwarz oder weiß
-- Hilfslinien (Drittel, Goldener Schnitt, Spirale …), Begradigen mit Vorschlag, Auto-Verbessern
-- Doppelte Fotos werden am Bildinhalt erkannt, behaltene Bilder lassen sich nachbearbeiten
-- Mehrere Rahmen mit eigenem Format und Zielordner
+- Hilfslinien wie in Lightroom: Drittel, Goldener Schnitt, Raster, Diagonale, Goldenes Dreieck, Goldene Spirale (Taste O)
+- Begradigen um bis zu ±10°: Vorschlag aus erkannten Kanten oder eine selbst gezogene Linie am Horizont
+- Licht: automatische Tonwertkorrektur, Helligkeit und Kontrast
+- Alternativ das ganze Foto statt Zuschnitt, frei zoom- und verschiebbar; Rand unscharf (Stärke einstellbar), in Fotofarbe, schwarz oder weiß
 - Rahmen-Profile (z. B. 1280 × 800) setzen Seitenverhältnis und Auflösung automatisch
+- Mehrere Rahmen mit eigenem Format und Zielordner; dasselbe Foto kann für jeden Rahmen behalten werden
 - Optionale Begrenzung von Auflösung und Dateigröße (die JPEG-Qualität wird angepasst)
 - Optional Text aufs Bild: Datum, Ort (pro Ordner), Notiz (pro Bild)
 - Stil-Editor mit Vorschau am echten Foto: vier Schriften, Größe, Farbe, Deckkraft, Hintergrund (Schatten, Band, Glas), neun Positionen und Randabstand; sieben mitgelieferte Stile, eigene Stile speichern, pro Ordner festlegen, als Datei exportieren und importieren
@@ -78,14 +82,15 @@ Microsoft Store installiert sein.
 
 ## Systemvoraussetzungen und Daten
 
-- Windows 10 oder 11, 64 Bit. Die `.exe` ist eigenständig (rund 15 MB).
+- Windows 10 oder 11, 64 Bit. Die `.exe` ist eigenständig (rund 19 MB).
 - Das Programm arbeitet lokal. Netzwerkverbindungen gibt es nur zu GitHub: die Abfrage der
   neuesten Version und, wenn du es anklickst, deren Download.
 - Einstellungen und Vorschaubilder liegen unter `%LOCALAPPDATA%\Bilderrahmen-Swiper`
   (der Vorschau-Speicher wird ab 200 MB automatisch verkleinert), dort steht auch
   `protokoll.txt` mit Fehlermeldungen.
 - Welche Fotos behalten oder übersprungen wurden, steht in `.bilderrahmen_status.json`
-  im Zielordner.
+  im Zielordner, eine Kopie unter `%LOCALAPPDATA%\Bilderrahmen-Swiper\sicherung`.
+  Dort liegen auch die zwischengespeicherten Aufnahmedaten und Bild-Fingerabdrücke.
 - Die `.exe` ist nicht signiert. Windows SmartScreen fragt deshalb beim ersten Start nach
   („Weitere Informationen“ → „Trotzdem ausführen“).
 
