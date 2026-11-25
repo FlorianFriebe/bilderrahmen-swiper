@@ -67,6 +67,19 @@ pub fn app_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool 
             app.dialog = Some(Dialog::Shortcuts);
             close = true;
         }
+        if crate::install::offer()
+            && menu_row(
+                ui,
+                "Im Startmenü ablegen",
+                "Mit Verknüpfung auf dem Desktop",
+                false,
+            )
+            .clicked()
+        {
+            crate::ui::dialogs::install_now(app, true);
+            app.cfg.install_asked = true;
+            close = true;
+        }
         if menu_row(ui, "Einführung zeigen", "", false).clicked() {
             app.cfg.intro_done = false;
             app.cfg.intro_version = 0;

@@ -10,7 +10,11 @@ Die Originale werden nicht verändert.
 ![Swipe-Ansicht](docs/swipe.png)
 
 **Download:** [neueste Version](../../releases/latest) → `Bilderrahmen-Swiper.exe` (eine Datei, keine Installation)
-**Bedienung:** [ANLEITUNG.md](ANLEITUNG.md)
+**Bedienung:** [ANLEITUNG.md](ANLEITUNG.md) · **Neuerungen:** [CHANGELOG.md](CHANGELOG.md)
+
+**Datenschutz:** Fotos verlassen nie den PC, Originale bleiben unverändert. Netzwerkzugriff gibt es
+nur für die Update-Prüfung bei GitHub. Die .exe ist nicht signiert; Windows zeigt beim ersten Start
+eine Warnung („Weitere Informationen“ → „Trotzdem ausführen“).
 
 ## Wozu
 
@@ -120,6 +124,7 @@ src/
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import
   update.rs      Ein-Klick-Update unter Windows
+  install.rs     Ablegen im Startmenü/Desktop, Absturz-Hinweis beim nächsten Start
   imaging/       Laden (EXIF-Drehung), Zuschnitt, Ganz-Rand, Begradigen, Licht, Text, JPEG-Export
   dupes.rs       Fingerabdrücke (Differenz-Hash) zum Erkennen doppelter Fotos
   workers.rs     Hintergrund-Threads: Vorladen, Speichern, Vorschaubilder, Aufnahmedaten

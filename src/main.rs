@@ -10,6 +10,7 @@ mod dupes;
 mod folders;
 mod history;
 mod imaging;
+mod install;
 mod session;
 mod system;
 mod textstyle;

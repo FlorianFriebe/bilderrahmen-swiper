@@ -60,6 +60,9 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     if app.intro_step.is_some() {
         dialogs::intro(app, ui, full);
     }
+    if app.view == View::Home && app.dialog.is_none() {
+        dialogs::start_notes(app, ui);
+    }
     match app.dialog {
         Some(Dialog::Keys) => super::popups::keys_dialog(app, ui),
         Some(Dialog::Shortcuts) => dialogs::shortcuts(app, ui),

@@ -14,10 +14,12 @@ const RELEASE_API: &str =
 
 /// %LOCALAPPDATA%\Bilderrahmen-Swiper bzw. ~/.cache/bilderrahmen-swiper
 pub fn data_dir() -> PathBuf {
-    let base = std::env::var_os("LOCALAPPDATA")
+    // leere Variablen zählen nicht (sonst landet alles im aktuellen Ordner)
+    let var = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty());
+    let base = var("LOCALAPPDATA")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from))
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+        .or_else(|| var("XDG_CACHE_HOME").map(PathBuf::from))
+        .or_else(|| var("HOME").map(|h| PathBuf::from(h).join(".cache")))
         .unwrap_or_else(std::env::temp_dir);
     let name = if cfg!(windows) {
         "Bilderrahmen-Swiper"
@@ -67,10 +69,14 @@ pub fn install_panic_hook() {
             .or_else(|| info.payload().downcast_ref::<String>().cloned())
             .unwrap_or_else(|| "unbekannter Fehler".into());
         log(&format!("ABSTURZ v{VERSION}: {msg}{loc}"));
+        crate::install::note_crash(&format!("{msg}{loc}"));
         #[cfg(windows)]
         message_box(&format!(
-            "Bilderrahmen-Swiper ist leider abgestürzt.\n\n{msg}\n\nDetails stehen in:\n{}\n\n\
-             Dein Fortschritt bis zum letzten Bild ist gespeichert.",
+            "Das tut uns leid: Bilderrahmen-Swiper musste sich beenden.\n\n\
+             Deine Fotos und dein Fortschritt bis zum letzten Bild sind sicher.\n\
+             Starte das Programm einfach neu.\n\n\
+             Wenn es wieder passiert, schick bitte die Datei\n{}\n\
+             an die Person, von der du das Programm hast.\n\n(Fehler: {msg})",
             log_path().display()
         ));
         prev(info);

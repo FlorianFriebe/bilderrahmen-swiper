@@ -47,6 +47,7 @@ src/imaging/         Bildverarbeitung ohne UI
   load.rs  save.rs  adjust.rs  text.rs  tests.rs
 src/workers.rs       Hintergrund-Threads: Loader (Vorladen), Saver, ThumbLoader, DateScan
 src/system.rs        Protokoll, Vorschau-Cache, Laufwerke, Stick-Abgleich (copy_plan), Update-Abfrage
+src/install.rs       Startmenü/Desktop-Verknüpfung, Absturz-Merker für den nächsten Start
 src/daterange.rs  dupes.rs  textstyle.rs  update.rs  wic.rs  util.rs
 src/ui/
   frame.rs           ein Frame: Ansicht wählen, globale Tasten, Toast, Popups
