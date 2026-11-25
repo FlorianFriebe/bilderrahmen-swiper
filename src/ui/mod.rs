@@ -4,7 +4,7 @@
 mod burst;
 mod dialogs;
 mod frame;
-mod gallery;
+pub mod gallery;
 pub mod home;
 pub mod icons;
 pub mod kit;

@@ -50,46 +50,6 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect, ws: Rect, now: f64) {
     if let Some(h) = dup_chip(app, ui, ws, card_top) {
         card_top += h + sp::M;
     }
-    if app.quick_sort() {
-        let label = format!(
-            "Schnell sortieren  ·  {} behalten, {} weg  ·  Zuschneiden kommt im Feinschliff",
-            app.key_label("keep"),
-            app.key_label("skip")
-        );
-        let w = kit::chip_width(ui, icons::LIGHTNING, &label);
-        let r = Rect::from_center_size(pos2(ws.center().x, card_top + 18.0), vec2(w, 36.0));
-        kit::chip(ui, r, icons::LIGHTNING, false, &label, Tone::Accent).on_hover_text(
-            "Erster Durchgang: nur entscheiden. Wenn der Ordner fertig ist, kannst du die behaltenen Fotos in Ruhe zuschneiden und beschriften.",
-        );
-        card_top += 36.0 + sp::M;
-    }
-    if app.reedit.is_some() {
-        let label = match app.polish_left() {
-            Some((i, n)) => format!(
-                "Feinschliff {i} von {n}  ·  {} speichert, {} nimmt raus  ·  Esc beendet",
-                app.key_label("keep"),
-                app.key_label("skip")
-            ),
-            None => format!(
-                "Nachbearbeiten  ·  {} speichert neu  ·  Esc bricht ab",
-                app.key_label("keep")
-            ),
-        };
-        let w = kit::chip_width(ui, icons::PENCIL, &label);
-        let r = Rect::from_center_size(pos2(ws.center().x, card_top + 18.0), vec2(w, 36.0));
-        if kit::chip(ui, r, icons::PENCIL, false, &label, Tone::Accent)
-            .on_hover_text(if app.polish_left().is_some() {
-                "Klick: Feinschliff beenden (die übrigen Fotos bleiben wie sie sind)"
-            } else {
-                "Klick: abbrechen und zurück zur Galerie"
-            })
-            .clicked()
-        {
-            app.cancel_reedit();
-            return;
-        }
-        card_top += 36.0 + sp::M;
-    }
     if card_top > ws.top() + size::TOPBAR + sp::XL + 1.0 {
         app.spots.chips_bottom = Some(card_top - sp::M);
     }
@@ -177,7 +137,40 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         format!("Quer {}", app.ratio_label(Orient::Quer)),
         format!("Hochkant {}", app.ratio_label(Orient::Hochkant)),
     ];
-    let seg_w = kit::segmented_width(ui, &labels) - sp::XS * 2.0;
+    let quick = app.quick_sort();
+    let seg_w = if quick {
+        0.0
+    } else {
+        kit::segmented_width(ui, &labels) - sp::XS * 2.0
+    };
+    // Dezente Anzeige des Schritts (Schnell sortieren / Feinschliff / Nachbearbeiten)
+    let step: Option<(&str, String, &str)> = if quick {
+        Some((
+            icons::LIGHTNING,
+            "Schnell sortieren".into(),
+            "Erster Durchgang: nur behalten oder weg. Zuschneiden kommt im Feinschliff, wenn der Ordner fertig ist.",
+        ))
+    } else if app.reedit.is_some() {
+        Some(match app.polish_left() {
+            Some((i, n)) => (
+                icons::PENCIL,
+                format!("Feinschliff {i} / {n}"),
+                "Klick: Feinschliff beenden (die übrigen Fotos bleiben, wie sie sind)",
+            ),
+            None => (
+                icons::PENCIL,
+                "Nachbearbeiten".into(),
+                "Klick: abbrechen und zurück zur Galerie",
+            ),
+        })
+    } else {
+        None
+    };
+    let sf = font(ts::SMALL, W::Semibold);
+    let step_w = step
+        .as_ref()
+        .map(|(_, l, _)| 14.0 + sp::XS + kit::text_size(ui, l, sf.clone()).x + sp::M * 2.0)
+        .unwrap_or(0.0);
     let name = app
         .folder
         .as_ref()
@@ -207,7 +200,9 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     let gap = sp::XS;
     let sep = sp::M * 2.0 + 1.0;
     let mut meta_w = sp::S + nw + sp::M + cw + sp::M + mini + sp::S;
-    let fixed = pad * 2.0 + pause_w + gap + h + sep + seg_w + sep + gap + kept_w + gap + h;
+    let seg_part = if quick { 0.0 } else { seg_w + sep };
+    let step_part = if step.is_some() { step_w + sp::M } else { 0.0 };
+    let fixed = pad * 2.0 + pause_w + gap + h + sep + seg_part + step_part + gap + kept_w + gap + h;
     let show_name = fixed + meta_w <= ws.width();
     if !show_name {
         meta_w = sp::S + cw + sp::S;
@@ -244,21 +239,44 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     kit::vsep(&p, x, cy);
     x += 1.0 + sp::M;
 
-    let sel = match app.orientation_now() {
-        Some(Orient::Quer) => Some(0),
-        Some(Orient::Hochkant) => Some(1),
-        None => None,
-    };
-    if let Some(i) = kit::segmented_bare(ui, row(x, seg_w), &labels, sel) {
-        app.set_orientation(if i == 0 {
-            Orient::Quer
-        } else {
-            Orient::Hochkant
-        });
+    if !quick {
+        let sel = match app.orientation_now() {
+            Some(Orient::Quer) => Some(0),
+            Some(Orient::Hochkant) => Some(1),
+            None => None,
+        };
+        if let Some(i) = kit::segmented_bare(ui, row(x, seg_w), &labels, sel) {
+            app.set_orientation(if i == 0 {
+                Orient::Quer
+            } else {
+                Orient::Hochkant
+            });
+        }
+        x += seg_w + sp::M;
+        kit::vsep(&p, x, cy);
+        x += 1.0 + sp::M;
     }
-    x += seg_w + sp::M;
-    kit::vsep(&p, x, cy);
-    x += 1.0 + sp::M;
+    if let Some((glyph, label, tip)) = &step {
+        let r = Rect::from_min_size(pos2(x, cy - 14.0), vec2(step_w, 28.0));
+        let resp = ui
+            .interact(r, ui.make_persistent_id("step_tag"), Sense::click())
+            .on_hover_text(*tip);
+        let t = kit::anim(ui, resp.id, resp.hovered() && app.reedit.is_some());
+        p.rect_filled(r, radius::M, accent_soft().gamma_multiply(0.6 + 0.4 * t));
+        kit::icon(&p, pos2(r.left() + sp::M + 7.0, cy), glyph, 14.0, accent());
+        p.text(
+            pos2(r.left() + sp::M + 14.0 + sp::XS, cy),
+            Align2::LEFT_CENTER,
+            label,
+            sf.clone(),
+            accent(),
+        );
+        if resp.clicked() && app.reedit.is_some() {
+            app.cancel_reedit();
+            return false;
+        }
+        x += step_w + sp::M;
+    }
 
     // Ordner und Fortschritt
     let mut mx = x + sp::S;
@@ -453,9 +471,7 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
     let rad = radius::CARD;
 
     let quick = app.quick_sort();
-    if !quick {
-        handle_card_input(app, ui, &resp, card, size, ratio, fill, s, &mut edit);
-    }
+    handle_card_input(app, ui, &resp, card, size, ratio, fill, s, &mut edit);
     let (x, y, cw, ch) = if fill {
         imaging::fill_rect(size.x, size.y, ratio, &mut edit)
     } else {
@@ -636,6 +652,8 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
 /// Was gerade mit der Maus am Foto gezogen wird.
 #[derive(Clone, Copy, PartialEq)]
 enum Grip {
+    /// Foto wegwischen (außerhalb des Rahmens oder beim schnellen Sortieren)
+    Swipe,
     /// Ausschnitt (bzw. bei „Ganz“ das Foto) verschieben
     Move,
     /// an einer Ecke größer oder kleiner ziehen (0 links oben, 1 rechts oben,
@@ -684,7 +702,9 @@ fn corner_at(r: Rect, p: Pos2) -> Option<u8> {
         .map(|i| i as u8)
 }
 
-/// Maus und Touchpad an der Karte: Linksziehen verschiebt den Ausschnitt,
+/// Maus und Touchpad an der Karte: Ziehen außerhalb des hellen Rahmens (beim schnellen
+/// Sortieren überall) wischt das Foto weg: nach rechts behalten, nach links weg.
+/// Linksziehen im Rahmen verschiebt den Ausschnitt,
 /// Ecken ziehen ändert die Größe, Mausrad und Zwei-Finger-Zoom zoomen,
 /// Strg + Ziehen legt eine Horizont-Linie zum Begradigen.
 #[allow(clippy::too_many_arguments)]
@@ -699,13 +719,57 @@ fn handle_card_input(
     s: f32,
     edit: &mut imaging::Edit,
 ) {
+    let grip_id = Id::unique("card_grip");
+    let quick = app.quick_sort();
+    if let Some(Grip::Swipe) = ui.ctx().data(|d| d.get_temp::<Grip>(grip_id)) {
+        if resp.dragged() {
+            let d = resp.drag_delta();
+            app.dx += d.x;
+            app.dy += d.y * 0.3;
+        }
+        if resp.drag_stopped() || !resp.dragged() {
+            ui.ctx().data_mut(|d| d.remove::<Grip>(grip_id));
+            let now = ui.input(|i| i.time);
+            let width = card.width();
+            let thr = (width * 0.22).clamp(60.0, 180.0);
+            if app.dx > thr {
+                app.decide(true, now, width);
+            } else if app.dx < -thr {
+                app.decide(false, now, width);
+            } else {
+                app.anim = Some(crate::app::Anim {
+                    from: app.dx,
+                    to: 0.0,
+                    start: now,
+                    dur: 0.18,
+                    commit: None,
+                });
+            }
+        }
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+        return;
+    }
     if app.anim.is_some() || app.dx.abs() > 0.5 {
         return;
     }
-    let grip_id = Id::unique("card_grip");
     let target = grip_rect(card, size, ratio, fill, s, edit);
     let ctrl = ui.input(|i| i.modifiers.command);
     let primary = resp.drag_started_by(PointerButton::Primary);
+    if quick {
+        if primary || resp.drag_started_by(PointerButton::Secondary) {
+            ui.ctx().data_mut(|d| d.insert_temp(grip_id, Grip::Swipe));
+        } else if resp.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+        }
+        return;
+    }
+    if primary && !ctrl {
+        let origin = ui.input(|i| i.pointer.press_origin());
+        if origin.is_some_and(|o| !target.contains(o) && corner_at(target, o).is_none()) {
+            ui.ctx().data_mut(|d| d.insert_temp(grip_id, Grip::Swipe));
+            return;
+        }
+    }
     if primary && ctrl {
         if let Some(p) = resp.interact_pointer_pos() {
             app.horizon_line = Some((p, p));
@@ -1411,13 +1475,12 @@ enum Act {
     Skip,
     Keep,
     Rotate,
+    Back,
     Orient,
-    Fill,
     Text,
     TextPanel,
     FillPanel,
     AdjustPanel,
-    Preview,
 }
 
 /// Zeichnet die Leiste und gibt ihre Fläche zurück.
@@ -1429,13 +1492,14 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     let pad = sp::M;
     let tool = size::TOOL;
     let caret = 24.0;
-    let (skip_w, keep_w) = (152.0, 184.0);
+    let (skip_w, keep_w) = (112.0, 112.0);
     // Schnell sortieren: nur Zurück, Weg, Behalten und Drehen
     let quick = app.quick_sort();
+    let polish = app.polish_left();
     let tools_w = if quick {
         tool
     } else {
-        tool * 5.0 + caret * 3.0 + sp::XS * 4.0
+        tool * 3.0 + caret * 3.0 + sp::XS * 2.0
     };
     let w =
         pad + tool + pad + 1.0 + pad + skip_w + sp::S + keep_w + pad + 1.0 + pad + tools_w + pad;
@@ -1454,55 +1518,94 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     let mut clicked = None;
     let mut x = dock.left() + pad;
 
-    let undo_key = ks("undo");
-    let r = row(x, tool);
-    if kit::tool_button(
-        ui,
-        r,
-        kit::Tool {
-            glyph: icons::UNDO,
-            label: "Zurück",
-            key: &undo_key,
-            active: false,
-            enabled: !app.status.verlauf.is_empty(),
-        },
-    )
-    .on_hover_text(format!("Letzte Entscheidung rückgängig ({})", k("undo")))
-    .clicked()
-    {
-        clicked = Some(Act::Undo);
-    }
-    x = r.right() + pad;
-    divider_at(x);
-    x += 1.0 + pad;
+    if let Some((i, n)) = polish {
+        // Feinschliff: links Weg, in der Mitte Zurück und Vor
+        let r = row(x, tool);
+        if kit::tool_button(
+            ui,
+            r,
+            kit::Tool {
+                glyph: icons::X,
+                label: "Weg",
+                key: &ks("undo"),
+                active: false,
+                enabled: has_current,
+            },
+        )
+        .on_hover_text(format!(
+            "Doch nicht für den Rahmen: aus den Behaltenen nehmen ({})",
+            k("undo")
+        ))
+        .clicked()
+        {
+            clicked = Some(Act::Skip);
+        }
+        x = r.right() + pad;
+        divider_at(x);
+        x += 1.0 + pad;
+        let r = row(x, skip_w);
+        if kit::nav_button(ui, r, icons::ARROW_LEFT, &ks("skip"), i > 1)
+            .on_hover_text(format!("Vorheriges Foto ({})", k("skip")))
+            .clicked()
+        {
+            clicked = Some(Act::Back);
+        }
+        x = r.right() + sp::S;
+        let r = row(x, keep_w);
+        if kit::nav_button(ui, r, icons::ARROW_RIGHT, &ks("keep"), loaded)
+            .on_hover_text(if i < n {
+                format!("Speichern und nächstes Foto ({})", k("keep"))
+            } else {
+                format!("Speichern und Feinschliff beenden ({})", k("keep"))
+            })
+            .clicked()
+        {
+            clicked = Some(Act::Keep);
+        }
+    } else {
+        let undo_key = ks("undo");
+        let r = row(x, tool);
+        if kit::tool_button(
+            ui,
+            r,
+            kit::Tool {
+                glyph: icons::UNDO,
+                label: "Zurück",
+                key: &undo_key,
+                active: false,
+                enabled: !app.status.verlauf.is_empty(),
+            },
+        )
+        .on_hover_text(format!("Letzte Entscheidung rückgängig ({})", k("undo")))
+        .clicked()
+        {
+            clicked = Some(Act::Undo);
+        }
+        x = r.right() + pad;
+        divider_at(x);
+        x += 1.0 + pad;
 
-    let r = row(x, skip_w);
-    if kit::primary_button(ui, r, Primary::Skip, "Weg", &ks("skip"), has_current)
-        .on_hover_text(if app.polish_left().is_some() {
-            format!(
-                "Doch nicht für den Rahmen: aus den Behaltenen nehmen ({})",
-                k("skip")
-            )
-        } else {
-            format!("Aussortieren ({})", k("skip"))
-        })
-        .clicked()
-    {
-        clicked = Some(Act::Skip);
+        let r = row(x, skip_w);
+        if kit::primary_button(ui, r, Primary::Skip, "", &ks("skip"), has_current)
+            .on_hover_text(format!("Weg: aussortieren ({})", k("skip")))
+            .clicked()
+        {
+            clicked = Some(Act::Skip);
+        }
+        x = r.right() + sp::S;
+        let r = row(x, keep_w);
+        if kit::primary_button(ui, r, Primary::Keep, "", &ks("keep"), loaded)
+            .on_hover_text(if app.reedit.is_some() {
+                format!("Neu speichern ({})", k("keep"))
+            } else {
+                format!("Behalten: für den Rahmen speichern ({})", k("keep"))
+            })
+            .clicked()
+        {
+            clicked = Some(Act::Keep);
+        }
     }
-    x = r.right() + sp::S;
-    let r = row(x, keep_w);
-    if kit::primary_button(ui, r, Primary::Keep, "Behalten", &ks("keep"), loaded)
-        .on_hover_text(if app.polish_left().is_some() {
-            format!("So speichern und zum nächsten Foto ({})", k("keep"))
-        } else {
-            format!("Für den Rahmen speichern ({})", k("keep"))
-        })
-        .clicked()
-    {
-        clicked = Some(Act::Keep);
-    }
-    x = r.right() + pad;
+    x += keep_w + pad;
     divider_at(x);
     x += 1.0 + pad;
 
@@ -1570,60 +1673,21 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     let adjust_anchor = r;
     x += tool + caret + sp::XS;
 
-    let tools = [
-        (
-            icons::SWAP,
-            "Format",
-            "orient",
-            format!("Quer / Hochkant wechseln ({})", k("orient")),
-            false,
-            Act::Orient,
-        ),
-        (
-            icons::EYE,
-            "Vorschau",
-            "preview",
-            format!(
-                "So sieht es auf dem Rahmen aus: Vollbild in Rahmen-Auflösung ({})",
-                k("preview")
-            ),
-            false,
-            Act::Preview,
-        ),
-    ];
-    for (glyph, label, action, tip, active, act) in tools {
-        let key = ks(action);
-        let r = row(x, tool);
-        if kit::tool_button(
-            ui,
-            r,
-            kit::Tool {
-                glyph,
-                label,
-                key: &key,
-                active,
-                enabled: loaded,
-            },
-        )
-        .on_hover_text(tip)
-        .clicked()
-        {
-            clicked = Some(act);
-        }
-        x += tool + sp::XS;
-    }
-
-    // Ganz: Klick schaltet an/aus, der Pfeil daneben wählt den Rand
+    // Format: Klick wechselt Quer/Hochkant, der Pfeil öffnet Quer, Hochkant, Ganz und Rand
     let r = row(x, tool + caret);
-    let fill_key = ks("fill");
+    let orient_key = ks("orient");
     let (main, arrow) = kit::split_tool(
         ui,
         r,
         caret,
         kit::Tool {
-            glyph: icons::FILL,
-            label: "Ganz",
-            key: &fill_key,
+            glyph: if app.current_fill() {
+                icons::FILL
+            } else {
+                icons::SWAP
+            },
+            label: if app.current_fill() { "Ganz" } else { "Format" },
+            key: &orient_key,
             active: app.current_fill(),
             enabled: loaded,
         },
@@ -1631,15 +1695,16 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     );
     if main
         .on_hover_text(format!(
-            "Ganzes Foto auf den Rahmen statt zuschneiden ({})",
+            "Quer / Hochkant wechseln ({}). Ganzes Foto: {}",
+            k("orient"),
             k("fill")
         ))
         .clicked()
     {
-        clicked = Some(Act::Fill);
+        clicked = Some(Act::Orient);
     }
     if arrow
-        .on_hover_text("Rand wählen: unscharf, Fotofarbe, Schwarz oder Weiß")
+        .on_hover_text("Quer, Hochkant, Ganz und Rand")
         .clicked()
     {
         clicked = Some(Act::FillPanel);
@@ -1684,9 +1749,9 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
         Some(Act::Undo) => app.undo(),
         Some(Act::Skip) => app.decide(false, now, width),
         Some(Act::Keep) => app.decide(true, now, width),
+        Some(Act::Back) => app.polish_back(),
         Some(Act::Rotate) => app.rotate(1),
         Some(Act::Orient) => app.toggle_orientation(),
-        Some(Act::Fill) => app.toggle_fill(),
         Some(Act::Text) => toggle_text(app),
         Some(Act::TextPanel) => toggle_text_panel(app),
         Some(Act::FillPanel) => {
@@ -1697,7 +1762,6 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
             app.adjust_panel = !app.adjust_panel;
             app.fill_panel = false;
         }
-        Some(Act::Preview) => app.open_frame_preview(false),
         None => {}
     }
     if app.fill_panel && app.dialog.is_none() {

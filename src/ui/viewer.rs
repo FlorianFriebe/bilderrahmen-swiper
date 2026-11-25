@@ -1,5 +1,4 @@
-//! Großansicht über allem: Vorschau „wie auf dem Rahmen“ (V), Diashow der behaltenen
-//! Bilder und die kurze Vorschau beim Gedrückthalten der rechten Maustaste.
+//! Großansicht über allem: Diashow der behaltenen Bilder und die kurze Vorschau beim Gedrückthalten der rechten Maustaste.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -10,11 +9,9 @@ use egui::{pos2, vec2, Align2, Color32, ColorImage, Key, Rect, Sense, TextureHan
 
 use super::style::*;
 use super::{contain, icons, kit, FULL_UV};
-use crate::imaging::{self, Edit, OutputSettings, Overlay};
+use crate::imaging;
 
-/// So lange bleibt ein Bild in der Diashow stehen (Sekunden).
-pub const SLIDE_SECS: f64 = 8.0;
-/// Dauer der Überblendung (Sekunden).
+/// Dauer des Übergangs (Sekunden).
 const FADE_SECS: f64 = 0.6;
 
 /// Woher ein Bild kommt.
@@ -22,13 +19,6 @@ const FADE_SECS: f64 = 0.6;
 pub enum Source {
     /// fertige Datei (behaltenes Bild) oder Original
     File(PathBuf),
-    /// Original, so verarbeitet, wie es gespeichert würde
-    Render {
-        path: PathBuf,
-        edit: Edit,
-        cfg: OutputSettings,
-        overlay: Option<Overlay>,
-    },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -61,6 +51,17 @@ pub struct Viewer {
     pub opened: f64,
     /// Ordner, dessen Menü bei kurzem Rechtsklick (statt Vorschau) aufgeht
     pub menu_for: Option<std::path::PathBuf>,
+    /// Diashow: Sekunden pro Bild
+    pub secs: f64,
+    /// Übergang: 0 Überblenden, 1 Schieben, 2 keiner
+    pub trans: u8,
+    /// Originale, aus denen das Aufnahmedatum gelesen wird (leer = kein Datum zeigen)
+    pub date_src: Vec<PathBuf>,
+    dates: Arc<Mutex<HashMap<usize, String>>>,
+    /// Ganzer Bildschirm wurde für die Diashow eingeschaltet
+    pub fullscreen: bool,
+    /// Richtung des letzten Wechsels (für „Schieben“)
+    dir: f32,
 }
 
 /// So lange muss die rechte Maustaste gehalten werden, bis die Vorschau erscheint.
@@ -85,6 +86,12 @@ impl Viewer {
             since: -1.0,
             opened: -1.0,
             menu_for: None,
+            secs: 8.0,
+            trans: 0,
+            date_src: vec![],
+            dates: Arc::new(Mutex::new(HashMap::new())),
+            fullscreen: false,
+            dir: 1.0,
             loaded: Arc::new(Mutex::new(HashMap::new())),
             requested: HashMap::new(),
             tex: HashMap::new(),
@@ -109,7 +116,16 @@ impl Viewer {
         let src = self.items[i].clone();
         let slot = self.loaded.clone();
         let max = self.max_side();
+        let date = self.date_src.get(i).cloned();
+        let dates = self.dates.clone();
         std::thread::spawn(move || {
+            if let Some(d) = date {
+                let t = imaging::capture_time(&d);
+                dates
+                    .lock()
+                    .unwrap()
+                    .insert(i, t.format("%d.%m.%Y").to_string());
+            }
             let res = load(&src, max);
             slot.lock().unwrap().insert(i, res);
         });
@@ -142,7 +158,7 @@ impl Viewer {
         if i == self.idx || i >= self.items.len() {
             return;
         }
-        if self.tex.contains_key(&self.idx) {
+        if self.tex.contains_key(&self.idx) && self.trans != 2 {
             self.prev = Some((self.idx, now));
         }
         self.idx = i;
@@ -155,6 +171,7 @@ impl Viewer {
             return;
         }
         let i = (self.idx as i32 + delta).rem_euclid(n) as usize;
+        self.dir = if delta >= 0 { 1.0 } else { -1.0 };
         self.go(i, now);
     }
 }
@@ -165,12 +182,6 @@ fn load(src: &Source, max: u32) -> Result<ColorImage, String> {
             let d = imaging::decode(p)?;
             imaging::to_rgb(d.img)
         }
-        Source::Render {
-            path,
-            edit,
-            cfg,
-            overlay,
-        } => imaging::render_image(path, edit, cfg, overlay.as_ref())?.0,
     };
     let (w, h) = img.dimensions();
     let s = (max as f32 / w.max(h) as f32).min(1.0);
@@ -248,7 +259,7 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
                     v.playing = !v.playing;
                     v.since = now;
                 }
-                if v.playing && now - v.since > SLIDE_SECS && v.tex.contains_key(&v.idx) {
+                if v.playing && now - v.since > v.secs && v.tex.contains_key(&v.idx) {
                     v.step(1, now);
                 }
             }
@@ -292,9 +303,13 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
                     full.shrink2(vec2(full.width() * 0.08, full.height() * 0.09))
                 }
             };
-            let draw = |i: usize, a: f32| {
+            // Schieben: neues Bild kommt von der Seite, altes geht zur anderen
+            let slide = v.mode == Mode::Frame && v.trans == 1;
+            let ease = 1.0 - (1.0 - fade).powi(3);
+            let draw = |i: usize, a: f32, shift: f32| {
                 if let Some(t) = v.tex.get(&i) {
-                    let r = contain(t.size_vec2(), area);
+                    let r = contain(t.size_vec2(), area).translate(vec2(shift, 0.0));
+                    let a = if slide { 1.0 } else { a };
                     let rad = if v.mode == Mode::Peek { radius::L } else { 0 };
                     if v.mode == Mode::Peek {
                         kit::shadow(
@@ -312,11 +327,45 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
                     );
                 }
             };
+            let span = full.width() * v.dir;
             if let Some((pi, _)) = v.prev {
-                draw(pi, 1.0 - fade);
+                draw(pi, 1.0 - fade, if slide { -span * ease } else { 0.0 });
             }
             if v.tex.contains_key(&v.idx) {
-                draw(v.idx, fade);
+                draw(
+                    v.idx,
+                    fade,
+                    if slide && v.prev.is_some() {
+                        span * (1.0 - ease)
+                    } else {
+                        0.0
+                    },
+                );
+                if !v.date_src.is_empty() {
+                    if let Some(d) = v.dates.lock().unwrap().get(&v.idx).cloned() {
+                        let r = v
+                            .tex
+                            .get(&v.idx)
+                            .map(|t| contain(t.size_vec2(), area))
+                            .unwrap_or(area);
+                        let f = font(22.0, W::Semibold);
+                        let pos = pos2(r.right() - sp::L, r.bottom() - sp::L);
+                        p.text(
+                            pos + vec2(1.0, 1.0),
+                            Align2::RIGHT_BOTTOM,
+                            &d,
+                            f.clone(),
+                            Color32::from_black_alpha(140),
+                        );
+                        p.text(
+                            pos,
+                            Align2::RIGHT_BOTTOM,
+                            &d,
+                            f,
+                            Color32::from_white_alpha(235),
+                        );
+                    }
+                }
             } else if let Some(e) = v.errors.get(&v.idx) {
                 p.text(
                     area.center(),
@@ -342,7 +391,7 @@ pub fn show(v: &mut Viewer, ui: &mut Ui, full: Rect) -> bool {
                     label.push_str(&format!("  ·  {w} × {h}"));
                 }
                 if v.items.len() > 1 {
-                    label.push_str(&format!("  ·  Diashow alle {} s", SLIDE_SECS as u32));
+                    label.push_str(&format!("  ·  alle {} s", v.secs as u32));
                 }
             } else if v.items.len() > 1 {
                 label.push_str(&format!("  ·  {} / {}", v.idx + 1, v.items.len()));

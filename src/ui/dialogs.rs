@@ -11,7 +11,7 @@ use crate::imaging;
 use crate::system;
 use crate::util::{fmt_int, open_folder};
 
-fn bold(size: f32) -> egui::FontId {
+pub fn bold(size: f32) -> egui::FontId {
     font(size, W::Semibold)
 }
 
@@ -33,11 +33,11 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
             kicker: "WILLKOMMEN",
             title: "Aus vielen Fotos die besten für deinen Rahmen wählen",
             bullets: vec![
-                b(icons::HEART, "Behalten: grüner Knopf oder Pfeiltaste", k("keep")),
-                b(icons::X, "Weg: roter Knopf oder Pfeiltaste", k("skip")),
+                b(icons::HEART, "Behalten: grüner Knopf, Pfeiltaste oder nach rechts wischen", k("keep")),
+                b(icons::X, "Weg: roter Knopf, Pfeiltaste oder nach links wischen", k("skip")),
                 b(
                     icons::CROP,
-                    "Ausschnitt: hellen Rahmen mit der Maus ziehen, an den Ecken größer oder kleiner ziehen. Mausrad und zwei Finger am Touchpad zoomen",
+                    "Ausschnitt: hellen Rahmen mit der Maus ziehen, an den Ecken größer oder kleiner ziehen. Gewischt wird daneben auf der dunklen Fläche",
                     String::new(),
                 ),
                 b(icons::UNDO, "Vertan? Die letzte Entscheidung zurücknehmen", k("undo")),
@@ -54,14 +54,16 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
             title: "Alles für das aktuelle Foto",
             bullets: vec![
                 b(icons::ROTATE, "Drehen, falls das Foto schief liegt", k("rot_r")),
-                b(icons::SWAP, "Quer oder hochkant zuschneiden", k("orient")),
-                b(icons::FILL, "Ganzes Foto statt Zuschnitt, der Pfeil wählt den Rand", k("fill")),
+                b(
+                    icons::SWAP,
+                    "Format: Klick wechselt quer und hochkant, der Pfeil bietet „Ganz“ und den Rand",
+                    k("orient"),
+                ),
                 b(
                     icons::TEXT,
                     "Text an oder aus, der kleine Pfeil öffnet Ort, Notiz und Stil",
                     k("text"),
                 ),
-                b(icons::EYE, "Vorschau, genau wie später auf dem Rahmen", k("preview")),
                 b(
                     icons::IMAGE,
                     "Bilderband: mit der Maus ziehen zum Blättern. Grüner Punkt behalten, roter weg. Rechte Maustaste halten zeigt ein Foto groß",
@@ -235,13 +237,20 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
                 p.rect_filled(ir, radius::S, accent_soft());
                 kit::icon(&p, ir.center(), g, 16.0, accent());
                 let gh = gal.size().y;
+                let gw = gal.size().x;
                 p.galley(
                     pos2(ir.right() + sp::M, y + (h - gh) / 2.0),
                     gal,
                     text_soft(),
                 );
                 if !key.is_empty() {
-                    kbd(&p, ui, pos2(br.right() - pad, y + h / 2.0), &key);
+                    // Taste mit festem Abstand direkt hinter dem Text
+                    let kw = kit::text_size(ui, &key, font(ts::CAPTION, W::Semibold))
+                        .x
+                        .max(10.0)
+                        + sp::S * 2.0;
+                    let end = ir.right() + sp::M + gw + sp::M + kw;
+                    kbd(&p, ui, pos2(end.min(br.right() - pad), y + h / 2.0), &key);
                 }
                 y += h + sp::M;
             }
@@ -800,6 +809,9 @@ pub fn fill_panel(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect) {
     let Some((fill_on, own)) = cur else { return };
     let mut bg = own.unwrap_or(def);
     let mut changed = false;
+    let orient = app.orientation_now();
+    let mut set_orient = None;
+    let mut toggle_fill = false;
     egui::Area::new(ui.make_persistent_id("fill_panel"))
         .order(egui::Order::Middle)
         .fixed_pos(pos)
@@ -819,13 +831,37 @@ pub fn fill_panel(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect) {
                 .show(ui, |ui| {
                     ui.set_width(w - sp::L * 2.0);
                     ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new("Ganzes Foto: Rand").font(bold(15.0)));
+                        ui.label(egui::RichText::new("Format").font(bold(15.0)));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui.small_button("×").on_hover_text("Schließen").clicked() {
                                 close = true;
                             }
                         });
                     });
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        use crate::imaging::Orient;
+                        for (o, l) in [(Orient::Quer, "Quer"), (Orient::Hochkant, "Hochkant")] {
+                            if ui
+                                .add_sized(
+                                    vec2(96.0, 30.0),
+                                    egui::Button::selectable(orient == Some(o), l),
+                                )
+                                .clicked()
+                            {
+                                set_orient = Some(o);
+                            }
+                        }
+                        if ui
+                            .add_sized(vec2(96.0, 30.0), egui::Button::selectable(fill_on, "Ganz"))
+                            .on_hover_text("Ganzes Foto auf den Rahmen statt zuschneiden")
+                            .clicked()
+                        {
+                            toggle_fill = true;
+                        }
+                    });
+                    ui.add_space(sp::M);
+                    ui.label(egui::RichText::new("Rand bei „Ganz“").font(bold(13.5)));
                     ui.add_space(2.0);
                     changed = fill_bg_ui(ui, &mut bg);
                     ui.add_space(4.0);
@@ -856,8 +892,14 @@ pub fn fill_panel(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect) {
                     });
                 });
         });
+    if let Some(o) = set_orient {
+        app.set_orientation(o);
+    }
+    if toggle_fill {
+        app.toggle_fill();
+    }
     if changed || make_default {
-        if !fill_on {
+        if !fill_on && !toggle_fill {
             app.toggle_fill();
         }
         if make_default {
@@ -885,8 +927,9 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
             ui.label(egui::RichText::new("Tastenkürzel").font(bold(19.0)));
         });
         ui.add_space(sp::M);
-        let mouse: [(&str, &str); 6] = [
-            ("Im Foto ziehen", "Ausschnitt verschieben"),
+        let mouse: [(&str, &str); 7] = [
+            ("Im Rahmen ziehen", "Ausschnitt verschieben"),
+            ("Daneben wischen", "rechts behalten, links weg"),
             ("Ecke ziehen", "Ausschnitt größer oder kleiner"),
             ("Mausrad / zwei Finger", "Ausschnitt zoomen"),
             ("Strg + ziehen", "Horizont-Linie zum Begradigen"),

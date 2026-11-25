@@ -50,13 +50,26 @@ pub fn shadow(p: &Painter, r: Rect, rad: u8, blur: u8, dy: i8, color: Color32) {
     );
 }
 
+/// Weicher Schein unter farbigen Knöpfen: mehrere flache Schichten statt einer harten Kante,
+/// direkt am Knopf und kaum nach unten versetzt.
+pub fn glow(p: &Painter, r: Rect, rad: u8, color: Color32) {
+    for (blur, dy, a) in [
+        (6u8, 1i8, 0.45f32),
+        (16, 2, 0.28),
+        (32, 4, 0.16),
+        (56, 6, 0.08),
+    ] {
+        shadow(p, r, rad, blur, dy, color.gamma_multiply(a));
+    }
+}
+
 /// Glasfläche: weicher Schatten, halbtransparente Füllung, feiner Rand, Lichtkante oben.
 pub fn glass(p: &Painter, r: Rect, rad: u8) {
     glass_with(p, r, rad, pal::glass());
 }
 
 pub fn glass_with(p: &Painter, r: Rect, rad: u8, fill: Color32) {
-    shadow(p, r, rad, 32, 8, pal::shadow());
+    glow(p, r, rad, pal::shadow());
     p.rect(
         r,
         rad,
@@ -357,7 +370,7 @@ pub fn primary_button(
     key: &str,
     enabled: bool,
 ) -> Response {
-    let resp = clickable(ui, r, ("primary", label), enabled);
+    let resp = clickable(ui, r, ("primary", kind as u8), enabled);
     let t = anim(ui, resp.id, resp.hovered() && enabled);
     let press = if resp.is_pointer_button_down_on() {
         0.97
@@ -382,7 +395,7 @@ pub fn primary_button(
     } else {
         match kind {
             Primary::Keep => {
-                shadow(p, r, rad, 24, 8, GREEN.gamma_multiply(0.30 + 0.15 * t));
+                glow(p, r, rad, GREEN.gamma_multiply(0.6 + 0.3 * t));
                 let top = mix(hex_lighten(GREEN, 0.06), hex_lighten(GREEN, 0.16), t);
                 gradient(ui, r, rad, top, GREEN_DARK);
                 p.line_segment(
@@ -409,7 +422,11 @@ pub fn primary_button(
     let ic = 24.0;
     let lab = font(ts::BUTTON, W::Semibold);
     let key_font = font(ts::CAPTION, W::Semibold);
-    let lw = text_size(ui, label, lab.clone()).x;
+    let lw = if label.is_empty() {
+        -sp::M
+    } else {
+        text_size(ui, label, lab.clone()).x
+    };
     let kw = if key.is_empty() {
         0.0
     } else {
@@ -431,7 +448,9 @@ pub fn primary_button(
         }
     }
     x += ic + sp::M;
-    p.text(pos2(x, cy), Align2::LEFT_CENTER, label, lab, fg);
+    if !label.is_empty() {
+        p.text(pos2(x, cy), Align2::LEFT_CENTER, label, lab, fg);
+    }
     x += lw + sp::M;
     if kw > 0.0 {
         let kr = Rect::from_min_size(pos2(x, cy - 10.0), vec2(kw, 20.0));
@@ -447,6 +466,84 @@ pub fn primary_button(
             key,
             key_font,
             fg.gamma_multiply(0.85),
+        );
+    }
+    resp
+}
+
+/// Schlichter weißer Knopf zum Blättern (Feinschliff: Zurück / Vor), mit Pfeil und Taste.
+pub fn nav_button(ui: &Ui, r: Rect, glyph: &str, key: &str, enabled: bool) -> Response {
+    let resp = clickable(ui, r, ("nav", glyph), enabled);
+    let t = anim(ui, resp.id, resp.hovered() && enabled);
+    let press = if resp.is_pointer_button_down_on() {
+        0.97
+    } else {
+        1.0
+    };
+    let r = Rect::from_center_size(r.center(), r.size() * press);
+    let p = ui.painter();
+    let rad = radius::XL;
+    if enabled {
+        glow(
+            p,
+            r,
+            rad,
+            Color32::from_black_alpha(if is_dark() { 90 } else { 30 }),
+        );
+        p.rect(
+            r,
+            rad,
+            mix(Color32::WHITE, Color32::from_gray(232), t),
+            Stroke::new(
+                1.0,
+                Color32::from_black_alpha(if is_dark() { 0 } else { 28 }),
+            ),
+            StrokeKind::Inside,
+        );
+    } else {
+        p.rect(
+            r,
+            rad,
+            pal::glass(),
+            Stroke::new(1.0, glass_stroke()),
+            StrokeKind::Inside,
+        );
+    }
+    let fg = if enabled {
+        Color32::from_gray(24)
+    } else {
+        disabled()
+    };
+    let ic = 24.0;
+    let key_font = font(ts::CAPTION, W::Semibold);
+    let kw = if key.is_empty() {
+        0.0
+    } else {
+        text_size(ui, key, key_font.clone()).x + 12.0
+    };
+    let total = ic + if kw > 0.0 { sp::M + kw } else { 0.0 };
+    let cy = r.center().y;
+    let x = r.center().x - total / 2.0;
+    p.text(
+        pos2(x + ic / 2.0, cy),
+        Align2::CENTER_CENTER,
+        glyph,
+        FontId::new(ic, egui::FontFamily::Name("ph".into())),
+        fg,
+    );
+    if kw > 0.0 {
+        let kr = Rect::from_min_size(pos2(x + ic + sp::M, cy - 10.0), vec2(kw, 20.0));
+        p.rect_filled(
+            kr,
+            6,
+            Color32::from_black_alpha(if enabled { 18 } else { 0 }),
+        );
+        p.text(
+            kr.center(),
+            Align2::CENTER_CENTER,
+            key,
+            key_font,
+            fg.gamma_multiply(0.8),
         );
     }
     resp
@@ -469,7 +566,7 @@ pub fn cta(ui: &Ui, r: Rect, glyph: &str, label: &str, enabled: bool) -> Respons
     let p = ui.painter();
     let rad = radius::XL - 2;
     if enabled {
-        shadow(p, r, rad, 32, 12, BLUE_DARK.gamma_multiply(0.35 + 0.15 * t));
+        glow(p, r, rad, BLUE_DARK.gamma_multiply(0.7 + 0.3 * t));
         gradient(
             ui,
             r,

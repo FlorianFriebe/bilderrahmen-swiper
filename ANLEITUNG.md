@@ -25,10 +25,10 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    die Fotos eines Ordners groß, das Mausrad blättert. Ein **kurzer Rechtsklick** (oder **⋯**
    an der Kachel) öffnet das Ordner-Menü: **Aussortierte nochmal zeigen**, **Ganz von vorn**
    (behaltene Bilder bleiben im Zielordner) und **Aus der Liste entfernen**.
-   Der **Pfeil rechts am Start-Knopf** öffnet den **Zeitraum**: nur Fotos aus einem Jahr oder
-   einem eigenen Zeitraum, z. B. *Juni – August 2023*.
-3. **Loslegen:** Im selben Pfeil-Menü wählst du den Ablauf: **Alles in einem Durchgang** oder
-   **Erst sortieren, dann Feinschliff** (siehe unten). Die Fotos kommen nach Aufnahmedatum
+   In der Leiste unter dem Start-Knopf öffnet **Zeitraum** (z. B. *Alle Fotos*) ein kleines Menü:
+   nur Fotos aus einem Jahr oder einem eigenen Zeitraum, z. B. *Juni – August 2023*.
+3. **Loslegen:** Daneben wählst du den **Ablauf**: **1 Durchgang** (alles auf einmal) oder
+   **2 Durchgänge** (erst sortieren, dann Feinschliff, siehe unten). Die Fotos kommen nach Aufnahmedatum
    sortiert. Ist ein Ordner durch, zeigt eine Abschlussseite, wie viele Fotos du behalten und
    aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit zum
    Startbildschirm; dein Stand steht dann unter **„Weitermachen“**.
@@ -43,29 +43,32 @@ Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** 
 ## Bedienung
 
 Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zum Startbildschirm, speichert
-deinen Stand), das Zahnrad für die **Einstellungen**, der Umschalter **Quer / Hochkant**,
-Ordner und Fortschritt, die Zahl der behaltenen Bilder und ganz rechts das kleine
+deinen Stand), das Zahnrad für die **Einstellungen**, der Umschalter **Quer / Hochkant**
+(nicht beim schnellen Sortieren), ein kleiner Hinweis auf den Schritt (*Schnell sortieren*,
+*Feinschliff 3 / 12*), Ordner und Fortschritt, die Zahl der behaltenen Bilder und ganz rechts das kleine
 **Tastatur-Symbol** mit allen Kürzeln (oder **?** bzw. **F1**).
 
 Unten schwebt die Leiste fürs Bild, sortiert nach Wichtigkeit: in der Mitte die beiden großen
-Knöpfe **Weg** (rot) und **Behalten** (grün), links **Zurück**, rechts die Werkzeuge
-(**Drehen**, **Format**, **Vorschau**, **Ganz**, **Text**). Der kleine **Pfeil** an Drehen, Ganz
-und Text öffnet jeweils die Feineinstellungen. Jeder Knopf zeigt klein die Taste,
+Knöpfe **Weg** (rot, ✕) und **Behalten** (grün, ♥), links **Zurück**, rechts die Werkzeuge
+(**Drehen**, **Format**, **Text**). Der kleine **Pfeil** an jedem Werkzeug öffnet die
+Feineinstellungen, bei **Format** sind das *Quer*, *Hochkant*, *Ganz* und der Rand.
+
+**Wischen:** Zieh das Foto auf der dunklen Fläche neben dem hellen Rahmen nach rechts
+(behalten) oder links (weg). Beim schnellen Sortieren wischst du überall auf dem Foto. Jeder Knopf zeigt klein die Taste,
 die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 
 | Aktion | Maus | Taste (änderbar) |
 |---|---|---|
-| Behalten | **Behalten** | **→** oder D |
-| Weg | **Weg** | **←** oder A |
+| Behalten | **Behalten** oder nach rechts wischen | **→** oder D |
+| Weg | **Weg** oder nach links wischen | **←** oder A |
 | Rückgängig (auch nach Neustart) | **Zurück** oder „Rückgängig“ in der Meldung | **Rücktaste** oder Strg+Z |
 | Bild drehen | **Drehen** | **R**, andersherum **L** |
 | Quer ↔ Hochkant | **Format** oder oben auf das Format klicken | **H** |
-| Ganzes Foto statt zuschneiden | **Ganz** (Pfeil: Rand wählen) | **F** |
+| Ganzes Foto statt zuschneiden | Pfeil an **Format** → **Ganz** | **F** |
 | Begradigen: Vorschlag übernehmen | Pfeil an **Drehen** | **B** |
 | Horizont selbst festlegen | **Strg** halten und am Horizont entlang ziehen | – |
 | Automatisch verbessern | Pfeil an **Drehen** | **E** |
 | Hilfslinien wechseln | – | **O**, drehen mit **Umschalt+O** |
-| Vorschau wie auf dem Rahmen | **Vorschau** | **V** |
 | Text aufs Bild an / aus | **Text** | **T** |
 | Textfeld (Ort, Notiz, Stil) | kleiner Pfeil an **Text** | – |
 | Zum Startbildschirm, später weitermachen | **Haus** oben links | – |
@@ -77,6 +80,7 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Foto groß ansehen | rechte Maustaste auf Bilderband, Galerie oder Ordner halten | – |
 | Serie vergleichen | gelber Hinweis „Serie“ | **S** |
 | Behaltene ansehen, Diashow | grünes ♥ in der oberen Leiste, dort **Diashow** | **G** |
+| Nur Quer / Hochkant zeigen, alle entfernen | in der Galerie oben | – |
 | Behaltenes Bild nachbearbeiten | in der Galerie **Bearbeiten** oder Doppelklick | – |
 | Einstellungen | Zahnrad oben | Strg+B |
 | Schrift größer / kleiner | – | **Strg +** / **Strg −** (Strg 0 = normal) |
@@ -99,11 +103,13 @@ den Teil mit Menschen und Details statt stur in die Mitte. Abschalten unter Eins
 
 ## Erst sortieren, dann Feinschliff
 
-Wählst du auf dem Startbildschirm **Erst sortieren, dann Feinschliff**, zeigt der erste
+Wählst du auf dem Startbildschirm unter *Ablauf* **2 Durchgänge**, zeigt der erste
 Durchgang nur das Foto mit **Zurück**, **Weg**, **Behalten** und **Drehen**. So gehst du große
 Ordner schnell durch. Ist der Ordner fertig, startet **„Feinschliff: … zuschneiden“** einen
-zweiten Durchgang nur über die gerade behaltenen Fotos, mit allen Werkzeugen. **Behalten**
-speichert und geht zum nächsten Foto, **Weg** nimmt es doch noch heraus, **Esc** beendet den
+zweiten Durchgang nur über die gerade behaltenen Fotos, mit allen Werkzeugen. Hier gibt es
+statt Weg und Behalten zwei weiße Knöpfe zum Blättern: **→ Vor** speichert und geht zum
+nächsten Foto, **← Zurück** geht ein Foto zurück (beides auch mit den Pfeiltasten). **Weg**
+(links, oder **Rücktaste** / **Entf**) nimmt ein Foto doch noch heraus, **Esc** beendet den
 Feinschliff (die übrigen Fotos bleiben dann im schnellen Zuschnitt). Mit **„Später“** kannst du
 ihn auch auslassen und erst den nächsten Ordner machen.
 
@@ -113,11 +119,18 @@ Unter dem Foto liegt das Bilderband mit allen Fotos des Ordners. Mit gedrückter
 (oder Mausrad) blättert, ein Klick springt zu einem Foto. Ein **grüner Punkt** heißt behalten,
 ein **roter** weg.
 
-## Vorschau und Diashow
+## Galerie und Diashow
 
-**V** zeigt das aktuelle Foto bildschirmfüllend so, wie es auf dem Rahmen erscheint: mit
-Zuschnitt, Auflösung und Text. In der Galerie der behaltenen Bilder startet **Diashow** alle
-Bilder nacheinander (alle 8 Sekunden). **Leertaste** pausiert, **← →** blättern, **Esc** schließt.
+Das grüne ♥ oben öffnet die Galerie der behaltenen Bilder. Darüber wählst du **Alle**,
+**Quer** oder **Hochkant**, um nur eine Sorte zu sehen. **Alle entfernen** löscht alle gerade
+gezeigten Bilder aus dem Zielordner (nach einer Nachfrage, die Originale bleiben). Gleich danach
+holt **Rückgängig** in der Meldung (oder die **Rücktaste**) sie zurück.
+
+**Diashow** zeigt die behaltenen Bilder nacheinander so, wie der Rahmen sie zeigt. Das
+**Zahnrad** daneben stellt sie ein: *Dauer* pro Bild, *Übergang* (Überblenden, Schieben,
+keiner), *Reihenfolge* (der Reihe nach oder zufällig), welche *Bilder* (alle, quer, hochkant),
+*Aufnahmedatum einblenden* und *Im Vollbild*. **Leertaste** pausiert, **← →** blättern,
+**Esc** beendet.
 
 ## Ganzes Foto statt Abschneiden
 
@@ -127,7 +140,7 @@ gestellt und landet im Ordner `Quer`. Mit **H** kannst du das wie gewohnt umstel
 
 - **Größe und Lage:** Das Foto mit der Maus verschieben, an den Ecken größer oder kleiner
   ziehen, Mausrad zoomt. Kleiner lässt mehr Rand, größer schneidet an. Doppelklick setzt zurück.
-- **Rand:** Der Pfeil an **Ganz** wählt *Unscharf* (mit Regler für die Stärke), *Fotofarbe*,
+- **Rand:** Der Pfeil an **Format** wählt unter *Rand bei „Ganz“* *Unscharf* (mit Regler für die Stärke), *Fotofarbe*,
   *Schwarz* oder *Weiß*. **Als Standard** übernimmt die Wahl für alle neuen Bilder (auch unter
   Einstellungen → *Bild*).
 

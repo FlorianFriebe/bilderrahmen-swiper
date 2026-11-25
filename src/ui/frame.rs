@@ -70,6 +70,8 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     if let Some(mut v) = app.viewer.take() {
         if super::viewer::show(&mut v, ui, full) {
             app.viewer = Some(v);
+        } else if v.fullscreen {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
         } else if v.was_tap(now) {
             if let (Some(f), Some(pos)) = (v.menu_for.clone(), ui.input(|i| i.pointer.latest_pos()))
             {
@@ -97,7 +99,11 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         };
         let action = action.as_ref().map(|(l, k)| (*l, k.as_str()));
         if kit::toast(ui, anchor, &msg, alpha, glyph, action) {
-            app.undo();
+            if app.bulk_undo.is_some() {
+                app.undo_bulk();
+            } else {
+                app.undo();
+            }
         }
     }
     if app.view != View::Home {
@@ -267,6 +273,8 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
             app.text_panel = false;
         } else if app.reedit.is_some() && app.view == View::Swipe {
             app.cancel_reedit();
+        } else if app.view == View::Gallery && super::gallery::slide_settings_open(&ctx) {
+            // schließt nur das Diashow-Feld
         } else if matches!(app.view, View::Gallery | View::Burst) {
             app.view = if app.view == View::Burst || app.folder.is_some() && app.current().is_some()
             {
@@ -309,7 +317,11 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
                 app.confirm_burst();
             }
         }
-        View::Gallery => {}
+        View::Gallery => {
+            if undo && app.bulk_undo.is_some() {
+                app.undo_bulk();
+            }
+        }
     }
 }
 
@@ -334,7 +346,6 @@ fn swipe_keys(
         "zoom_in",
         "zoom_out",
         "reset",
-        "preview",
         "guide",
         "straighten",
         "enhance",
@@ -347,14 +358,28 @@ fn swipe_keys(
             .map(|i| hit[i])
             .unwrap_or(false)
     };
-    if on("keep") {
-        app.decide(true, now, width);
-    }
-    if on("skip") {
-        app.decide(false, now, width);
-    }
-    if undo {
-        app.undo();
+    if app.polish_left().is_some() {
+        // Feinschliff: Pfeile blättern, Rücktaste / Entf nimmt das Foto raus
+        let del = ctx.input(|i| i.key_pressed(egui::Key::Delete));
+        if on("keep") {
+            app.decide(true, now, width);
+        }
+        if on("skip") {
+            app.polish_back();
+        }
+        if undo || del {
+            app.decide(false, now, width);
+        }
+    } else {
+        if on("keep") {
+            app.decide(true, now, width);
+        }
+        if on("skip") {
+            app.decide(false, now, width);
+        }
+        if undo {
+            app.undo();
+        }
     }
     if on("rot_r") {
         app.rotate(if shift { -1 } else { 1 });
@@ -387,9 +412,6 @@ fn swipe_keys(
         } else {
             format!("Hilfslinien: {name}")
         });
-    }
-    if on("preview") {
-        app.open_frame_preview(false);
     }
     if on("text") {
         swipe::toggle_text(app);

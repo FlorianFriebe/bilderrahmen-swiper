@@ -47,7 +47,6 @@ pub const ACTIONS: &[(&str, &str, &[&str])] = &[
     ("orient", "Quer / Hochkant", &["H"]),
     ("fill", "Ganzes Foto (Ganz)", &["F"]),
     ("text", "Text aufs Bild an / aus", &["T"]),
-    ("preview", "Vorschau wie auf dem Rahmen", &["V"]),
     ("burst", "Serie vergleichen", &["S"]),
     ("zoom_in", "Hineinzoomen", &["Plus", "Equals"]),
     ("zoom_out", "Herauszoomen", &["Minus"]),
@@ -167,10 +166,22 @@ pub struct Config {
     pub smart_crop: bool,
     /// Version der Einführung, die schon gezeigt wurde
     pub intro_version: u8,
+    /// Diashow: Sekunden pro Bild
+    pub slide_secs: u32,
+    /// Diashow-Übergang: 0 Überblenden, 1 Schieben, 2 keiner
+    pub slide_trans: u8,
+    /// Diashow in zufälliger Reihenfolge
+    pub slide_shuffle: bool,
+    /// Diashow: 0 alle, 1 nur quer, 2 nur hochkant
+    pub slide_orient: u8,
+    /// Diashow: Aufnahmedatum einblenden
+    pub slide_date: bool,
+    /// Diashow im Vollbild (ganzer Bildschirm)
+    pub slide_full: bool,
 }
 
 /// Neue Einführung zeigen, wenn sich die Bedienung geändert hat.
-pub const INTRO_VERSION: u8 = 2;
+pub const INTRO_VERSION: u8 = 3;
 
 /// Ein Bilderrahmen mit eigenem Format und Zielordner. Die Einstellungen des
 /// aktiven Rahmens stehen direkt in `Config`, hier liegt jeweils eine Kopie.
@@ -224,6 +235,12 @@ impl Default for Config {
             two_pass: false,
             smart_crop: true,
             intro_version: 0,
+            slide_secs: 8,
+            slide_trans: 0,
+            slide_shuffle: false,
+            slide_orient: 0,
+            slide_date: false,
+            slide_full: true,
         }
     }
 }
@@ -284,6 +301,9 @@ pub struct Reedit {
     groups: Vec<(usize, usize)>,
     finished: Option<PathBuf>,
 }
+
+/// Zwischenordner und je Bild (Original, Ausgabe, Ablage im Zwischenordner).
+pub type BulkUndo = (PathBuf, Vec<(PathBuf, PathBuf, PathBuf)>);
 
 /// (Foto, Anzahl behaltener, bekannte Abdrücke, Ergebnis)
 type DupCache = (PathBuf, usize, usize, Option<(PathBuf, PathBuf)>);
@@ -367,8 +387,12 @@ pub struct SwiperApp {
     pub dx: f32,
     pub dy: f32,
     pub toast: Option<(String, f64)>,
-    /// Meldung mit „Rückgängig“-Knopf (nach „Weg“)
+    /// Meldung mit „Rückgängig“-Knopf (nach „Alle entfernen“)
     pub toast_undo: bool,
+    /// Zuletzt gesammelt entfernte Bilder: Zwischenordner und (Original, Ausgabe, Zwischenablage)
+    pub bulk_undo: Option<BulkUndo>,
+    /// Filter der Galerie: 0 alle, 1 quer, 2 hochkant
+    pub gallery_filter: u8,
     pub custom_quer: bool,
     pub custom_hoch: bool,
     pub burst_sel: HashSet<PathBuf>,
@@ -410,6 +434,9 @@ impl SwiperApp {
     pub fn new(cc: &eframe::CreationContext<'_>, args: Vec<PathBuf>) -> Self {
         let ctx = cc.egui_ctx.clone();
         crate::ui::style::apply(&ctx);
+        // Reste von „Alle entfernen“ aus der letzten Sitzung wegräumen
+        let _ =
+            std::fs::remove_dir_all(std::env::temp_dir().join("bilderrahmen-swiper-papierkorb"));
         let mut cfg: Config = cc
             .storage
             .and_then(|s| eframe::get_value(s, eframe::APP_KEY))
@@ -460,6 +487,8 @@ impl SwiperApp {
             dy: 0.0,
             toast: None,
             toast_undo: false,
+            bulk_undo: None,
+            gallery_filter: 0,
             viewer: None,
             burst_sel: HashSet::new(),
             notes: HashMap::new(),
@@ -1033,9 +1062,6 @@ impl SwiperApp {
         self.record(&path, keep);
         self.dx = 0.0;
         self.dy = 0.0;
-        if !keep {
-            self.toast_with_undo("Foto aussortiert".into());
-        }
         self.advance();
     }
 
@@ -1327,37 +1353,52 @@ impl SwiperApp {
 
     // ------------------------------------------------------------------ Großansicht
 
-    /// Vorschau „wie auf dem Rahmen“: aktuelles Bild fertig verarbeitet (V),
-    /// oder mit `slideshow` die behaltenen Bilder als Diashow.
-    pub fn open_frame_preview(&mut self, slideshow: bool) {
+    /// Diashow der behaltenen Bilder mit den Einstellungen aus der Galerie.
+    pub fn start_slideshow(&mut self) {
         use crate::ui::viewer::{Mode, Source, Viewer};
-        let (items, title) = if slideshow {
-            let items: Vec<Source> = self
-                .kept_list()
-                .into_iter()
-                .rev()
-                .map(|(_, out)| Source::File(out))
-                .collect();
-            (items, "Diashow wie auf dem Rahmen".to_string())
-        } else {
-            let Some(path) = self.current().cloned() else {
-                return;
-            };
-            let edit = self.edits.get(&path).copied().unwrap_or_default();
-            let item = Source::Render {
-                overlay: self.overlay_for(&path),
-                cfg: self.output_settings(),
-                edit,
-                path,
-            };
-            (vec![item], "Vorschau wie auf dem Rahmen".to_string())
-        };
-        if items.is_empty() {
+        let c = &self.cfg;
+        let mut list: Vec<(PathBuf, PathBuf)> = self
+            .kept_list()
+            .into_iter()
+            .rev()
+            .filter(|(_, o)| match c.slide_orient {
+                1 => !crate::ui::gallery::is_hoch(o),
+                2 => crate::ui::gallery::is_hoch(o),
+                _ => true,
+            })
+            .collect();
+        if list.is_empty() {
+            self.toast("Keine Bilder für die Diashow".into());
             return;
         }
-        let mut v = Viewer::new(items, 0, Mode::Frame, title);
+        if c.slide_shuffle {
+            // einfaches Mischen ohne zusätzliche Abhängigkeit
+            let mut seed = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(1)
+                | 1;
+            for i in (1..list.len()).rev() {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                list.swap(i, (seed % (i as u64 + 1)) as usize);
+            }
+        }
+        let items: Vec<Source> = list.iter().map(|(_, o)| Source::File(o.clone())).collect();
+        let mut v = Viewer::new(items, 0, Mode::Frame, "Diashow".to_string());
         v.frame = self.frame_res();
-        v.playing = slideshow;
+        v.playing = true;
+        v.secs = c.slide_secs.clamp(2, 600) as f64;
+        v.trans = c.slide_trans;
+        if c.slide_date {
+            v.date_src = list.into_iter().map(|(s, _)| s).collect();
+        }
+        if c.slide_full {
+            self.ctx
+                .send_viewport_cmd(egui::ViewportCommand::Fullscreen(true));
+            v.fullscreen = true;
+        }
         self.viewer = Some(v);
     }
 
@@ -1750,6 +1791,16 @@ impl SwiperApp {
         self.end_reedit();
     }
 
+    /// Feinschliff: ein Foto zurück blättern.
+    pub fn polish_back(&mut self) {
+        if self.polish_left().is_some() && self.pos > 0 {
+            self.anim = None;
+            self.pos -= 1;
+            self.dx = 0.0;
+            self.dy = 0.0;
+        }
+    }
+
     /// Wie viele Fotos im Feinschliff noch kommen (inklusive aktuellem).
     pub fn polish_left(&self) -> Option<(usize, usize)> {
         self.reedit
@@ -1775,7 +1826,6 @@ impl SwiperApp {
             }
         } else {
             self.discard_kept(path);
-            self.toast("Aus den Behaltenen genommen".into());
         }
         if polish && self.pos + 1 < self.items.len() {
             self.pos += 1;
@@ -1907,6 +1957,83 @@ impl SwiperApp {
     pub fn open_gallery(&mut self) {
         self.sync_target();
         self.view = View::Gallery;
+    }
+
+    /// Mehrere behaltene Bilder auf einmal entfernen. Die Dateien wandern erst in einen
+    /// Zwischenordner, damit „Rückgängig“ sie zurückholen kann.
+    pub fn discard_many(&mut self, items: &[(PathBuf, PathBuf)]) {
+        self.drop_bulk_undo();
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir()
+            .join("bilderrahmen-swiper-papierkorb")
+            .join(stamp.to_string());
+        let _ = std::fs::create_dir_all(&dir);
+        let mut moved = vec![];
+        for (i, (src, out)) in items.iter().enumerate() {
+            let name = out
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let stash = dir.join(format!("{i}_{name}"));
+            let ok = std::fs::rename(out, &stash).is_ok()
+                || (std::fs::copy(out, &stash).is_ok() && std::fs::remove_file(out).is_ok());
+            if let Some(e) = self.status.bilder.get_mut(src) {
+                e.out = None;
+                e.d = "skip".into();
+                self.total_kept = self.total_kept.saturating_sub(1);
+            }
+            self.thumb_tex.remove(out);
+            self.thumbs.forget(out);
+            if ok {
+                moved.push((src.clone(), out.clone(), stash));
+            }
+        }
+        self.stats = None;
+        self.status_dirty = true;
+        let n = items.len();
+        self.bulk_undo = Some((dir, moved));
+        self.toast_with_undo(if n == 1 {
+            "1 Bild entfernt".into()
+        } else {
+            format!("{} Bilder entfernt", fmt_int(n))
+        });
+    }
+
+    /// „Alle entfernen“ rückgängig machen.
+    pub fn undo_bulk(&mut self) {
+        let Some((dir, moved)) = self.bulk_undo.take() else {
+            return;
+        };
+        for (src, out, stash) in moved {
+            if let Some(parent) = out.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let ok = std::fs::rename(&stash, &out).is_ok()
+                || (std::fs::copy(&stash, &out).is_ok() && std::fs::remove_file(&stash).is_ok());
+            if !ok {
+                continue;
+            }
+            if let Some(e) = self.status.bilder.get_mut(&src) {
+                e.out = Some(out);
+                e.d = "keep".into();
+                self.total_kept += 1;
+            }
+        }
+        let _ = std::fs::remove_dir_all(dir);
+        self.stats = None;
+        self.status_dirty = true;
+        self.toast = None;
+        self.toast_undo = false;
+    }
+
+    /// Zwischenordner der letzten Sammel-Entfernung endgültig löschen.
+    pub fn drop_bulk_undo(&mut self) {
+        if let Some((dir, _)) = self.bulk_undo.take() {
+            let _ = std::fs::remove_dir_all(dir);
+        }
     }
 
     pub fn discard_kept(&mut self, src: &Path) {

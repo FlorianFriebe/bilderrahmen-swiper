@@ -63,8 +63,6 @@ fn pick_folders(app: &mut SwiperApp) {
 
 /// Große Fläche zum Hineinziehen, solange noch kein Ordner da ist.
 const DROP: egui::Vec2 = egui::vec2(640.0, 220.0);
-/// Zeile mit der Wahl des Ablaufs über dem Start-Knopf.
-const MODE_H: f32 = 44.0;
 
 /// Werden gerade Dateien über das Fenster gezogen? `Some(true)`, wenn mindestens
 /// ein Ordner oder Foto dabei ist (oder der Pfad unbekannt ist).
@@ -147,40 +145,168 @@ fn drop_zone(ui: &Ui, r: Rect) -> bool {
     resp.clicked()
 }
 
-/// Feld über dem Start-Knopf mit Zeitraum und Ablauf. Gibt `false` zurück, wenn es
-/// geschlossen werden soll (Klick daneben oder Esc).
-fn start_menu(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect, caret: Rect) -> bool {
-    let pad = sp::L;
-    let range = app.range_draft.is_some();
-    let h = pad * 2.0 + DATE_H + if range { sp::S + RANGE_H } else { 0.0 } + sp::M + MODE_H;
-    let w = 660.0_f32.max(anchor.width() + 40.0);
-    let panel = Rect::from_min_size(
-        pos2(anchor.center().x - w / 2.0, anchor.top() - sp::S - h),
-        vec2(w, h),
-    );
+/// Breite von Start-Knopf und Einstellungsleiste (beide immer gleich breit).
+const BAR_W: f32 = 680.0;
+/// Zeilenhöhe in den kleinen Menüs der Einstellungsleiste.
+const MENU_ROW: f32 = 38.0;
+
+/// Kleines Menü über der Einstellungsleiste: 0 = Zeitraum, 1 = Ablauf.
+/// Gibt `false` zurück, wenn es geschlossen werden soll (Klick daneben oder Esc).
+fn bar_menu(app: &mut SwiperApp, ui: &mut Ui, which: u8, anchor: Rect, item: Rect) -> bool {
+    use crate::daterange::DateRange;
+    let pad = sp::S;
+    let w = 300.0;
+    // (Beschriftung, Untertitel, gewählt, Aktion)
+    let mut rows: Vec<(String, &str, bool, u8)> = vec![];
+    let cur = app.cfg.date_filter;
+    let draft = app.range_draft.is_some();
+    let years: Vec<i32> = app.years.iter().take(4).map(|(y, _)| *y).collect();
+    if which == 0 {
+        rows.push(("Alle Fotos".into(), "", cur.is_none() && !draft, 0));
+        for (i, y) in years.iter().enumerate() {
+            rows.push((
+                y.to_string(),
+                "",
+                cur == Some(DateRange::year(*y)) && !draft,
+                1 + i as u8,
+            ));
+        }
+        let custom = cur.filter(|r| r.is_year().is_none_or(|y| !years.contains(&y)));
+        let label = match custom {
+            Some(r) => r.label(),
+            None => "Eigener Zeitraum …".into(),
+        };
+        rows.push((label, "", custom.is_some() || draft, 9));
+    } else {
+        rows.push((
+            "Ein Durchgang".into(),
+            "Sortieren und zuschneiden in einem",
+            !app.cfg.two_pass,
+            0,
+        ));
+        rows.push((
+            "Zwei Durchgänge".into(),
+            "Erst schnell sortieren, dann Feinschliff",
+            app.cfg.two_pass,
+            1,
+        ));
+    }
+    let row_h = |sub: &str| if sub.is_empty() { MENU_ROW } else { 52.0 };
+    let progress = (which == 0).then(|| app.library_scan_progress()).flatten();
+    let extra = if which == 0 && draft {
+        2.0 * 40.0 + sp::S + 36.0 + sp::S * 2.0
+    } else {
+        0.0
+    } + if progress.is_some() { 28.0 } else { 0.0 };
+    let h = pad * 2.0 + rows.iter().map(|r| row_h(r.1)).sum::<f32>() + extra;
+    let left = (item.center().x - w / 2.0).clamp(anchor.left(), anchor.right() - w);
+    let panel = Rect::from_min_size(pos2(left, anchor.top() - sp::S - h), vec2(w, h));
     kit::glass_with(
         ui.painter(),
         panel,
-        radius::XL,
+        radius::L,
         super::style::panel().to_opaque(),
     );
-    // Klicks auf das Feld nicht an die Kacheln darunter weitergeben
-    ui.interact(
-        panel,
-        ui.make_persistent_id("start_menu_bg"),
-        Sense::click(),
-    );
-    let cx = panel.center().x;
+    ui.interact(panel, ui.make_persistent_id("bar_menu_bg"), Sense::click());
+    let p = ui.painter().clone();
     let mut y = panel.top() + pad;
-    date_filter_bar(app, ui, pos2(cx, y));
-    y += DATE_H;
-    if app.range_draft.is_some() {
-        y += sp::S;
-        range_row(app, ui, pos2(cx, y));
-        y += RANGE_H;
+    let mut close = false;
+    for (label, sub, sel, act) in &rows {
+        let rh = row_h(sub);
+        let r = Rect::from_min_size(pos2(panel.left() + pad, y), vec2(w - pad * 2.0, rh));
+        let resp = ui
+            .interact(
+                r,
+                ui.make_persistent_id(("bar_menu", which, *act)),
+                Sense::click(),
+            )
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        let t = kit::anim(ui, resp.id, resp.hovered());
+        if t > 0.0 {
+            p.rect_filled(r, radius::M, glass_hover().gamma_multiply(t));
+        }
+        let col = if *sel { accent() } else { text() };
+        let ty = if sub.is_empty() {
+            r.center().y
+        } else {
+            r.top() + 17.0
+        };
+        p.text(
+            pos2(r.left() + sp::M, ty),
+            Align2::LEFT_CENTER,
+            label,
+            font(ts::BODY, W::Medium),
+            col,
+        );
+        if !sub.is_empty() {
+            p.text(
+                pos2(r.left() + sp::M, r.top() + 36.0),
+                Align2::LEFT_CENTER,
+                *sub,
+                font(ts::SMALL, W::Regular),
+                muted(),
+            );
+        }
+        if *sel {
+            kit::icon(
+                &p,
+                pos2(r.right() - sp::M - 8.0, r.center().y),
+                icons::CHECK,
+                16.0,
+                accent(),
+            );
+        }
+        if resp.clicked() {
+            if which == 1 {
+                app.cfg.two_pass = *act == 1;
+                close = true;
+            } else if *act == 9 {
+                if draft {
+                    app.range_draft = None;
+                } else {
+                    app.range_draft = Some(cur.unwrap_or_else(|| {
+                        use chrono::Datelike;
+                        let now = chrono::Local::now().year();
+                        let newest = app.years.first().map(|(y, _)| *y).unwrap_or(now);
+                        let oldest = app.years.last().map(|(y, _)| *y).unwrap_or(now);
+                        DateRange {
+                            from: (oldest, 1),
+                            to: (newest, 12),
+                        }
+                    }));
+                }
+            } else {
+                app.range_draft = None;
+                let target = if *act == 0 {
+                    None
+                } else {
+                    Some(DateRange::year(years[*act as usize - 1]))
+                };
+                app.set_date_filter(target);
+                close = true;
+            }
+        }
+        y += rh;
     }
-    y += sp::M;
-    mode_switch(app, ui, pos2(cx, y));
+    if which == 0 && app.range_draft.is_some() {
+        y += sp::S;
+        let area = Rect::from_min_max(
+            pos2(panel.left() + pad + sp::M, y),
+            pos2(panel.right() - pad - sp::M, panel.bottom() - pad),
+        );
+        if range_picker(app, ui, area) {
+            close = true;
+        }
+    }
+    if let Some(pr) = progress {
+        p.text(
+            pos2(panel.left() + pad + sp::M, panel.bottom() - pad - 14.0),
+            Align2::LEFT_CENTER,
+            format!("Aufnahmedaten werden gelesen … {} %", (pr * 100.0) as u32),
+            font(ts::CAPTION, W::Regular),
+            muted(),
+        );
+    }
     let (clicked_at, esc) = ui.input(|i| {
         (
             i.pointer
@@ -190,28 +316,74 @@ fn start_menu(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect, caret: Rect) -> bo
             i.key_pressed(egui::Key::Escape),
         )
     });
-    let outside = clicked_at.is_some_and(|p| !panel.contains(p) && !caret.contains(p));
-    !(esc || outside)
+    let popup = egui::Popup::is_any_open(ui.ctx());
+    let outside = !popup && clicked_at.is_some_and(|p| !panel.contains(p) && !item.contains(p));
+    !(close || esc || outside)
 }
 
-/// Wahl des Ablaufs: alles in einem Durchgang oder erst sortieren, dann Feinschliff.
-fn mode_switch(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
-    let labels = vec![
-        "Alles in einem Durchgang".to_string(),
-        "Erst sortieren, dann Feinschliff".to_string(),
-    ];
-    let w = kit::segmented_width(ui, &labels) + sp::S * 2.0;
-    let r = Rect::from_center_size(top_center + vec2(0.0, MODE_H / 2.0), vec2(w, MODE_H));
-    kit::glass(ui.painter(), r, radius::L);
-    let inner = r.shrink(sp::XS);
-    let sel = Some(app.cfg.two_pass as usize);
-    if let Some(i) = kit::segmented_bare(ui, inner, &labels, sel) {
-        app.cfg.two_pass = i == 1;
-    }
-    ui.interact(r, ui.make_persistent_id("mode_tip"), Sense::hover())
-        .on_hover_text(
-            "Erst sortieren: Du entscheidest nur schnell behalten oder weg. Wenn der Ordner durch ist, schneidest du die behaltenen Fotos in Ruhe zu.",
+/// Von/Bis-Wahl für einen eigenen Zeitraum. Gibt `true` zurück, wenn übernommen wurde.
+fn range_picker(app: &mut SwiperApp, ui: &mut Ui, area: Rect) -> bool {
+    use crate::daterange::MONTHS;
+    use chrono::Datelike;
+    let Some(mut d) = app.range_draft else {
+        return false;
+    };
+    let now = chrono::Local::now().year();
+    let mut years: Vec<i32> = app.years.iter().map(|(y, _)| *y).collect();
+    years.extend([now, d.from.0, d.to.0]);
+    let lo = *years.iter().min().unwrap_or(&now);
+    let hi = *years.iter().max().unwrap_or(&now);
+    let years: Vec<i32> = (lo - 1..=hi.max(now)).rev().collect();
+    let mut applied = false;
+    for (i, (lbl, id)) in [("Von", "range_from"), ("Bis", "range_to")]
+        .iter()
+        .enumerate()
+    {
+        let r = Rect::from_min_size(
+            pos2(area.left(), area.top() + i as f32 * 40.0),
+            vec2(area.width(), 36.0),
         );
+        let mut child = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(r)
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+        );
+        let c = &mut child;
+        c.spacing_mut().item_spacing.x = sp::S;
+        c.add_sized(
+            vec2(32.0, 24.0),
+            egui::Label::new(egui::RichText::new(*lbl).color(text_soft())),
+        );
+        let v = if i == 0 { &mut d.from } else { &mut d.to };
+        egui::ComboBox::from_id_salt((*id, "m"))
+            .width(112.0)
+            .selected_text(MONTHS[(v.1 as usize).clamp(1, 12) - 1])
+            .show_ui(c, |ui| {
+                for (i, m) in MONTHS.iter().enumerate() {
+                    ui.selectable_value(&mut v.1, i as u32 + 1, *m);
+                }
+            });
+        egui::ComboBox::from_id_salt((*id, "y"))
+            .width(72.0)
+            .selected_text(v.0.to_string())
+            .show_ui(c, |ui| {
+                for y in &years {
+                    ui.selectable_value(&mut v.0, *y, y.to_string());
+                }
+            });
+    }
+    let ok = Rect::from_min_size(
+        pos2(area.left(), area.top() + 80.0 + sp::S),
+        vec2(area.width(), 36.0),
+    );
+    if kit::cta(ui, ok, "", "Übernehmen", true).clicked() {
+        app.range_draft = None;
+        app.set_date_filter(Some(d));
+        applied = true;
+    } else {
+        app.range_draft = Some(d);
+    }
+    applied
 }
 
 /// Höhe einer Session-Karte unter „Weitermachen“.
@@ -261,13 +433,8 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     } else {
         56.0 + sp::L + 44.0
     };
-    // Zeitraum und Ablauf stecken im Pfeil am Start-Knopf
-    let date_bar = false;
-    let range_open = date_bar && app.range_draft.is_some();
-    let date_h = if date_bar { sp::L + DATE_H } else { 0.0 }
-        + if range_open { sp::S + RANGE_H } else { 0.0 };
     let content_top = ws.top() + size::TOPBAR + sp::XL;
-    let fixed = head_h + date_h + sp::XXL + sessions_h + folders_label_h;
+    let fixed = head_h + sp::XXL + sessions_h + folders_label_h;
     let footer_total = if footer_h > 0.0 {
         sp::XXL + footer_h
     } else {
@@ -284,16 +451,6 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
 
     let mut y = top;
     header.draw(app, ui, ws, &mut y);
-    if date_bar {
-        y += sp::L;
-        date_filter_bar(app, ui, pos2(ws.center().x, y));
-        y += DATE_H;
-        if app.range_draft.is_some() {
-            y += sp::S;
-            range_row(app, ui, pos2(ws.center().x, y));
-            y += RANGE_H;
-        }
-    }
     y += sp::XXL;
 
     if shown > 0 {
@@ -368,12 +525,8 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                 true,
             )
         };
-        let w = (kit::text_size(ui, &label, font(ts::BUTTON, W::Semibold)).x + 120.0).max(400.0);
-        let caret_w = 56.0;
-        let both =
-            Rect::from_center_size(pos2(ws.center().x, y + 28.0), vec2(w + 2.0 + caret_w, 56.0));
-        let r = Rect::from_min_size(both.min, vec2(w, 56.0));
-        let cr = Rect::from_min_size(pos2(r.right() + 2.0, r.top()), vec2(caret_w, 56.0));
+        let w = BAR_W.min(ws.width());
+        let r = Rect::from_center_size(pos2(ws.center().x, y + 28.0), vec2(w, 56.0));
         let tip = if app.cfg.two_pass {
             "Erst schnell sortieren, danach Feinschliff der behaltenen Fotos. Doppelklick auf einen Ordner startet nur diesen."
         } else {
@@ -385,28 +538,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         {
             app.start_session();
         }
-        let menu_id = egui::Id::unique("start_menu");
-        let mut menu: bool = ui.ctx().data(|d| d.get_temp(menu_id)).unwrap_or(false);
-        let caret = if menu {
-            icons::CARET_UP
-        } else {
-            icons::CARET_DOWN
-        };
-        if kit::cta(ui, cr, caret, "", true)
-            .on_hover_text("Zeitraum und Ablauf")
-            .clicked()
-        {
-            menu = !menu;
-            if !menu {
-                app.range_draft = None;
-            }
-        }
         settings_summary(app, ui, pos2(ws.center().x, r.bottom() + sp::L));
-        if menu && !start_menu(app, ui, both, cr) {
-            menu = false;
-            app.range_draft = None;
-        }
-        ui.ctx().data_mut(|d| d.insert_temp(menu_id, menu));
     }
     folder_menu(app, ui);
 }
@@ -933,89 +1065,179 @@ enum SessionAction {
 
 // ------------------------------------------------------------------ Einstellungen im Überblick
 
-/// Zeile unter dem Start-Knopf: wichtigste Einstellungen auf einen Blick,
-/// ein Klick öffnet die passende Seite der Einstellungen.
+/// Einstellungsleiste unter dem Start-Knopf: Zeitraum, Ablauf, Rahmen, Text, Zielordner.
+/// Immer so breit wie der Start-Knopf.
 fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
-    let frame = match app.frame_res() {
-        Some((w, h)) => match app.profile_name() {
-            Some(n) => format!("{n}: {w} × {h}"),
-            None => format!("{w} × {h}"),
-        },
-        None => format!(
-            "{}  ·  {}",
+    let frame = match (app.profile_name(), app.frame_res()) {
+        (Some(n), _) => n,
+        (None, Some((w, h))) => format!("{w} × {h}"),
+        (None, None) => format!(
+            "{} · {}",
             app.ratio_label(Orient::Quer),
             app.ratio_label(Orient::Hochkant)
         ),
     };
     let text_lbl = if app.cfg.text.enabled {
-        app.cfg.text.look().summary()
+        "Mit Text"
     } else {
-        "Kein Text".to_string()
-    };
-    let mut target = short_path(&app.cfg.target);
-    if app.cfg.max_mb > 0.0 {
-        target.push_str(&format!("  ·  max. {} MB", app.cfg.max_mb));
+        "Kein Text"
     }
-    let items = [
-        (icons::FRAME, frame, super::settings::TAB_FRAME),
-        (icons::TEXT, text_lbl, super::settings::TAB_TEXT),
-        (icons::FOLDER_OPEN, target, super::settings::TAB_TARGET),
+    .to_string();
+    let target_name = app
+        .cfg
+        .target
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| short_path(&app.cfg.target));
+    let range = app
+        .cfg
+        .date_filter
+        .map(|r| r.label())
+        .unwrap_or_else(|| "Alle Fotos".into());
+    let (mode_glyph, mode) = if app.cfg.two_pass {
+        (icons::LIGHTNING, "2 Durchgänge")
+    } else {
+        (icons::PLAY, "1 Durchgang")
+    };
+    // (Symbol, Beschriftung, Aktion: <10 = Menü, sonst Einstellungsseite + 10)
+    let mut items: Vec<(&str, String, usize, &str)> = vec![
+        (icons::CALENDAR, range, 0, "Zeitraum"),
+        (mode_glyph, mode.to_string(), 1, "Ablauf"),
+        (
+            icons::FRAME,
+            frame,
+            10 + super::settings::TAB_FRAME,
+            "Rahmen",
+        ),
+        (
+            icons::TEXT,
+            text_lbl,
+            10 + super::settings::TAB_TEXT,
+            "Text",
+        ),
+        (
+            icons::FOLDER_OPEN,
+            target_name,
+            10 + super::settings::TAB_TARGET,
+            "Zielordner",
+        ),
     ];
     let f = font(ts::SMALL, W::Medium);
-    let item_w: Vec<f32> = items
-        .iter()
-        .map(|(_, l, _)| kit::text_size(ui, l, f.clone()).x + 16.0 + sp::S + sp::M * 2.0)
-        .collect();
-    let change_w = 36.0;
     let h = 44.0;
-    let total =
-        sp::XS * 2.0 + item_w.iter().sum::<f32>() + (items.len() as f32 + 1.0) * sp::XS + change_w;
+    let gear_w = 36.0;
+    let total = BAR_W.min(ui.max_rect().width());
+    let chrome = 16.0 + sp::S + sp::M * 2.0;
+    let avail = total - sp::XS * 2.0 - gear_w - items.len() as f32 * sp::XS;
+    let natural: Vec<f32> = items
+        .iter()
+        .map(|(_, l, _, _)| kit::text_size(ui, l, f.clone()).x + chrome)
+        .collect();
+    let mut widths = natural.clone();
+    let sum: f32 = natural.iter().sum();
+    if sum > avail {
+        // Zu lang: die längsten Einträge kürzen, bis alles passt
+        let mut over = sum - avail;
+        while over > 0.5 {
+            let (i, _) = widths
+                .iter()
+                .enumerate()
+                .max_by(|a, b| a.1.total_cmp(b.1))
+                .unwrap();
+            let second = widths
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i)
+                .map(|(_, w)| *w)
+                .fold(0.0_f32, f32::max);
+            let cut = (widths[i] - second).max(1.0).min(over);
+            widths[i] -= cut;
+            over -= cut;
+        }
+        for (k, it) in items.iter_mut().enumerate() {
+            if widths[k] < natural[k] {
+                let max = widths[k] - chrome;
+                it.1 = if it.2 == 10 + super::settings::TAB_TARGET {
+                    fit_start(ui, &it.1, f.clone(), max)
+                } else {
+                    fit_end(ui, &it.1, f.clone(), max)
+                };
+            }
+        }
+    } else {
+        let extra = (avail - sum) / items.len() as f32;
+        for w in &mut widths {
+            *w += extra;
+        }
+    }
     let bar = Rect::from_min_size(
         pos2(top_center.x - total / 2.0, top_center.y),
         vec2(total, h),
     );
     let p = ui.painter().clone();
     kit::glass(&p, bar, radius::L);
+    let menu_id = egui::Id::unique("home_bar_menu");
+    let mut menu: Option<u8> = ui.ctx().data(|d| d.get_temp(menu_id)).flatten();
+    let mut menu_item = Rect::NOTHING;
     let mut x = bar.left() + sp::XS;
     let ir = |x: f32, w: f32| Rect::from_min_size(pos2(x, bar.top() + 4.0), vec2(w, h - 8.0));
-    for ((glyph, label, tab), w) in items.iter().zip(item_w) {
+    for ((glyph, label, act, tip), w) in items.iter().zip(widths) {
         let r = ir(x, w);
         let resp = ui
-            .interact(r, ui.make_persistent_id(("summary", *tab)), Sense::click())
+            .interact(r, ui.make_persistent_id(("summary", *act)), Sense::click())
             .on_hover_cursor(egui::CursorIcon::PointingHand)
-            .on_hover_text("Ändern");
-        let t = kit::anim(ui, resp.id, resp.hovered());
+            .on_hover_text(*tip);
+        let open = *act < 10 && menu == Some(*act as u8);
+        if open {
+            menu_item = r;
+        }
+        let t = kit::anim(ui, resp.id, resp.hovered() || open);
         if t > 0.0 {
             p.rect_filled(r, radius::M, glass_hover().gamma_multiply(t));
         }
         let col = kit::mix(text_soft(), text(), t);
-        kit::icon(
-            &p,
-            pos2(r.left() + sp::M + 8.0, r.center().y),
-            glyph,
-            16.0,
-            muted(),
-        );
+        let content = 16.0 + sp::S + kit::text_size(ui, label, f.clone()).x;
+        let cx = r.center().x - content / 2.0;
+        kit::icon(&p, pos2(cx + 8.0, r.center().y), glyph, 16.0, muted());
         p.text(
-            pos2(r.left() + sp::M + 16.0 + sp::S, r.center().y),
+            pos2(cx + 16.0 + sp::S, r.center().y),
             Align2::LEFT_CENTER,
             label,
             f.clone(),
             col,
         );
         if resp.clicked() {
-            app.settings_tab = *tab;
-            app.dialog = Some(Dialog::Settings);
+            if *act < 10 {
+                let which = *act as u8;
+                menu = if menu == Some(which) {
+                    None
+                } else {
+                    Some(which)
+                };
+                app.range_draft = None;
+                if menu.is_some() {
+                    menu_item = r;
+                }
+            } else {
+                app.settings_tab = act - 10;
+                app.dialog = Some(Dialog::Settings);
+            }
         }
         x += w + sp::XS;
     }
-    let r = ir(x, change_w);
+    let r = ir(x, gear_w);
     if kit::icon_button(ui, r, icons::GEAR, true)
-        .on_hover_text("Alle Einstellungen öffnen (Strg+B)")
+        .on_hover_text("Alle Einstellungen (Strg+B)")
         .clicked()
     {
         app.dialog = Some(Dialog::Settings);
     }
+    if let Some(which) = menu {
+        if !bar_menu(app, ui, which, bar, menu_item) {
+            menu = None;
+            app.range_draft = None;
+        }
+    }
+    ui.ctx().data_mut(|d| d.insert_temp(menu_id, menu));
 }
 
 // ------------------------------------------------------------------ Kopfbereich
@@ -1572,220 +1794,4 @@ fn fit_start(ui: &Ui, s: &str, f: egui::FontId, w: f32) -> String {
         t = ellipsize(s, n);
     }
     t
-}
-
-// ------------------------------------------------------------------ Zeitraum
-
-const DATE_H: f32 = 40.0;
-
-/// Zeitraum-Auswahl unter der Überschrift: Alle, die letzten Jahre, eigener Zeitraum.
-fn date_filter_bar(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
-    use crate::daterange::DateRange;
-    let cur = app.cfg.date_filter;
-    let custom = cur.filter(|r| {
-        r.is_year()
-            .is_none_or(|y| !app.years.iter().take(4).any(|(yy, _)| *yy == y))
-    });
-    let open = app.range_draft.is_some();
-    // (Beschriftung, Ziel, aktiv, Symbol)
-    let mut segs: Vec<(String, Option<Option<DateRange>>, bool, &str)> =
-        vec![("Alle Fotos".into(), Some(None), cur.is_none() && !open, "")];
-    for (y, _) in app.years.iter().take(4) {
-        let r = DateRange::year(*y);
-        segs.push((y.to_string(), Some(Some(r)), cur == Some(r), ""));
-    }
-    let custom_label = match custom {
-        Some(r) => r.label(),
-        None => "Eigener Zeitraum …".into(),
-    };
-    segs.push((
-        custom_label,
-        None,
-        custom.is_some() || open,
-        icons::CALENDAR_BLANK,
-    ));
-
-    let f = font(ts::SMALL, W::Medium);
-    let lead = "Zeitraum";
-    let lead_w = 16.0 + sp::S + kit::text_size(ui, lead, f.clone()).x + sp::M * 2.0;
-    let widths: Vec<f32> = segs
-        .iter()
-        .map(|(l, _, _, g)| {
-            kit::text_size(ui, l, f.clone()).x
-                + sp::M * 2.0
-                + if g.is_empty() { 0.0 } else { 16.0 + sp::XS }
-        })
-        .collect();
-    let progress = app.library_scan_progress();
-    let prog_label =
-        progress.map(|p| format!("Aufnahmedaten werden gelesen … {} %", (p * 100.0) as u32));
-    let prog_w = prog_label
-        .as_ref()
-        .map(|l| kit::text_size(ui, l, font(ts::CAPTION, W::Regular)).x + sp::M * 2.0)
-        .unwrap_or(0.0);
-    let total =
-        sp::XS * 2.0 + lead_w + widths.iter().sum::<f32>() + segs.len() as f32 * 2.0 + prog_w;
-    let bar = Rect::from_min_size(
-        pos2(top_center.x - total / 2.0, top_center.y),
-        vec2(total, DATE_H),
-    );
-    let p = ui.painter().clone();
-    kit::glass(&p, bar, radius::L);
-    let mut x = bar.left() + sp::XS;
-    kit::icon(
-        &p,
-        pos2(x + sp::M + 8.0, bar.center().y),
-        icons::CALENDAR,
-        16.0,
-        muted(),
-    );
-    p.text(
-        pos2(x + sp::M + 16.0 + sp::S, bar.center().y),
-        Align2::LEFT_CENTER,
-        lead,
-        f.clone(),
-        muted(),
-    );
-    x += lead_w;
-    for ((label, target, active, glyph), w) in segs.iter().zip(&widths) {
-        let r = Rect::from_min_size(pos2(x, bar.top() + 4.0), vec2(*w, DATE_H - 8.0));
-        let resp = ui
-            .interact(
-                r,
-                ui.make_persistent_id(("range", label.as_str())),
-                Sense::click(),
-            )
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
-        let t = kit::anim(ui, resp.id, resp.hovered());
-        if *active {
-            p.rect_filled(r, radius::M, accent_soft());
-        } else if t > 0.0 {
-            p.rect_filled(r, radius::M, glass_hover().gamma_multiply(t));
-        }
-        let col = if *active {
-            accent()
-        } else {
-            kit::mix(text_soft(), text(), t)
-        };
-        let mut tx = r.left() + sp::M;
-        if !glyph.is_empty() {
-            kit::icon(&p, pos2(tx + 8.0, r.center().y), glyph, 16.0, col);
-            tx += 16.0 + sp::XS;
-        }
-        p.text(
-            pos2(tx, r.center().y),
-            Align2::LEFT_CENTER,
-            label,
-            f.clone(),
-            col,
-        );
-        if resp.clicked() {
-            match target {
-                Some(t) => {
-                    app.range_draft = None;
-                    app.set_date_filter(*t);
-                }
-                None => {
-                    if app.range_draft.is_some() {
-                        app.range_draft = None;
-                    } else {
-                        // Vorschlag: der ganze Zeitraum, aus dem es Fotos gibt
-                        app.range_draft = Some(cur.unwrap_or_else(|| {
-                            use chrono::Datelike;
-                            let now = chrono::Local::now().year();
-                            let newest = app.years.first().map(|(y, _)| *y).unwrap_or(now);
-                            let oldest = app.years.last().map(|(y, _)| *y).unwrap_or(now);
-                            DateRange {
-                                from: (oldest, 1),
-                                to: (newest, 12),
-                            }
-                        }));
-                    }
-                }
-            }
-        }
-        x += w + 2.0;
-    }
-    if let Some(l) = prog_label {
-        p.text(
-            pos2(x + sp::M, bar.center().y),
-            Align2::LEFT_CENTER,
-            l,
-            font(ts::CAPTION, W::Regular),
-            muted(),
-        );
-    }
-}
-
-const RANGE_H: f32 = 52.0;
-
-/// Zeile unter der Zeitraum-Leiste zum Wählen eines eigenen Zeitraums (Monat und Jahr).
-/// Sie schiebt den Inhalt darunter nach unten, statt ihn zu überdecken.
-fn range_row(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
-    use crate::daterange::MONTHS;
-    use chrono::Datelike;
-    let Some(mut d) = app.range_draft else {
-        return;
-    };
-    let now = chrono::Local::now().year();
-    let mut years: Vec<i32> = app.years.iter().map(|(y, _)| *y).collect();
-    years.extend([now, d.from.0, d.to.0]);
-    let lo = *years.iter().min().unwrap_or(&now);
-    let hi = *years.iter().max().unwrap_or(&now);
-    let years: Vec<i32> = (lo - 1..=hi.max(now)).rev().collect();
-    let w = 800.0;
-    let bar = Rect::from_min_size(pos2(top_center.x - w / 2.0, top_center.y), vec2(w, RANGE_H));
-    let p = ui.painter().clone();
-    kit::glass(&p, bar, radius::L);
-    let mut apply = false;
-    let mut cancel = ui.input(|i| i.key_pressed(egui::Key::Escape));
-    let inner = bar.shrink2(vec2(sp::L, sp::S));
-    let mut child = ui.new_child(
-        egui::UiBuilder::new()
-            .max_rect(inner)
-            .layout(egui::Layout::left_to_right(egui::Align::Center)),
-    );
-    let ui = &mut child;
-    ui.spacing_mut().item_spacing.x = sp::S;
-    let pick = |ui: &mut Ui, v: &mut (i32, u32), id: &str| {
-        egui::ComboBox::from_id_salt((id, "m"))
-            .width(112.0)
-            .selected_text(MONTHS[(v.1 as usize).clamp(1, 12) - 1])
-            .show_ui(ui, |ui| {
-                for (i, m) in MONTHS.iter().enumerate() {
-                    ui.selectable_value(&mut v.1, i as u32 + 1, *m);
-                }
-            });
-        egui::ComboBox::from_id_salt((id, "y"))
-            .width(72.0)
-            .selected_text(v.0.to_string())
-            .show_ui(ui, |ui| {
-                for y in &years {
-                    ui.selectable_value(&mut v.0, *y, y.to_string());
-                }
-            });
-    };
-    ui.label(egui::RichText::new("Von").color(text_soft()));
-    pick(ui, &mut d.from, "range_from");
-    ui.add_space(sp::XS);
-    ui.label(egui::RichText::new("bis").color(text_soft()));
-    pick(ui, &mut d.to, "range_to");
-    let bw = 112.0;
-    let right = inner.right();
-    let ok = Rect::from_min_size(pos2(right - bw, inner.top()), vec2(bw, inner.height()));
-    let no = Rect::from_min_size(pos2(ok.left() - sp::S - bw, inner.top()), ok.size());
-    if kit::secondary(ui, no, "", "Abbrechen", true).clicked() {
-        cancel = true;
-    }
-    if kit::cta(ui, ok, "", "Übernehmen", true).clicked() {
-        apply = true;
-    }
-    if cancel {
-        app.range_draft = None;
-    } else if apply {
-        app.range_draft = None;
-        app.set_date_filter(Some(d));
-    } else {
-        app.range_draft = Some(d);
-    }
 }

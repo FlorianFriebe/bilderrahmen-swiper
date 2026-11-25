@@ -32,7 +32,8 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Bilderband mit allen Fotos des Ordners, per Ziehen oder Mausrad scrollbar, Punkte für behalten/weg; ein Klick springt zu einem Bild oder ändert eine Entscheidung
 - Serien (Aufnahmen höchstens 2 Sekunden auseinander) und fast gleiche Fotos hintereinander (Bild-Fingerabdruck) werden erkannt und lassen sich nebeneinander vergleichen
 - Doppelte Fotos (auch umbenannt oder verkleinert) werden am Bildinhalt und an der Aufnahmezeit erkannt und mit Vorschau angezeigt
-- Galerie der behaltenen Bilder mit Diashow; einzelne Bilder lassen sich wieder entfernen oder nachbearbeiten und neu speichern
+- Galerie der behaltenen Bilder mit Filter Quer / Hochkant und „Alle entfernen“ (mit Rückgängig); einzelne Bilder lassen sich wieder entfernen oder nachbearbeiten und neu speichern
+- Diashow wie auf dem Rahmen: Dauer, Übergang, Reihenfolge, Quer / Hochkant, Aufnahmedatum und Vollbild einstellbar
 - Im Zielordner gelöschte Bilder gelten als aussortiert und verschwinden aus Galerie und Zählern
 - Große Ansicht per gedrückter rechter Maustaste auf Ordner, Bilderband und Galerie
 - Optionales Ziel (z. B. 200 Bilder) mit Zähler
@@ -49,7 +50,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Optionale Begrenzung von Auflösung und Dateigröße (die JPEG-Qualität wird angepasst)
 - Optional Text aufs Bild: Datum, Ort (pro Ordner), Notiz (pro Bild)
 - Stil-Editor mit Vorschau am echten Foto: vier Schriften, Größe, Farbe, Deckkraft, Hintergrund (Schatten, Band, Glas), neun Positionen und Randabstand; sieben mitgelieferte Stile, eigene Stile speichern, pro Ordner festlegen, als Datei exportieren und importieren
-- Vorschau wie auf dem Rahmen (Taste V) mit Zuschnitt, Auflösung und Text
+- Wischen: Foto neben dem Zuschnitt-Rahmen nach rechts (behalten) oder links (weg) ziehen
 - Ausgabe als JPEG in `Zielordner\Quer` und `Zielordner\Hochkant`, Dateiname mit Aufnahmedatum; EXIF-Daten und Farbprofil bleiben erhalten
 
 **Abschließen**
@@ -60,7 +61,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 **Bedienung**
 - Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit ? oder F1
 - Farbthemen wie Windows, Hell, Dunkel, Sand, Salbei und Nachtblau mit vollflächigem Hintergrund
-- Aufgeräumte Einstellungen auf drei Seiten: Rahmen, Bild und App; Zeitraum und Ablauf im Pfeil-Menü am Start-Knopf
+- Aufgeräumte Einstellungen auf drei Seiten: Rahmen, Bild und App; Zeitraum und Ablauf in der Leiste unter dem Start-Knopf
 - Schriftgröße mit Strg + und Strg −
 - Kurze Einführung beim ersten Start
 - Hinweis auf neue Versionen; unter Windows Aktualisierung mit einem Klick (Download, Austausch der .exe, Neustart)
