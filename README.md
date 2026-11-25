@@ -113,28 +113,31 @@ nächste Foto wird vorgeladen.
 ```
 src/
   main.rs        Start, Fenster, Grafik-Ausweichweg
-  app.rs         Zustand und Logik: Ordner, Entscheidungen, Serien, Tasten
+  app/           Zustand und Logik, je Thema ein Modul (Ordner, Entscheiden, Bearbeiten,
+                 Nachbearbeiten, Serien, Stick, Tasten, Profile)
   history.rs     Rückgängig: Schritte, Papierkorb, Ganz von vorn
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import
   update.rs      Ein-Klick-Update unter Windows
-  imaging.rs     Laden (EXIF-Drehung), Zuschnitt, Ganz-Rand, Begradigen, Licht, Text, JPEG-Export
+  imaging/       Laden (EXIF-Drehung), Zuschnitt, Ganz-Rand, Begradigen, Licht, Text, JPEG-Export
   dupes.rs       Fingerabdrücke (Differenz-Hash) zum Erkennen doppelter Fotos
   workers.rs     Hintergrund-Threads: Vorladen, Speichern, Vorschaubilder, Aufnahmedaten
   folders.rs     Ordnerbaum, natürliche Sortierung, Fortschrittsdatei
-  system.rs      Protokoll, Vorschau-Speicher, Wechseldatenträger, Kopieren, Update-Abfrage
+  system.rs      Protokoll, Vorschau-Speicher, Wechseldatenträger, Stick-Abgleich, Update-Abfrage
   wic.rs         Windows Imaging Component als Ausweichweg (HEIC)
   util.rs        kleine Hilfsfunktionen
   ui/
     style.rs     Design-System: Abstände (8er-Raster), Radien, Größen, Farben hell/dunkel, Schriften
-    kit.rs       Bausteine: Glasflächen, Knöpfe, Umschalter, Chips, Meldungen
+    kit/         Bausteine: Glasflächen, Knöpfe, Umschalter, Chips, Meldungen
     icons.rs     Symbole (Phosphor)
     frame.rs     Ablauf eines Frames: Darstellung, Tasten, Hintergrund, Übergänge
-    home.rs, swipe.rs, gallery.rs, burst.rs, popups.rs, dialogs.rs,
-    textstyles.rs, viewer.rs   je eine Ansicht
+    home/, swipe/, gallery.rs, burst.rs, viewer.rs, textstyles.rs   je eine Ansicht
+    popups/, dialogs/   Popups an den Leisten, Einführung und seitliche Felder
 assets/fonts/    Inter, Playfair Display, Caveat, Oswald, Phosphor (Lizenzen in LIZENZEN.md)
 ```
+
+Für KI-Assistenten gibt es eine Landkarte mit Regeln in [`CLAUDE.md`](CLAUDE.md).
 
 ### Bauen
 

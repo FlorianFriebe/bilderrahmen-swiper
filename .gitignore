@@ -1,2 +1,10 @@
 /target
 *.part
+
+# Dateien, die Testläufe im Repo-Ordner anlegen können
+/protokoll.txt
+/aufnahmedaten.txt
+/fingerabdruecke.txt
+/vorschau/
+/sicherung/
+/bilderrahmen-swiper/
