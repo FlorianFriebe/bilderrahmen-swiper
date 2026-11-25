@@ -1,7 +1,7 @@
 # Bilderrahmen-Swiper – Kurzanleitung
 
 Aus vielen Fotos die besten für deinen digitalen Bilderrahmen wählen:
-**nach rechts ziehen = behalten, nach links = weg.**
+**grüner Knopf oder → = behalten, roter Knopf oder ← = weg.**
 Behaltene Fotos werden automatisch auf das Format deines Bilderrahmens gebracht und
 sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.**
 
@@ -19,8 +19,9 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    Blick. **„Ändern“** (oder ein Klick auf einen Eintrag) öffnet die Einstellungen. Unter
    *Rahmen und Format* die Auflösung deines Rahmens wählen (z. B. *10 Zoll · 1280 × 800*)
    oder eigene eintippen. Format und Größe passen sich dann automatisch an.
-2. **Ordner wählen:** Auf dem Startbildschirm **„+ Ordner hinzufügen“** anklicken oder
-   Ordner aus dem Explorer ins Fenster ziehen. Klick = an-/abwählen,
+2. **Ordner wählen:** Ordner aus dem Explorer auf die Fläche **„Ordner hierher ziehen“**
+   ziehen oder darauf klicken. Die Fläche leuchtet auf, sobald du etwas darüber hältst, und
+   sagt dir, wenn es kein Ordner ist; Ordner ohne Fotos werden nicht übernommen. Klick = an-/abwählen,
    **Doppelklick = direkt diesen Ordner starten**. **Rechte Maustaste gedrückt halten** zeigt
    die Fotos eines Ordners groß, das Mausrad blättert. Ein **kurzer Rechtsklick** (oder **⋯**
    an der Kachel) öffnet das Ordner-Menü: **Aussortierte nochmal zeigen**, **Ganz von vorn**
@@ -28,8 +29,10 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    Mit **Zeitraum** (unter der Überschrift) gehst du nur Fotos aus einem Jahr oder einem
    eigenen Zeitraum durch, z. B. *Juni – August 2023*. Der eigene Zeitraum klappt direkt
    darunter auf.
-3. **Losswipen:** Die Fotos kommen nach Aufnahmedatum sortiert. Ist ein Ordner durch,
-   schlägt das Programm den nächsten vor. Das **Haus** oben links bringt dich jederzeit zum
+3. **Loslegen:** Über dem Start-Knopf wählst du den Ablauf: **Alles in einem Durchgang** oder
+   **Erst sortieren, dann Feinschliff** (siehe unten). Die Fotos kommen nach Aufnahmedatum
+   sortiert. Ist ein Ordner durch, zeigt eine Abschlussseite, wie viele Fotos du behalten und
+   aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit zum
    Startbildschirm; dein Stand steht dann unter **„Weitermachen“**.
 4. **Auf den Rahmen bringen:** Sind alle Ordner durch, kopiert
    **„Auf USB-Stick / SD-Karte kopieren“** alles mit einem Klick. Dort wählst du auch die
@@ -44,7 +47,7 @@ Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** 
 Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zum Startbildschirm, speichert
 deinen Stand), das Zahnrad für die **Einstellungen**, der Umschalter **Quer / Hochkant**,
 Ordner und Fortschritt, die Zahl der behaltenen Bilder und ganz rechts das kleine
-**Tastatur-Symbol** mit allen Kürzeln (oder **F1**).
+**Tastatur-Symbol** mit allen Kürzeln (oder **?** bzw. **F1**).
 
 Unten schwebt die Leiste fürs Bild, sortiert nach Wichtigkeit: in der Mitte die beiden großen
 Knöpfe **Weg** (rot) und **Behalten** (grün), links **Zurück**, rechts die Werkzeuge
@@ -54,8 +57,8 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 
 | Aktion | Maus | Taste (änderbar) |
 |---|---|---|
-| Behalten | nach rechts ziehen oder **Behalten** | **→** oder D |
-| Weg | nach links ziehen oder **Weg** | **←** oder A |
+| Behalten | **Behalten** | **→** oder D |
+| Weg | **Weg** | **←** oder A |
 | Rückgängig (auch nach Neustart) | **Zurück** oder „Rückgängig“ in der Meldung | **Rücktaste** oder Strg+Z |
 | Bild drehen | **Drehen** | **R**, andersherum **L** |
 | Quer ↔ Hochkant | **Format** oder oben auf das Format klicken | **H** |
@@ -68,20 +71,49 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Text aufs Bild an / aus | **Text** | **T** |
 | Textfeld (Ort, Notiz, Stil) | kleiner Pfeil an **Text** | – |
 | Zum Startbildschirm, später weitermachen | **Haus** oben links | – |
-| Ausschnitt verschieben | **rechte Maustaste** gedrückt halten und ziehen | – |
-| Hinein-/Herauszoomen | **Mausrad** | + / − |
+| Ausschnitt verschieben | den hellen Rahmen mit der Maus ziehen | – |
+| Ausschnitt größer / kleiner | an einer **Ecke** des Rahmens ziehen | – |
+| Hinein-/Herauszoomen | **Mausrad** oder zwei Finger am Touchpad | + / − |
 | Ausschnitt zurücksetzen | Doppelklick aufs Bild | 0 |
-| Foto groß ansehen | rechte Maustaste auf Filmstreifen, Galerie oder Ordner halten | – |
+| Durch alle Fotos blättern | Bilderband unten mit der Maus ziehen oder Mausrad | – |
+| Foto groß ansehen | rechte Maustaste auf Bilderband, Galerie oder Ordner halten | – |
 | Serie vergleichen | gelber Hinweis „Serie“ | **S** |
 | Behaltene ansehen, Diashow | grünes ♥ in der oberen Leiste, dort **Diashow** | **G** |
 | Behaltenes Bild nachbearbeiten | in der Galerie **Bearbeiten** oder Doppelklick | – |
 | Einstellungen | Zahnrad oben | Strg+B |
 | Schrift größer / kleiner | – | **Strg +** / **Strg −** (Strg 0 = normal) |
 | Vollbild | – | F11 |
-| Alle Tastenkürzel | Tastatur-Symbol oben | F1 |
+| Alle Tastenkürzel | Tastatur-Symbol oben | **?** oder F1 |
 
 **Tasten ändern:** Einstellungen → *Tasten*. Auf ein Feld klicken und die
 neue Taste drücken. Rechtsklick leert ein Feld.
+
+## Zuschneiden
+
+Das Foto liegt ganz auf der Karte, der **helle Rahmen** zeigt, was auf den Bilderrahmen kommt.
+Zieh den Rahmen mit der Maus an die richtige Stelle. An den **Ecken** (kleine weiße Winkel)
+ziehst du ihn größer oder kleiner, das Seitenverhältnis bleibt dabei gleich. Mausrad und
+zwei Finger am Touchpad zoomen ebenfalls. **Doppelklick** setzt zurück.
+
+Neue Fotos bekommen gleich einen **schlauen Ausschnitt**: Das Programm legt den Rahmen auf
+den Teil mit Menschen und Details statt stur in die Mitte. Abschalten unter Einstellungen →
+*Rahmen und Format* → *Ausschnitt und Ablauf*.
+
+## Erst sortieren, dann Feinschliff
+
+Wählst du auf dem Startbildschirm **Erst sortieren, dann Feinschliff**, zeigt der erste
+Durchgang nur das Foto mit **Zurück**, **Weg**, **Behalten** und **Drehen**. So gehst du große
+Ordner schnell durch. Ist der Ordner fertig, startet **„Feinschliff: … zuschneiden“** einen
+zweiten Durchgang nur über die gerade behaltenen Fotos, mit allen Werkzeugen. **Behalten**
+speichert und geht zum nächsten Foto, **Weg** nimmt es doch noch heraus, **Esc** beendet den
+Feinschliff (die übrigen Fotos bleiben dann im schnellen Zuschnitt). Mit **„Später“** kannst du
+ihn auch auslassen und erst den nächsten Ordner machen.
+
+## Bilderband
+
+Unter dem Foto liegt das Bilderband mit allen Fotos des Ordners. Mit gedrückter Maus ziehen
+(oder Mausrad) blättert, ein Klick springt zu einem Foto. Ein **grüner Punkt** heißt behalten,
+ein **roter** weg.
 
 ## Vorschau und Diashow
 
@@ -95,8 +127,8 @@ Mit **F** wird ein Foto nicht zugeschnitten, sondern **ganz** auf den Rahmen gel
 Hochkant-Fotos auf einem Quer-Rahmen: Ein Hochkant-Foto wird dabei automatisch auf **Quer**
 gestellt und landet im Ordner `Quer`. Mit **H** kannst du das wie gewohnt umstellen.
 
-- **Größe und Lage:** Auch hier zoomt das **Mausrad** und die **rechte Maustaste** verschiebt.
-  Kleiner lässt mehr Rand, größer schneidet an. Doppelklick setzt zurück.
+- **Größe und Lage:** Das Foto mit der Maus verschieben, an den Ecken größer oder kleiner
+  ziehen, Mausrad zoomt. Kleiner lässt mehr Rand, größer schneidet an. Doppelklick setzt zurück.
 - **Rand:** Der Pfeil an **Ganz** wählt *Unscharf* (mit Regler für die Stärke), *Fotofarbe*,
   *Schwarz* oder *Weiß*. **Als Standard** übernimmt die Wahl für alle neuen Bilder (auch unter
   Einstellungen → *Rahmen und Format*).
@@ -121,6 +153,12 @@ Der Pfeil an **Drehen** öffnet ein kleines Feld:
 Liegt dasselbe Foto in zwei Ordnern (auch umbenannt oder verkleinert), erscheint ein gelber
 Hinweis **„Schon behalten“** mit kleinem Vorschaubild. Ein Klick zeigt das frühere Bild groß.
 Erkannt wird am Bildinhalt und an der Aufnahmezeit, nicht am Dateinamen.
+
+## Ähnliche Fotos vergleichen
+
+Mehrere fast gleiche Fotos hintereinander (Serie oder gleiches Motiv) bekommen einen gelben
+Hinweis **„Serie“**. **S** (oder ein Klick darauf) zeigt sie nebeneinander, du markierst die
+besten und bestätigst mit **Enter**. Erkannt wird an der Aufnahmezeit und am Bildinhalt.
 
 ## Behaltene nachbearbeiten
 
@@ -178,7 +216,8 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
   funktioniert nach einem Neustart weiterhin.
 - **Zeitraum:** Die Aufnahmedaten werden einmal im Hintergrund gelesen und gemerkt. Solange
   das läuft, zählen Fotos ohne bekanntes Datum vorerst mit.
-- **Hell oder dunkel:** Einstellungen → *Darstellung*. Standard ist „wie Windows“.
+- **Farben:** Einstellungen → *Darstellung*: *wie Windows*, *Hell*, *Dunkel*, *Sand*, *Salbei*
+  oder *Nachtblau*. Der Hintergrund ist immer eine ruhige, volle Farbe.
 - **Formate:** JPG, PNG, WebP, BMP, TIFF, GIF. **iPhone-Fotos (HEIC)** funktionieren, wenn
   in Windows die kostenlosen *HEIF-Bilderweiterungen* (und ggf. *HEVC-Videoerweiterungen*)
   aus dem Microsoft Store installiert sind.

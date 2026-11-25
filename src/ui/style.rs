@@ -3,7 +3,7 @@
 //! Alle Maße der Oberfläche kommen von hier. Neue Werte bitte hier ergänzen statt
 //! Zahlen in den Ansichten zu verteilen.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
 use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, Stroke, TextStyle};
@@ -67,6 +67,67 @@ pub fn set_dark(dark: bool) {
     DARK.store(dark, Ordering::Relaxed);
 }
 
+/// Hintergrundfarbe des Farbthemas (0 = Standard für hell/dunkel).
+static THEME_BG: AtomicU32 = AtomicU32::new(0);
+
+/// Farbthema: Name, hell/dunkel (None = wie Windows) und Hintergrund.
+#[derive(Clone, Copy)]
+pub struct Theme {
+    pub name: &'static str,
+    pub dark: Option<bool>,
+    /// 0xRRGGBB, 0 = Standard
+    pub bg: u32,
+}
+
+/// Reihenfolge = gespeicherte Nummer in den Einstellungen.
+pub const THEMES: [Theme; 6] = [
+    Theme {
+        name: "wie Windows",
+        dark: None,
+        bg: 0,
+    },
+    Theme {
+        name: "Dunkel",
+        dark: Some(true),
+        bg: 0,
+    },
+    Theme {
+        name: "Hell",
+        dark: Some(false),
+        bg: 0,
+    },
+    Theme {
+        name: "Sand",
+        dark: Some(false),
+        bg: 0xebe3d6,
+    },
+    Theme {
+        name: "Salbei",
+        dark: Some(false),
+        bg: 0xdde6dc,
+    },
+    Theme {
+        name: "Nachtblau",
+        dark: Some(true),
+        bg: 0x0f1a2e,
+    },
+];
+
+/// Palette und Hintergrund für diesen Frame setzen.
+pub fn set_theme(dark: bool, bg: u32) {
+    set_dark(dark);
+    THEME_BG.store(bg, Ordering::Relaxed);
+}
+
+/// Fensterhintergrund: volle Farbe des Themas.
+pub fn bg() -> Color32 {
+    match THEME_BG.load(Ordering::Relaxed) {
+        0 if is_dark() => hex(0x111318),
+        0 => hex(0xeceef2),
+        v => hex(v),
+    }
+}
+
 const fn hex(v: u32) -> Color32 {
     Color32::from_rgb((v >> 16) as u8, (v >> 8) as u8, v as u8)
 }
@@ -93,10 +154,6 @@ macro_rules! palette {
 }
 
 palette! {
-    /// Fensterhintergrund unter dem Stimmungsbild
-    bg = hex(0x0d0e12), hex(0xeef0f4);
-    /// Schleier über dem verschwommenen Foto
-    veil = hexa(0x0a0b0f, 150), hexa(0xf2f4f8, 190);
     /// Glasflächen
     glass = hexa(0xffffff, 20), hexa(0xffffff, 150);
     glass_hover = hexa(0xffffff, 34), hexa(0xffffff, 215);

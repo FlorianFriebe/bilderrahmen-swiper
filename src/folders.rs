@@ -130,6 +130,9 @@ pub struct Entry {
     /// Einstellungen beim Behalten (zum Nachbearbeiten)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub edit: Option<crate::imaging::Edit>,
+    /// nur schnell sortiert, Feinschliff steht noch aus
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub grob: bool,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -257,6 +260,7 @@ mod status_backup {
                 d: "skip".into(),
                 out: None,
                 edit: None,
+                grob: false,
             },
         );
         save_status(&dir, &s).unwrap();

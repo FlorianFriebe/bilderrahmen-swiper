@@ -1,7 +1,7 @@
 # Bilderrahmen-Swiper
 
 Windows-Programm zum Aussortieren von Fotos für einen digitalen Bilderrahmen. Fotos werden
-einzeln angezeigt und per Wischgeste oder Taste behalten oder übersprungen. Behaltene Fotos
+einzeln angezeigt und per Knopf oder Taste behalten oder übersprungen. Behaltene Fotos
 werden passend für den Rahmen zugeschnitten, verkleinert und in einen Zielordner kopiert.
 Die Originale werden nicht verändert.
 
@@ -23,19 +23,20 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Ordner (auch mehrere, inklusive Unterordner) per Dialog oder Drag-and-drop hinzufügen
 - Fotos nach Aufnahmedatum sortiert durchgehen; der Fortschritt pro Ordner bleibt gespeichert (im Zielordner und als Sicherung in AppData)
 - Ordner-Menü (⋯ oder kurzer Rechtsklick): aussortierte Fotos nochmal zeigen oder den Ordner ganz von vorn beginnen
-- Behalten oder Weg per Ziehen, Knopf oder Taste; Rückgängig auch nach einem Neustart
+- Behalten oder Weg per Knopf oder Taste; Rückgängig auch nach einem Neustart
+- Wahlweise zwei Durchgänge: erst schnell sortieren, danach Feinschliff (Zuschnitt, Text) nur für die behaltenen Fotos
 - Zeitraum-Filter: nur Fotos aus einem Jahr oder einem frei wählbaren Monatsbereich durchgehen; die Aufnahmedaten werden einmal gelesen und zwischengespeichert
 - Verlauf: eine Auswahl von Ordnern lässt sich über das Haus-Symbol unterbrechen und später an derselben Stelle mit denselben Einstellungen fortsetzen; Einträge lassen sich umbenennen und entfernen
-- Filmstreifen mit den Nachbarbildern; ein Klick springt zu einem Bild oder ändert eine Entscheidung
-- Serien (Aufnahmen höchstens 2 Sekunden auseinander) werden erkannt und lassen sich nebeneinander vergleichen
+- Bilderband mit allen Fotos des Ordners, per Ziehen oder Mausrad scrollbar, Punkte für behalten/weg; ein Klick springt zu einem Bild oder ändert eine Entscheidung
+- Serien (Aufnahmen höchstens 2 Sekunden auseinander) und fast gleiche Fotos hintereinander (Bild-Fingerabdruck) werden erkannt und lassen sich nebeneinander vergleichen
 - Doppelte Fotos (auch umbenannt oder verkleinert) werden am Bildinhalt und an der Aufnahmezeit erkannt und mit Vorschau angezeigt
 - Galerie der behaltenen Bilder mit Diashow; einzelne Bilder lassen sich wieder entfernen oder nachbearbeiten und neu speichern
 - Im Zielordner gelöschte Bilder gelten als aussortiert und verschwinden aus Galerie und Zählern
-- Große Ansicht per gedrückter rechter Maustaste auf Ordner, Filmstreifen und Galerie
+- Große Ansicht per gedrückter rechter Maustaste auf Ordner, Bilderband und Galerie
 - Optionales Ziel (z. B. 200 Bilder) mit Zähler
 
 **Aufbereiten**
-- Zuschnitt auf das Seitenverhältnis des Rahmens, getrennt für Quer und Hochkant
+- Zuschnitt auf das Seitenverhältnis des Rahmens, getrennt für Quer und Hochkant; Rahmen direkt mit der Maus verschieben und an den Ecken skalieren, Startausschnitt automatisch auf Menschen und Details
 - Ausschnitt verschieben und zoomen, Drehen in 90°-Schritten
 - Hilfslinien wie in Lightroom: Drittel, Goldener Schnitt, Raster, Diagonale, Goldenes Dreieck, Goldene Spirale (Taste O)
 - Begradigen um bis zu ±10°: Vorschlag aus erkannten Kanten oder eine selbst gezogene Linie am Horizont
@@ -55,9 +56,10 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Reihenfolge auf dem Rahmen: nach Datum, zufällig oder nach Ordner (über eine vierstellige Nummer vor dem Dateinamen; beim erneuten Kopieren werden vorhandene Dateien nur umbenannt)
 
 **Bedienung**
-- Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit F1
+- Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit ? oder F1
+- Farbthemen wie Windows, Hell, Dunkel, Sand, Salbei und Nachtblau mit vollflächigem Hintergrund
 - Einstellungen als Karte mit Seiten für Rahmen und Format, Text, Zielordner, Darstellung und Tasten; die wichtigsten stehen auch auf dem Startbildschirm
-- Heller und dunkler Modus (folgt Windows), Schriftgröße mit Strg + und Strg −
+- Schriftgröße mit Strg + und Strg −
 - Kurze Einführung beim ersten Start
 - Hinweis auf neue Versionen; unter Windows Aktualisierung mit einem Klick (Download, Austausch der .exe, Neustart)
 

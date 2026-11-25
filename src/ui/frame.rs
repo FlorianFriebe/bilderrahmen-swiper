@@ -32,11 +32,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     dialogs::capture_key(app, ui);
     handle_keys(app, ui, now, ws.width());
 
-    let bg_tex = match app.view {
-        View::Swipe | View::Burst => app.tex.as_ref().map(|t| t.blur.id()),
-        View::Home | View::Gallery => home::ambient_tex(app),
-    };
-    super::ambient(ui, full, bg_tex);
+    ui.painter().rect_filled(full, 0.0, bg());
 
     // Ansicht weich einblenden, wenn sie wechselt
     let fade = view_fade(ui, app.view, now);
@@ -50,8 +46,11 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         View::Burst => burst::show(app, &mut view_ui, ws),
     }
 
+    if app.view == View::Swipe {
+        app.refine_groups();
+    }
     if app.view == View::Swipe
-        && !app.cfg.intro_done
+        && (!app.cfg.intro_done || app.cfg.intro_version < crate::app::INTRO_VERSION)
         && app.intro_step.is_none()
         && app.current().is_some()
     {
@@ -101,7 +100,9 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
             app.undo();
         }
     }
-    drop_overlay(ui, full);
+    if app.view != View::Home {
+        drop_overlay(ui, full);
+    }
 
     app.update_preload();
     if app.saver.queued() > 0 || app.scan.is_some() || app.lib_scan.is_some() {
@@ -114,17 +115,21 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     }
 }
 
-/// Hell/dunkel und Schriftgröße aus den Einstellungen übernehmen.
+/// Farbthema und Schriftgröße aus den Einstellungen übernehmen.
 fn apply_appearance(app: &mut SwiperApp, ctx: &egui::Context) {
-    let pref = match app.cfg.theme {
-        1 => egui::ThemePreference::Dark,
-        2 => egui::ThemePreference::Light,
-        _ => egui::ThemePreference::System,
+    let theme = style::THEMES
+        .get(app.cfg.theme as usize)
+        .copied()
+        .unwrap_or(style::THEMES[0]);
+    let pref = match theme.dark {
+        Some(true) => egui::ThemePreference::Dark,
+        Some(false) => egui::ThemePreference::Light,
+        None => egui::ThemePreference::System,
     };
     if ctx.options(|o| o.theme_preference) != pref {
         ctx.set_theme(pref);
     }
-    style::set_dark(ctx.theme() == egui::Theme::Dark);
+    style::set_theme(ctx.theme() == egui::Theme::Dark, theme.bg);
     app.cfg.ui_scale = app.cfg.ui_scale.clamp(0.7, 1.8);
     if (ctx.zoom_factor() - app.cfg.ui_scale).abs() > 0.001 {
         ctx.set_zoom_factor(app.cfg.ui_scale);
@@ -202,11 +207,26 @@ fn handle_drops(app: &mut SwiperApp, ui: &Ui) {
             .filter(|p| !p.as_os_str().is_empty())
             .collect()
     });
-    if !dropped.is_empty() {
-        for p in dropped {
-            app.add_root(p);
+    if dropped.is_empty() {
+        return;
+    }
+    let mut added = vec![];
+    let mut problems = vec![];
+    for p in dropped {
+        match app.add_checked(p) {
+            Ok(name) => added.push(name),
+            Err(e) => problems.push(e),
         }
+    }
+    if !added.is_empty() {
         app.rescan();
+    }
+    if let Some(e) = problems.first() {
+        app.toast(e.clone());
+    } else if added.len() == 1 {
+        app.toast(format!("„{}“ hinzugefügt", added[0]));
+    } else if added.len() > 1 {
+        app.toast(format!("{} Ordner hinzugefügt", added.len()));
     }
 }
 
@@ -261,7 +281,12 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         app.dialog = Some(Dialog::Settings);
         return;
     }
-    if !m.command && k(Key::F1) {
+    let question = ctx.input(|i| {
+        i.events
+            .iter()
+            .any(|e| matches!(e, egui::Event::Text(t) if t == "?"))
+    });
+    if !m.command && (k(Key::F1) || k(Key::Questionmark) || question) {
         app.dialog = Some(Dialog::Shortcuts);
         return;
     }

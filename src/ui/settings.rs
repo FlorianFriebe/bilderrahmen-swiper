@@ -492,6 +492,16 @@ fn tab_frame(app: &mut SwiperApp, ui: &mut Ui) {
     });
     ui.add_space(8.0);
 
+    kit::section(ui, "Ausschnitt und Ablauf");
+    ui.checkbox(
+        &mut app.cfg.smart_crop,
+        "Ausschnitt automatisch auf das Wichtigste legen",
+    )
+    .on_hover_text("Bei neuen Fotos sucht die App den Teil mit Menschen und Details. Du kannst den Rahmen danach wie immer verschieben.");
+    ui.checkbox(&mut app.cfg.two_pass, "Erst sortieren, dann Feinschliff")
+        .on_hover_text("Erster Durchgang nur behalten oder weg. Danach schneidest du die behaltenen Fotos in Ruhe zu.");
+    ui.add_space(8.0);
+
     kit::section(ui, "Rand bei „Ganz“");
     super::dialogs::fill_bg_ui(ui, &mut app.cfg.fill_bg);
     ui.colored_label(
@@ -595,13 +605,13 @@ fn tab_look(app: &mut SwiperApp, ui: &mut Ui) {
     kit::section(ui, "Aussehen");
     ui.horizontal(|ui| {
         ui.add_sized([78.0, 20.0], egui::Label::new("Farben"));
-        let names = ["wie Windows", "dunkel", "hell"];
+        let themes = super::style::THEMES;
         egui::ComboBox::from_id_salt("theme")
             .width(ui.available_width())
-            .selected_text(names[(app.cfg.theme as usize).min(2)])
+            .selected_text(themes[(app.cfg.theme as usize).min(themes.len() - 1)].name)
             .show_ui(ui, |ui| {
-                for (i, n) in names.iter().enumerate() {
-                    ui.selectable_value(&mut app.cfg.theme, i as u8, *n);
+                for (i, t) in themes.iter().enumerate() {
+                    ui.selectable_value(&mut app.cfg.theme, i as u8, t.name);
                 }
             });
     });
@@ -624,6 +634,7 @@ fn tab_look(app: &mut SwiperApp, ui: &mut Ui) {
     ui.horizontal(|ui| {
         if ui.add(button("Einführung zeigen")).clicked() {
             app.cfg.intro_done = false;
+            app.cfg.intro_version = 0;
             app.intro_step = None;
             if app.view != View::Swipe {
                 app.toast("Die Einführung startet, sobald du Fotos durchgehst.".into());

@@ -33,11 +33,11 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
             kicker: "WILLKOMMEN",
             title: "Aus vielen Fotos die besten für deinen Rahmen wählen",
             bullets: vec![
-                b(icons::HEART, "Behalten: Foto nach rechts ziehen", k("keep")),
-                b(icons::X, "Weg: Foto nach links ziehen", k("skip")),
+                b(icons::HEART, "Behalten: grüner Knopf oder Pfeiltaste", k("keep")),
+                b(icons::X, "Weg: roter Knopf oder Pfeiltaste", k("skip")),
                 b(
                     icons::CROP,
-                    "Ausschnitt: rechte Maustaste halten und ziehen, Mausrad zoomt",
+                    "Ausschnitt: hellen Rahmen mit der Maus ziehen, an den Ecken größer oder kleiner ziehen. Mausrad und zwei Finger am Touchpad zoomen",
                     String::new(),
                 ),
                 b(icons::UNDO, "Vertan? Die letzte Entscheidung zurücknehmen", k("undo")),
@@ -55,7 +55,7 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
             bullets: vec![
                 b(icons::ROTATE, "Drehen, falls das Foto schief liegt", k("rot_r")),
                 b(icons::SWAP, "Quer oder hochkant zuschneiden", k("orient")),
-                b(icons::FILL, "Ganzes Foto auf unscharfem Hintergrund", k("fill")),
+                b(icons::FILL, "Ganzes Foto statt Zuschnitt, der Pfeil wählt den Rand", k("fill")),
                 b(
                     icons::TEXT,
                     "Text an oder aus, der kleine Pfeil öffnet Ort, Notiz und Stil",
@@ -64,7 +64,7 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
                 b(icons::EYE, "Vorschau, genau wie später auf dem Rahmen", k("preview")),
                 b(
                     icons::IMAGE,
-                    "Filmstreifen: grün behalten, rot weg. Rechte Maustaste halten zeigt ein Foto groß",
+                    "Bilderband: mit der Maus ziehen zum Blättern. Grüner Punkt behalten, roter weg. Rechte Maustaste halten zeigt ein Foto groß",
                     String::new(),
                 ),
             ],
@@ -87,7 +87,7 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
                     "Einstellungen: Rahmen, Text, Zielordner und Tasten",
                     String::new(),
                 ),
-                b(icons::KEYBOARD, "Alle Tastenkürzel auf einen Blick", "F1".into()),
+                b(icons::KEYBOARD, "Alle Tastenkürzel auf einen Blick", "?".into()),
             ],
             spot: app.spots.menu,
         },
@@ -119,6 +119,7 @@ pub fn intro(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
     let Some(step) = all.get(i) else {
         app.intro_step = None;
         app.cfg.intro_done = true;
+        app.cfg.intro_version = crate::app::INTRO_VERSION;
         return;
     };
     let n = all.len();
@@ -884,13 +885,16 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
             ui.label(egui::RichText::new("Tastenkürzel").font(bold(19.0)));
         });
         ui.add_space(sp::M);
-        let mouse: [(&str, &str); 4] = [
-            ("Foto ziehen", "nach rechts behalten, nach links weg"),
-            ("Rechte Maustaste ziehen", "Ausschnitt verschieben"),
-            ("Mausrad", "Ausschnitt zoomen"),
+        let mouse: [(&str, &str); 6] = [
+            ("Im Foto ziehen", "Ausschnitt verschieben"),
+            ("Ecke ziehen", "Ausschnitt größer oder kleiner"),
+            ("Mausrad / zwei Finger", "Ausschnitt zoomen"),
+            ("Strg + ziehen", "Horizont-Linie zum Begradigen"),
             ("Doppelklick", "Ausschnitt zurücksetzen"),
+            ("Bilderband ziehen", "durch alle Fotos blättern"),
         ];
-        let fixed: [(&str, &str); 5] = [
+        let fixed: [(&str, &str); 6] = [
+            ("? oder F1", "Diese Übersicht"),
             ("Strg + Z", "Rückgängig"),
             ("Strg + B", "Einstellungen"),
             ("Strg + / −", "Schriftgröße (Strg 0 = normal)"),

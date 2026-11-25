@@ -27,6 +27,9 @@ pub fn dhash(img: &RgbImage) -> u64 {
     h
 }
 
+/// Bis zu diesem Abstand gelten zwei Fotos als „ähnlich“ (zum Vergleichen anbieten).
+pub const SIMILAR: u32 = 10;
+
 pub fn distance(a: u64, b: u64) -> u32 {
     (a ^ b).count_ones()
 }

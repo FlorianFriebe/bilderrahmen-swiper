@@ -2,14 +2,12 @@
 
 use std::path::PathBuf;
 
-use egui::{
-    pos2, vec2, Align2, Color32, Id, Rect, Sense, Shape, Stroke, StrokeKind, TextureId, Ui,
-};
+use egui::{pos2, vec2, Align2, Color32, Id, Rect, Sense, Shape, Stroke, StrokeKind, Ui};
 
 use super::kit::{self, Tone};
 use super::style::*;
 use super::{bilder, ellipsize, icons, image_cover};
-use crate::app::{Dialog, FolderInfo, SwiperApp, View};
+use crate::app::{Dialog, SwiperApp, View};
 use crate::folders;
 use crate::imaging::Orient;
 use crate::session::{Session, SessionProgress};
@@ -28,20 +26,6 @@ fn fotos(n: usize) -> String {
 }
 
 /// Bild für den Hintergrund: erster ausgewählter Ordner mit Vorschau.
-pub fn ambient_tex(app: &SwiperApp) -> Option<TextureId> {
-    let pick = |f: &FolderInfo| f.first.as_ref().and_then(|p| app.thumb_blur(p));
-    if let Some(done) = &app.finished {
-        if let Some(t) = app.folders.iter().find(|f| &f.path == done).and_then(pick) {
-            return Some(t);
-        }
-    }
-    app.folders
-        .iter()
-        .filter(|f| app.is_selected(&f.path))
-        .chain(app.folders.iter())
-        .find_map(pick)
-}
-
 /// Enter / Start-Knopf
 pub fn start(app: &mut SwiperApp) {
     if app.finished.is_some() {
@@ -60,11 +44,127 @@ fn pick_folders(app: &mut SwiperApp) {
         .set_title("Ordner mit Fotos wählen")
         .pick_folders()
     {
+        let mut ok = false;
+        let mut problem = None;
         for d in dirs {
-            app.add_root(d);
+            match app.add_checked(d) {
+                Ok(_) => ok = true,
+                Err(e) => problem = Some(e),
+            }
         }
-        app.rescan();
+        if ok {
+            app.rescan();
+        }
+        if let Some(e) = problem {
+            app.toast(e);
+        }
     }
+}
+
+/// Große Fläche zum Hineinziehen, solange noch kein Ordner da ist.
+const DROP: egui::Vec2 = egui::vec2(640.0, 220.0);
+/// Zeile mit der Wahl des Ablaufs über dem Start-Knopf.
+const MODE_H: f32 = 44.0;
+
+/// Werden gerade Dateien über das Fenster gezogen? `Some(true)`, wenn mindestens
+/// ein Ordner oder Foto dabei ist (oder der Pfad unbekannt ist).
+fn drag_hover(ui: &Ui) -> Option<bool> {
+    ui.input(|i| {
+        let files = &i.raw.hovered_files;
+        if files.is_empty() {
+            return None;
+        }
+        Some(files.iter().any(|f| match &f.path {
+            Some(p) => p.is_dir() || crate::imaging::is_image(p),
+            None => true,
+        }))
+    })
+}
+
+/// Fläche „Ordner hierher ziehen oder klicken“. Gibt `true` beim Klick zurück.
+fn drop_zone(ui: &Ui, r: Rect) -> bool {
+    let resp = ui
+        .interact(r, ui.make_persistent_id("drop_zone"), Sense::click())
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    let drag = drag_hover(ui);
+    let hot = resp.hovered() || drag.is_some();
+    let t = kit::anim(ui, resp.id, hot);
+    let bad = drag == Some(false);
+    let col = if bad { skip() } else { accent() };
+    let p = ui.painter();
+    p.rect_filled(
+        r,
+        radius::CARD,
+        kit::mix(glass(), if bad { skip_soft() } else { accent_soft() }, t),
+    );
+    dashed_round_rect(
+        p,
+        r.shrink(1.0),
+        radius::CARD as f32,
+        kit::mix(divider(), col, t),
+    );
+    let c = r.center();
+    let (title, sub) = match drag {
+        Some(true) => (
+            "Loslassen zum Hinzufügen",
+            "Alle Fotos darin und in Unterordnern",
+        ),
+        Some(false) => (
+            "Das ist kein Ordner",
+            "Bitte einen Ordner mit Fotos hierher ziehen",
+        ),
+        None => (
+            "Ordner hierher ziehen",
+            "oder klicken, um einen Ordner auszuwählen",
+        ),
+    };
+    let fg = kit::mix(text_soft(), if bad { skip() } else { text() }, t);
+    kit::icon(
+        p,
+        c - vec2(0.0, 40.0),
+        if bad {
+            icons::WARNING
+        } else {
+            icons::FOLDER_PLUS
+        },
+        40.0,
+        kit::mix(muted(), col, t),
+    );
+    p.text(
+        c + vec2(0.0, 12.0),
+        Align2::CENTER_CENTER,
+        title,
+        font(ts::TITLE, W::Semibold),
+        fg,
+    );
+    p.text(
+        c + vec2(0.0, 42.0),
+        Align2::CENTER_CENTER,
+        sub,
+        font(ts::BODY, W::Regular),
+        text_soft(),
+    );
+    resp.clicked()
+}
+
+/// Wahl des Ablaufs: alles in einem Durchgang oder erst sortieren, dann Feinschliff.
+fn mode_switch(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
+    let labels = vec![
+        "Alles in einem Durchgang".to_string(),
+        "Erst sortieren, dann Feinschliff".to_string(),
+    ];
+    let w = kit::segmented_width(ui, &labels) + sp::S * 2.0;
+    let r = Rect::from_center_size(top_center + vec2(0.0, MODE_H / 2.0), vec2(w, MODE_H));
+    kit::glass(ui.painter(), r, radius::L);
+    let inner = r.shrink(sp::XS);
+    let sel = Some(app.cfg.two_pass as usize);
+    if let Some(i) = kit::segmented_bare(ui, inner, &labels, sel) {
+        app.cfg.two_pass = i == 1;
+    }
+    ui.interact(r, ui.make_persistent_id("mode_tip"), Sense::hover())
+        .on_hover_text(
+            "Erst sortieren: Du entscheidest nur schnell behalten oder weg. Wenn der Ordner durch ist, schneidest du die behaltenen Fotos in Ruhe zu.",
+        );
 }
 
 /// Höhe einer Session-Karte unter „Weitermachen“.
@@ -106,10 +206,13 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     };
     let folders_label_h = if shown > 0 { LABEL_H + sp::M } else { 0.0 };
 
-    let footer_h = if start_screen {
-        56.0 + sp::L + 44.0
-    } else {
+    let empty = app.folders.is_empty();
+    let footer_h = if !start_screen {
         0.0
+    } else if empty {
+        44.0
+    } else {
+        MODE_H + sp::M + 56.0 + sp::L + 44.0
     };
     let date_bar = start_screen && !app.folders.is_empty();
     let range_open = date_bar && app.range_draft.is_some();
@@ -123,7 +226,11 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         0.0
     };
     let grid_max = ws.bottom() - content_top - fixed - footer_total;
-    let grid_h = (rows as f32 * (TILE.y + sp::L) - sp::L).min(grid_max.max(TILE.y));
+    let grid_h = if empty {
+        DROP.y
+    } else {
+        (rows as f32 * (TILE.y + sp::L) - sp::L).min(grid_max.max(TILE.y))
+    };
     let total = fixed + grid_h + footer_total;
     let top = (ws.center().y - total / 2.0).max(content_top);
 
@@ -164,25 +271,37 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     }
 
     let used = n.min(cols) as f32;
-    let grid_w = used * TILE.x + (used - 1.0) * sp::L;
+    let grid_w = if empty {
+        DROP.x.min(ws.width())
+    } else {
+        used * TILE.x + (used - 1.0) * sp::L
+    };
     let gx = ws.center().x - grid_w / 2.0;
     if shown > 0 {
         section_label(ui, pos2(gx + sp::XS, y), "NEUE AUSWAHL");
         y += LABEL_H + sp::M;
     }
     let grid = Rect::from_min_size(pos2(gx, y), vec2(grid_w, grid_h));
-    tiles(app, ui, grid, cols);
+    if empty {
+        if drop_zone(ui, grid) {
+            pick_folders(app);
+        }
+    } else {
+        tiles(app, ui, grid, cols);
+    }
     if app.view != View::Home {
         return;
     }
     y = grid.bottom() + sp::XXL;
 
-    if start_screen {
+    if start_screen && empty {
+        settings_summary(app, ui, pos2(ws.center().x, y));
+    } else if start_screen {
+        mode_switch(app, ui, pos2(ws.center().x, y));
+        y += MODE_H + sp::M;
         let open = app.selected_open();
         let range = app.cfg.date_filter.map(|r| r.label());
-        let (glyph, label, enabled) = if app.folders.is_empty() {
-            (icons::FOLDER_PLUS, "Ordner hinzufügen".to_string(), true)
-        } else if open == 0 {
+        let (glyph, label, enabled) = if open == 0 {
             let l = match &range {
                 Some(r) => format!("Keine offenen Fotos aus {r}"),
                 None => "Keine offenen Fotos ausgewählt".to_string(),
@@ -198,17 +317,9 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         let w = (kit::text_size(ui, &label, font(ts::BUTTON, W::Semibold)).x + 120.0).max(400.0);
         let r = Rect::from_center_size(pos2(ws.center().x, y + 28.0), vec2(w, 56.0));
         let resp = kit::cta(ui, r, glyph, &label, enabled);
-        let resp = if app.folders.is_empty() {
-            resp
-        } else {
-            resp.on_hover_text("Startet eine neue Session mit den ausgewählten Ordnern. Doppelklick auf einen Ordner startet nur diesen.")
-        };
+        let resp = resp.on_hover_text("Startet eine neue Session mit den ausgewählten Ordnern. Doppelklick auf einen Ordner startet nur diesen.");
         if resp.clicked() {
-            if app.folders.is_empty() {
-                pick_folders(app);
-            } else {
-                app.start_session();
-            }
+            app.start_session();
         }
         settings_summary(app, ui, pos2(ws.center().x, r.bottom() + sp::L));
     }
@@ -855,20 +966,26 @@ fn header_lines(app: &SwiperApp) -> Header {
             .map(|f| f.label.clone())
             .unwrap_or_else(|| folders::file_name(done));
         let kept = f.map(|f| f.kept).unwrap_or(0);
+        let (skipped, _) = app.folder_decisions(done);
+        let mut sub = format!("{} behalten  ·  {} weg", fmt_int(kept), fmt_int(skipped));
+        if let Some(secs) = app.finished_secs {
+            sub += &if secs < 60 {
+                "  ·  in unter einer Minute".to_string()
+            } else {
+                format!("  ·  in {} Min.", secs.div_ceil(60))
+            };
+        }
+        sub += &format!("  ·  insgesamt {} im Zielordner", fmt_int(app.total_kept));
         return Header {
             title: format!("Fertig mit „{label}“"),
-            sub: format!(
-                "{} behalten  ·  insgesamt {} im Zielordner",
-                bilder(kept),
-                fmt_int(app.total_kept)
-            ),
+            sub,
             goal,
         };
     }
     Header {
         title: "Welche Fotos möchtest du durchgehen?".into(),
         sub: if app.folders.is_empty() {
-            "Füge einen Ordner hinzu oder zieh ihn aus dem Explorer in dieses Fenster.".into()
+            "Deine Originale bleiben, wie sie sind. Behaltene Fotos landen zugeschnitten im Zielordner.".into()
         } else {
             "Wähle einen oder mehrere Ordner. Fertige Ordner bleiben mit ihrem Fortschritt hier."
                 .into()
@@ -883,9 +1000,11 @@ fn header_height(app: &SwiperApp) -> f32 {
     if app.cfg.goal > 0 {
         h += sp::S + 18.0;
     }
-    if app.finished.is_some() {
+    if let Some(done) = &app.finished {
         h += sp::XL + 56.0;
-        if app.suggestion().is_none() {
+        if !app.rough_kept(done).is_empty() || app.suggestion().is_some() {
+            h += sp::M + 44.0;
+        } else {
             h += sp::L + 20.0 + sp::M + 44.0;
         }
         h += sp::XL + 18.0;
@@ -932,7 +1051,42 @@ impl Header {
         let next = app
             .suggestion()
             .map(|f| (f.path.clone(), f.label.clone(), f.open()));
-        if let Some((path, label, open)) = next {
+        let done = app.finished.clone().unwrap_or_default();
+        let rough = app.rough_kept(&done).len();
+        if rough > 0 {
+            // Zweiter Durchgang: die schnell behaltenen Fotos zuschneiden
+            let r = Rect::from_center_size(pos2(cx, *y + 28.0), vec2(460.0, 56.0));
+            let text = format!(
+                "Feinschliff: {} zuschneiden",
+                if rough == 1 {
+                    "1 behaltenes Foto".to_string()
+                } else {
+                    format!("{} behaltene Fotos", fmt_int(rough))
+                }
+            );
+            if kit::cta(ui, r, icons::CROP, &text, true)
+                .on_hover_text("Jedes behaltene Foto nochmal groß: Ausschnitt, Ganz, Text und Licht anpassen, dann speichern.")
+                .clicked()
+            {
+                app.start_polish(&done);
+                return;
+            }
+            *y += 56.0 + sp::M;
+            let label = match &next {
+                Some((_, l, _)) => format!("Später, erst weiter mit „{}“", ellipsize(l, 22)),
+                None => "Später, erst die Behaltenen ansehen".to_string(),
+            };
+            let w = kit::secondary_width(ui, "", &label).max(260.0);
+            let r = Rect::from_center_size(pos2(cx, *y + 22.0), vec2(w, 44.0));
+            if kit::secondary(ui, r, "", &label, true).clicked() {
+                match next {
+                    Some((path, _, _)) => app.start_folder(path, None),
+                    None => app.open_gallery(),
+                }
+                return;
+            }
+            *y += 44.0;
+        } else if let Some((path, label, open)) = next {
             let r = Rect::from_center_size(pos2(cx, *y + 28.0), vec2(440.0, 56.0));
             let text = format!(
                 "Weiter mit „{}“ ({} offen)",
@@ -941,8 +1095,17 @@ impl Header {
             );
             if kit::cta(ui, r, icons::PLAY, &text, true).clicked() {
                 app.start_folder(path, None);
+                return;
             }
-            *y += 56.0;
+            *y += 56.0 + sp::M;
+            let label = "Behaltene ansehen";
+            let w = kit::secondary_width(ui, icons::GALLERY, label).max(220.0);
+            let r = Rect::from_center_size(pos2(cx, *y + 22.0), vec2(w, 44.0));
+            if kit::secondary(ui, r, icons::GALLERY, label, true).clicked() {
+                app.open_gallery();
+                return;
+            }
+            *y += 44.0;
         } else {
             let r = Rect::from_center_size(pos2(cx, *y + 28.0), vec2(440.0, 56.0));
             if kit::cta(ui, r, icons::USB, "Auf USB-Stick / SD-Karte kopieren", true).clicked() {
@@ -1085,10 +1248,20 @@ fn add_tile(ui: &Ui, r: Rect) -> Option<TileAction> {
     let resp = ui
         .interact(r, ui.make_persistent_id("add_tile"), Sense::click())
         .on_hover_cursor(egui::CursorIcon::PointingHand);
-    let t = kit::anim(ui, resp.id, resp.hovered());
+    let drag = drag_hover(ui);
+    let t = kit::anim(ui, resp.id, resp.hovered() || drag.is_some());
     let p = ui.painter();
     if t > 0.0 {
-        p.rect_filled(r, radius::XL, glass().gamma_multiply(t));
+        p.rect_filled(
+            r,
+            radius::XL,
+            if drag.is_some() {
+                accent_soft()
+            } else {
+                glass()
+            }
+            .gamma_multiply(t),
+        );
     }
     dashed_round_rect(
         p,
@@ -1096,7 +1269,11 @@ fn add_tile(ui: &Ui, r: Rect) -> Option<TileAction> {
         radius::XL as f32,
         kit::mix(divider(), accent(), t),
     );
-    let label = "Ordner hinzufügen";
+    let label = match drag {
+        Some(true) => "Hier loslassen",
+        Some(false) => "Das ist kein Ordner",
+        None => "Ordner hinzufügen",
+    };
     let f = font(ts::LABEL, W::Medium);
     let lw = kit::text_size(ui, label, f.clone()).x;
     let x = r.center().x - (lw + 20.0 + sp::S) / 2.0;

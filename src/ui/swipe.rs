@@ -13,7 +13,7 @@ use egui::{
 use super::kit::{self, Primary, Tone};
 use super::style::*;
 use super::{cover_uv, dialogs, ellipsize, icons, FULL_UV};
-use crate::app::{Anim, Dialog, SwiperApp, View};
+use crate::app::{Dialog, SwiperApp, View};
 use crate::folders;
 use crate::imaging::{self, Orient};
 use crate::util::fmt_int;
@@ -50,15 +50,39 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect, ws: Rect, now: f64) {
     if let Some(h) = dup_chip(app, ui, ws, card_top) {
         card_top += h + sp::M;
     }
-    if app.reedit.is_some() {
+    if app.quick_sort() {
         let label = format!(
-            "Nachbearbeiten  ·  {} speichert neu  ·  Esc bricht ab",
-            app.key_label("keep")
+            "Schnell sortieren  ·  {} behalten, {} weg  ·  Zuschneiden kommt im Feinschliff",
+            app.key_label("keep"),
+            app.key_label("skip")
         );
+        let w = kit::chip_width(ui, icons::LIGHTNING, &label);
+        let r = Rect::from_center_size(pos2(ws.center().x, card_top + 18.0), vec2(w, 36.0));
+        kit::chip(ui, r, icons::LIGHTNING, false, &label, Tone::Accent).on_hover_text(
+            "Erster Durchgang: nur entscheiden. Wenn der Ordner fertig ist, kannst du die behaltenen Fotos in Ruhe zuschneiden und beschriften.",
+        );
+        card_top += 36.0 + sp::M;
+    }
+    if app.reedit.is_some() {
+        let label = match app.polish_left() {
+            Some((i, n)) => format!(
+                "Feinschliff {i} von {n}  ·  {} speichert, {} nimmt raus  ·  Esc beendet",
+                app.key_label("keep"),
+                app.key_label("skip")
+            ),
+            None => format!(
+                "Nachbearbeiten  ·  {} speichert neu  ·  Esc bricht ab",
+                app.key_label("keep")
+            ),
+        };
         let w = kit::chip_width(ui, icons::PENCIL, &label);
         let r = Rect::from_center_size(pos2(ws.center().x, card_top + 18.0), vec2(w, 36.0));
         if kit::chip(ui, r, icons::PENCIL, false, &label, Tone::Accent)
-            .on_hover_text("Klick: abbrechen und zurück zur Galerie")
+            .on_hover_text(if app.polish_left().is_some() {
+                "Klick: Feinschliff beenden (die übrigen Fotos bleiben wie sie sind)"
+            } else {
+                "Klick: abbrechen und zurück zur Galerie"
+            })
             .clicked()
         {
             app.cancel_reedit();
@@ -428,7 +452,10 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
     let tr = |p: Pos2| pivot + rot * (p - pivot);
     let rad = radius::CARD;
 
-    handle_card_input(app, ui, &resp, area, card, now, &mut edit);
+    let quick = app.quick_sort();
+    if !quick {
+        handle_card_input(app, ui, &resp, card, size, ratio, fill, s, &mut edit);
+    }
     let (x, y, cw, ch) = if fill {
         imaging::fill_rect(size.x, size.y, ratio, &mut edit)
     } else {
@@ -515,10 +542,22 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
             straightened(&painter, card, card, tex_id, size, edit.angle, angle, pivot);
         }
         let cr = Rect::from_min_size(card.min + vec2(x * s, y * s), vec2(cw * s, ch * s));
-        crop_frame(&painter, card, cr, angle, pivot);
+        if !quick {
+            crop_frame(&painter, card, cr, angle, pivot);
+        }
         cr
     };
-    guides(&painter, out_r, app.cfg.guide, app.cfg.guide_flip, &tr);
+    if !quick {
+        guides(&painter, out_r, app.cfg.guide, app.cfg.guide_flip, &tr);
+    }
+    if !quick && app.dx.abs() < 0.5 && app.anim.is_none() && app.horizon_line.is_none() {
+        let target = grip_rect(card, size, ratio, fill, s, &edit);
+        let hover = ui.input(|i| i.pointer.hover_pos());
+        // bei „Ganz“ nur zeigen, solange die Maus über der Karte ist
+        if !fill || hover.is_some_and(|h| card.contains(h)) {
+            grip_handles(&painter, target, hover);
+        }
+    }
     // Horizont-Linie, die gerade mit Strg gezogen wird
     if let Some((a, b)) = app.horizon_line {
         let st = Stroke::new(2.0, Color32::from_rgb(0xFF, 0xD2, 0x4A));
@@ -577,39 +616,109 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
         if (edit.zoom - 1.0).abs() > 0.001 {
             right = format!("{right}  ·  {:.0} %", edit.zoom * 100.0);
         }
-        photo_chip(
-            &painter,
-            ui,
-            card.right_top() + vec2(-inset, inset),
-            true,
-            if fill { icons::FILL } else { icons::CROP },
-            &right,
-            &tr,
-            angle,
-        );
+        if !quick {
+            photo_chip(
+                &painter,
+                ui,
+                card.right_top() + vec2(-inset, inset),
+                true,
+                if fill { icons::FILL } else { icons::CROP },
+                &right,
+                &tr,
+                angle,
+            );
+        }
     }
     stamp(&painter, app.dx, card, angle, &tr);
     Some(card)
 }
 
+/// Was gerade mit der Maus am Foto gezogen wird.
+#[derive(Clone, Copy, PartialEq)]
+enum Grip {
+    /// Ausschnitt (bzw. bei „Ganz“ das Foto) verschieben
+    Move,
+    /// an einer Ecke größer oder kleiner ziehen (0 links oben, 1 rechts oben,
+    /// 2 links unten, 3 rechts unten); die gegenüberliegende Ecke bleibt stehen
+    Corner(u8),
+}
+
+/// Wie nah (in Punkten) man an eine Ecke kommen muss, um sie zu greifen.
+const GRIP_REACH: f32 = 18.0;
+
+/// Fläche, die man zieht: der helle Ausschnitt, bei „Ganz“ das Foto selbst.
+fn grip_rect(
+    card: Rect,
+    size: egui::Vec2,
+    ratio: f32,
+    fill: bool,
+    s: f32,
+    edit: &imaging::Edit,
+) -> Rect {
+    let mut e = *edit;
+    if fill {
+        let (x, y, w, h) = imaging::fill_rect(size.x, size.y, ratio, &mut e);
+        Rect::from_min_size(
+            card.min + vec2(x * card.width(), y * card.height()),
+            vec2(w * card.width(), h * card.height()),
+        )
+    } else {
+        let (x, y, w, h) = imaging::crop_rect(size.x, size.y, ratio, &mut e);
+        Rect::from_min_size(card.min + vec2(x * s, y * s), vec2(w * s, h * s))
+    }
+}
+
+fn corners_of(r: Rect) -> [Pos2; 4] {
+    [
+        r.left_top(),
+        r.right_top(),
+        r.left_bottom(),
+        r.right_bottom(),
+    ]
+}
+
+fn corner_at(r: Rect, p: Pos2) -> Option<u8> {
+    corners_of(r)
+        .iter()
+        .position(|c| c.distance(p) <= GRIP_REACH)
+        .map(|i| i as u8)
+}
+
+/// Maus und Touchpad an der Karte: Linksziehen verschiebt den Ausschnitt,
+/// Ecken ziehen ändert die Größe, Mausrad und Zwei-Finger-Zoom zoomen,
+/// Strg + Ziehen legt eine Horizont-Linie zum Begradigen.
 #[allow(clippy::too_many_arguments)]
 fn handle_card_input(
     app: &mut SwiperApp,
     ui: &Ui,
     resp: &egui::Response,
-    area: Rect,
     card: Rect,
-    now: f64,
+    size: egui::Vec2,
+    ratio: f32,
+    fill: bool,
+    s: f32,
     edit: &mut imaging::Edit,
 ) {
+    if app.anim.is_some() || app.dx.abs() > 0.5 {
+        return;
+    }
+    let grip_id = Id::unique("card_grip");
+    let target = grip_rect(card, size, ratio, fill, s, edit);
     let ctrl = ui.input(|i| i.modifiers.command);
-    if resp.drag_started_by(PointerButton::Primary) && ctrl {
+    let primary = resp.drag_started_by(PointerButton::Primary);
+    if primary && ctrl {
         if let Some(p) = resp.interact_pointer_pos() {
             app.horizon_line = Some((p, p));
         }
-    } else if resp.drag_started_by(PointerButton::Primary) {
-        app.anim = None;
-        app.swiping = true;
+    } else if primary || resp.drag_started_by(PointerButton::Secondary) {
+        let origin = ui
+            .input(|i| i.pointer.press_origin())
+            .unwrap_or(card.center());
+        let grip = match corner_at(target, origin) {
+            Some(c) if primary => Grip::Corner(c),
+            _ => Grip::Move,
+        };
+        ui.ctx().data_mut(|d| d.insert_temp(grip_id, grip));
     }
     if let Some((a, _)) = app.horizon_line {
         if resp.dragged_by(PointerButton::Primary) {
@@ -634,34 +743,40 @@ fn handle_card_input(
         }
         return;
     }
-    if app.swiping && resp.dragged_by(PointerButton::Primary) {
-        let d = resp.drag_delta();
-        app.dx += d.x;
-        app.dy += d.y * 0.3;
+    let grip: Option<Grip> = ui.ctx().data(|d| d.get_temp(grip_id));
+    let dragging =
+        resp.dragged_by(PointerButton::Primary) || resp.dragged_by(PointerButton::Secondary);
+    match grip {
+        Some(Grip::Move) if dragging => {
+            let d = resp.drag_delta();
+            edit.cx += d.x / card.width();
+            edit.cy += d.y / card.height();
+        }
+        Some(Grip::Corner(c)) if dragging => {
+            if let Some(p) = resp.interact_pointer_pos() {
+                // gegenüberliegende Ecke bleibt stehen, Seitenverhältnis bleibt gleich
+                let anchor = corners_of(target)[3 - c as usize];
+                let aspect = target.width() / target.height().max(1.0);
+                let dx = (p.x - anchor.x).abs();
+                let dy = (p.y - anchor.y).abs();
+                let w = dx.max(dy * aspect).max(24.0);
+                let h = w / aspect;
+                let sx = if c % 2 == 1 { 1.0 } else { -1.0 };
+                let sy = if c >= 2 { 1.0 } else { -1.0 };
+                let center = anchor + vec2(sx * w / 2.0, sy * h / 2.0);
+                if fill {
+                    edit.zoom *= w / target.width();
+                } else {
+                    edit.zoom *= target.width() / w;
+                }
+                edit.cx = (center.x - card.left()) / card.width();
+                edit.cy = (center.y - card.top()) / card.height();
+            }
+        }
+        _ => {}
     }
-    if resp.dragged_by(PointerButton::Secondary) {
-        let d = resp.drag_delta();
-        edit.cx += d.x / card.width();
-        edit.cy += d.y / card.height();
-    }
-    if resp.drag_stopped() && app.swiping {
-        app.swiping = false;
-        let (to, dur, commit) = if app.dx.abs() > (area.width() * 0.18).max(110.0) {
-            (
-                area.width() * 1.3 * app.dx.signum(),
-                0.18,
-                Some(app.dx > 0.0),
-            )
-        } else {
-            (0.0, 0.22, None)
-        };
-        app.anim = Some(Anim {
-            from: app.dx,
-            to,
-            start: now,
-            dur,
-            commit,
-        });
+    if resp.drag_stopped() {
+        ui.ctx().data_mut(|d| d.remove::<Grip>(grip_id));
     }
     if resp.double_clicked() {
         edit.reset_crop();
@@ -669,11 +784,44 @@ fn handle_card_input(
     if resp.hovered() {
         let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
         edit.zoom *= (scroll * 0.003).exp() * zoom;
-        ui.ctx().set_cursor_icon(if app.swiping {
-            egui::CursorIcon::Grabbing
-        } else {
-            egui::CursorIcon::Grab
-        });
+        let hover = ui.input(|i| i.pointer.hover_pos());
+        let cursor = match (grip, hover) {
+            (Some(Grip::Corner(c)), _) => corner_cursor(c),
+            (Some(Grip::Move), _) => egui::CursorIcon::Grabbing,
+            (None, Some(h)) if ctrl => {
+                let _ = h;
+                egui::CursorIcon::Crosshair
+            }
+            (None, Some(h)) => match corner_at(target, h) {
+                Some(c) => corner_cursor(c),
+                None => egui::CursorIcon::Grab,
+            },
+            _ => egui::CursorIcon::Default,
+        };
+        ui.ctx().set_cursor_icon(cursor);
+    }
+}
+
+fn corner_cursor(c: u8) -> egui::CursorIcon {
+    if c == 0 || c == 3 {
+        egui::CursorIcon::ResizeNwSe
+    } else {
+        egui::CursorIcon::ResizeNeSw
+    }
+}
+
+/// Griffe an den Ecken der Fläche, die man ziehen kann.
+fn grip_handles(painter: &Painter, r: Rect, hover: Option<Pos2>) {
+    let len = 18.0_f32.min(r.width() / 3.0).min(r.height() / 3.0);
+    for (i, c) in corners_of(r).iter().enumerate() {
+        let sx = if i % 2 == 1 { -1.0 } else { 1.0 };
+        let sy = if i >= 2 { -1.0 } else { 1.0 };
+        let hot = hover.is_some_and(|h| h.distance(*c) <= GRIP_REACH);
+        let st = Stroke::new(if hot { 5.0 } else { 4.0 }, Color32::WHITE);
+        let shadow = Stroke::new(st.width + 2.0, Color32::from_black_alpha(70));
+        let pts = [*c + vec2(0.0, sy * len), *c, *c + vec2(sx * len, 0.0)];
+        painter.add(Shape::line(pts.to_vec(), shadow));
+        painter.add(Shape::line(pts.to_vec(), st));
     }
 }
 
@@ -703,7 +851,7 @@ fn straightened(
 
 /// Abgedunkelte Ränder außerhalb des Ausschnitts, Drittel-Linien und heller Rahmen.
 fn crop_frame(painter: &Painter, card: Rect, cr: Rect, angle: f32, pivot: Pos2) {
-    let dark = Color32::from_black_alpha(140);
+    let dark = Color32::from_black_alpha(175);
     let bands = [
         Rect::from_min_max(card.min, pos2(card.right(), cr.top())),
         Rect::from_min_max(pos2(card.left(), cr.bottom()), card.max),
@@ -1102,85 +1250,156 @@ fn preview_overlay(
 
 // ------------------------------------------------------------------ Filmstreifen
 
+/// Zustand des Bilderbands: Mitte des sichtbaren Teils (in Punkten ab dem ersten
+/// Foto), ob es dem aktuellen Foto folgt, und für welches Foto zuletzt.
+#[derive(Clone, Copy, Default)]
+struct StripState {
+    offset: f32,
+    follow: bool,
+    pos: usize,
+}
+
 fn filmstrip(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     let n = app.items.len();
     if n == 0 {
         return;
     }
-    let each = 3usize;
-    let lo = app.pos.saturating_sub(each);
-    let hi = (app.pos + each + 1).min(n);
-    let (w, h) = (56.0, 40.0);
-    let (cw, ch) = (64.0, 48.0);
+    let (w, h) = (64.0, 48.0);
     let gap = sp::S;
-    let count = hi - lo;
-    let inner = (count as f32 - 1.0) * (w + gap) + cw;
-    let pill = Rect::from_center_size(area.center(), vec2(inner + sp::S * 2.0, ch + sp::S * 2.0));
+    let pitch = w + gap;
+    let content = n as f32 * pitch - gap;
+    let max_w = area.width().min(760.0);
+    let inner_w = content.min(max_w);
+    let pill = Rect::from_center_size(area.center(), vec2(inner_w + sp::S * 2.0, h + sp::S * 2.0));
     kit::glass(ui.painter(), pill, radius::L);
-    let mut x = pill.left() + sp::S;
-    let mut jump = None;
-    let mut peek = None;
-    for i in lo..hi {
+    let inner = pill.shrink(sp::S);
+
+    let id = Id::unique("filmstrip");
+    let mut st: StripState = ui.ctx().data(|d| d.get_temp(id)).unwrap_or(StripState {
+        offset: app.pos as f32 * pitch,
+        follow: true,
+        pos: app.pos,
+    });
+    if st.pos != app.pos {
+        st.pos = app.pos;
+        st.follow = true;
+    }
+    let resp = ui.interact(pill, id.with("drag"), Sense::click_and_drag());
+    if resp.dragged() {
+        st.offset -= resp.drag_delta().x;
+        st.follow = false;
+    }
+    if resp.hovered() {
+        let d = ui.input(|i| i.smooth_scroll_delta);
+        let d = if d.x.abs() > d.y.abs() { d.x } else { d.y };
+        if d != 0.0 {
+            st.offset -= d;
+            st.follow = false;
+        }
+    }
+    if st.follow {
+        let target = app.pos as f32 * pitch;
+        let diff = target - st.offset;
+        if diff.abs() < 0.5 {
+            st.offset = target;
+        } else {
+            st.offset += diff * 0.25;
+            ui.ctx().request_repaint();
+        }
+    }
+    // Ränder: das erste und letzte Foto dürfen nicht weiter als bis zum Rand wandern
+    let half = inner.width() / 2.0;
+    let lo = (half - w / 2.0).min(content / 2.0 - w / 2.0);
+    let hi = (content - half - w / 2.0).max(lo);
+    st.offset = st.offset.clamp(lo, hi);
+    ui.ctx().data_mut(|d| d.insert_temp(id, st));
+
+    // Bildschirm-x der Mitte von Foto i
+    let x_of = |i: usize| inner.center().x + i as f32 * pitch - st.offset;
+    let index_at = |x: f32| -> Option<usize> {
+        let f = (x - inner.center().x + st.offset) / pitch;
+        let i = f.round();
+        (i >= 0.0 && (i as usize) < n && (f - i).abs() <= 0.5).then_some(i as usize)
+    };
+    let painter = ui.painter_at(inner);
+    let hover = resp
+        .hover_pos()
+        .filter(|_| !resp.dragged())
+        .and_then(|p| index_at(p.x));
+    let first = index_at(inner.left()).unwrap_or(0).saturating_sub(1);
+    let last = (index_at(inner.right()).unwrap_or(n - 1) + 2).min(n);
+    for i in first..last {
+        let cx = x_of(i);
+        let r = Rect::from_center_size(pos2(cx, inner.center().y), vec2(w, h));
+        if !r.intersects(inner) {
+            continue;
+        }
         let is_cur = i == app.pos;
-        let (ww, hh) = if is_cur { (cw, ch) } else { (w, h) };
-        let r = Rect::from_min_size(pos2(x, area.center().y - hh / 2.0), vec2(ww, hh));
-        x += ww + gap;
         let p = app.items[i].clone();
         let entry = app.decided(&p).map(|e| e.d == "keep");
-        let resp = ui.interact(r, ui.make_persistent_id(("strip", i)), Sense::click());
-        let t = kit::anim(ui, resp.id, resp.hovered());
-        let alpha = if is_cur { 1.0 } else { 0.55 + 0.4 * t };
+        let alpha = match (is_cur, hover == Some(i), entry) {
+            (true, _, _) => 1.0,
+            (_, true, _) => 0.95,
+            (_, _, Some(false)) => 0.4,
+            _ => 0.7,
+        };
         let rad = radius::S;
         match app.thumb(&p) {
-            Some((id, size)) => {
-                ui.painter().add(
+            Some((tid, size)) => {
+                painter.add(
                     RectShape::filled(r, rad, Color32::WHITE.gamma_multiply(alpha))
-                        .with_texture(id, cover_uv(size, r.size())),
+                        .with_texture(tid, cover_uv(size, r.size())),
                 );
             }
             None => {
-                ui.painter().rect_filled(r, rad, field());
+                painter.rect_filled(r, rad, field());
             }
         }
-        let stroke = match (is_cur, entry) {
-            (true, _) => Stroke::new(2.0, Color32::WHITE),
-            (_, Some(true)) => Stroke::new(2.0, keep()),
-            (_, Some(false)) => Stroke::new(2.0, RED.gamma_multiply(0.8)),
-            _ => Stroke::NONE,
+        if is_cur {
+            painter.rect_stroke(r, rad, Stroke::new(2.5, accent()), StrokeKind::Inside);
+        }
+        // Punkt: grün behalten, rot weg
+        if let Some(k) = entry {
+            let c = pos2(r.right() - 8.0, r.bottom() - 8.0);
+            painter.circle_filled(c, 6.0, Color32::from_black_alpha(90));
+            painter.circle(
+                c,
+                4.5,
+                if k { GREEN } else { RED },
+                Stroke::new(1.5, Color32::WHITE),
+            );
+        }
+    }
+    if let Some(i) = hover {
+        let tip = match app.decided(&app.items[i]).map(|e| e.d == "keep") {
+            Some(true) => "Behalten  ·  Klick: nochmal entscheiden",
+            Some(false) => "Weg  ·  Klick: nochmal entscheiden",
+            None => "Klick: zu diesem Foto springen",
         };
-        if stroke != Stroke::NONE {
-            ui.painter()
-                .rect_stroke(r, rad, stroke, StrokeKind::Outside);
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        if i != app.pos {
+            resp.clone().on_hover_text(tip);
         }
-        if kit::peek_pressed(ui, &resp) {
-            peek = Some(i);
-        }
-        if !is_cur {
-            let tip = match entry {
-                Some(true) => "Behalten  ·  Klick: nochmal entscheiden",
-                Some(false) => "Weg  ·  Klick: nochmal entscheiden",
-                None => "Klick: zu diesem Bild springen",
-            };
-            if resp
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .on_hover_text(tip)
-                .clicked()
-            {
-                jump = Some(i);
+    } else if resp.dragged() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+    }
+    if resp.clicked() {
+        if let Some(i) = resp.interact_pointer_pos().and_then(|p| index_at(p.x)) {
+            if i != app.pos {
+                app.jump_to(i);
             }
         }
     }
-    if let Some(i) = jump {
-        app.jump_to(i);
-    }
-    if let Some(i) = peek {
-        let title = app
-            .folder
-            .as_ref()
-            .and_then(|f| app.folders.iter().find(|i| &i.path == f))
-            .map(|f| f.label.clone())
-            .unwrap_or_default();
-        app.peek(app.items.clone(), i, title);
+    if kit::peek_pressed(ui, &resp) {
+        if let Some(i) = resp.hover_pos().and_then(|p| index_at(p.x)) {
+            let title = app
+                .folder
+                .as_ref()
+                .and_then(|f| app.folders.iter().find(|i| &i.path == f))
+                .map(|f| f.label.clone())
+                .unwrap_or_default();
+            app.peek(app.items.clone(), i, title);
+        }
     }
 }
 
@@ -1211,7 +1430,13 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     let tool = size::TOOL;
     let caret = 24.0;
     let (skip_w, keep_w) = (152.0, 184.0);
-    let tools_w = tool * 5.0 + caret * 3.0 + sp::XS * 4.0;
+    // Schnell sortieren: nur Zurück, Weg, Behalten und Drehen
+    let quick = app.quick_sort();
+    let tools_w = if quick {
+        tool
+    } else {
+        tool * 5.0 + caret * 3.0 + sp::XS * 4.0
+    };
     let w =
         pad + tool + pad + 1.0 + pad + skip_w + sp::S + keep_w + pad + 1.0 + pad + tools_w + pad;
     let dock = Rect::from_center_size(area.center(), vec2(w, size::DOCK));
@@ -1253,10 +1478,14 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
 
     let r = row(x, skip_w);
     if kit::primary_button(ui, r, Primary::Skip, "Weg", &ks("skip"), has_current)
-        .on_hover_text(format!(
-            "Überspringen ({}) oder Foto nach links ziehen",
-            k("skip")
-        ))
+        .on_hover_text(if app.polish_left().is_some() {
+            format!(
+                "Doch nicht für den Rahmen: aus den Behaltenen nehmen ({})",
+                k("skip")
+            )
+        } else {
+            format!("Aussortieren ({})", k("skip"))
+        })
         .clicked()
     {
         clicked = Some(Act::Skip);
@@ -1264,10 +1493,11 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     x = r.right() + sp::S;
     let r = row(x, keep_w);
     if kit::primary_button(ui, r, Primary::Keep, "Behalten", &ks("keep"), loaded)
-        .on_hover_text(format!(
-            "Für den Rahmen speichern ({}) oder nach rechts ziehen",
-            k("keep")
-        ))
+        .on_hover_text(if app.polish_left().is_some() {
+            format!("So speichern und zum nächsten Foto ({})", k("keep"))
+        } else {
+            format!("Für den Rahmen speichern ({})", k("keep"))
+        })
         .clicked()
     {
         clicked = Some(Act::Keep);
@@ -1275,6 +1505,34 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
     x = r.right() + pad;
     divider_at(x);
     x += 1.0 + pad;
+
+    if quick {
+        let key = ks("rot_r");
+        if kit::tool_button(
+            ui,
+            row(x, tool),
+            kit::Tool {
+                glyph: icons::ROTATE,
+                label: "Drehen",
+                key: &key,
+                active: false,
+                enabled: loaded,
+            },
+        )
+        .on_hover_text(format!("Drehen ({})", k("rot_r")))
+        .clicked()
+        {
+            clicked = Some(Act::Rotate);
+        }
+        match clicked {
+            Some(Act::Undo) => app.undo(),
+            Some(Act::Skip) => app.decide(false, now, width),
+            Some(Act::Keep) => app.decide(true, now, width),
+            Some(Act::Rotate) => app.rotate(1),
+            _ => {}
+        }
+        return dock;
+    }
 
     // Drehen: Klick dreht um 90°, der Pfeil öffnet Begradigen und Licht
     let adjusted = app

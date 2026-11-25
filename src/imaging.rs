@@ -43,7 +43,7 @@ impl Orient {
 }
 
 /// Was der Nutzer pro Bild eingestellt hat.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Edit {
     /// Vierteldrehungen im Uhrzeigersinn
@@ -231,6 +231,74 @@ pub fn crop_rect(w: f32, h: f32, ratio: f32, e: &mut Edit) -> (f32, f32, f32, f3
     e.cx = (x + cw / 2.0) / w;
     e.cy = (y + ch / 2.0) / h;
     (x, y, cw, ch)
+}
+
+/// Schlauer Ausschnitt: Mittelpunkt (0..1, 0..1) des Ausschnitts mit Seitenverhältnis
+/// `ratio`, der am meisten „Interessantes“ enthält. Gezählt werden Kanten und
+/// Details sowie hautfarbene Flächen (Gesichter, Menschen); die Bildmitte wird
+/// leicht bevorzugt, damit ruhige Fotos mittig bleiben.
+pub fn smart_center(img: &RgbImage, ratio: f32) -> (f32, f32) {
+    let (w, h) = img.dimensions();
+    if w < 8 || h < 8 {
+        return (0.5, 0.5);
+    }
+    let small = resize(img, w.clamp(8, 160), ((h * w.min(160)) / w).max(8), true);
+    let (w, h) = small.dimensions();
+    let luma = |x: u32, y: u32| {
+        let p = small.get_pixel(x, y).0;
+        (p[0] as f32 * 0.299 + p[1] as f32 * 0.587 + p[2] as f32 * 0.114) / 255.0
+    };
+    let mut cols = vec![0f32; w as usize];
+    let mut rows = vec![0f32; h as usize];
+    for y in 1..h - 1 {
+        for x in 1..w - 1 {
+            let gx = luma(x + 1, y) - luma(x - 1, y);
+            let gy = luma(x, y + 1) - luma(x, y - 1);
+            let mut e = (gx * gx + gy * gy).sqrt();
+            // Hautfarbe im YCbCr-Raum (orange Kleidung fällt dabei heraus)
+            let [r, g, b] = small.get_pixel(x, y).0.map(|v| v as f32);
+            let cb = 128.0 - 0.1687 * r - 0.3313 * g + 0.5 * b;
+            let cr = 128.0 + 0.5 * r - 0.4187 * g - 0.0813 * b;
+            if (80.0..=125.0).contains(&cb) && (138.0..=170.0).contains(&cr) && r > 60.0 {
+                e += 0.6;
+            }
+            // Köpfe sitzen meist eher oben: obere Bildhälfte leicht bevorzugen
+            e *= 1.15 - 0.3 * y as f32 / h as f32;
+            cols[x as usize] += e;
+            rows[y as usize] += e;
+        }
+    }
+    let (fw, fh) = (w as f32, h as f32);
+    // Nur eine Richtung ist frei: quer verschieben, wenn das Foto breiter ist als der Rahmen.
+    let pick = |prof: &[f32], win: usize| -> f32 {
+        let n = prof.len();
+        if win >= n {
+            return 0.5;
+        }
+        let mut pre = vec![0f32; n + 1];
+        for i in 0..n {
+            pre[i + 1] = pre[i] + prof[i];
+        }
+        let total = pre[n].max(1e-6);
+        let (mut best, mut best_at) = (f32::MIN, (n - win) / 2);
+        for start in 0..=n - win {
+            let sum = (pre[start + win] - pre[start]) / total;
+            let off = ((start as f32 + win as f32 / 2.0) / n as f32 - 0.5).abs();
+            let score = sum - off * 0.25;
+            if score > best {
+                best = score;
+                best_at = start;
+            }
+        }
+        (best_at as f32 + win as f32 / 2.0) / n as f32
+    };
+    if fw / fh > ratio {
+        let win = (fh * ratio).round() as usize;
+        (pick(&cols, win), 0.5)
+    } else {
+        let win = (fw / ratio).round() as usize;
+        (0.5, pick(&rows, win))
+    }
 }
 
 /// Lage des ganzen Fotos auf der Rahmenfläche im Modus „Ganz“, in Anteilen
@@ -1167,6 +1235,34 @@ pub fn save(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn smart_center_finds_detail() {
+        // breites, ruhiges Foto mit Muster ganz rechts
+        let img = RgbImage::from_fn(400, 150, |x, y| {
+            if x > 300 && (x / 6 + y / 6) % 2 == 0 {
+                image::Rgb([250, 250, 250])
+            } else {
+                image::Rgb([40, 60, 80])
+            }
+        });
+        let (cx, cy) = smart_center(&img, 1.0);
+        assert!(cx > 0.65, "cx = {cx}");
+        assert!((cy - 0.5).abs() < 1e-3);
+        let flat = RgbImage::from_pixel(400, 150, image::Rgb([90, 90, 90]));
+        let (cx, _) = smart_center(&flat, 1.0);
+        assert!((cx - 0.5).abs() < 0.05, "cx = {cx}");
+    }
+
+    #[test]
+    #[ignore]
+    fn smart_center_on_file() {
+        let p = std::env::var("BRS_SMART").unwrap();
+        let img = image::open(p).unwrap().to_rgb8();
+        let small = resize(&img, 400, 400 * img.height() / img.width(), true);
+        println!("16:9 {:?}", smart_center(&small, 16.0 / 9.0));
+        println!("9:16 {:?}", smart_center(&small, 9.0 / 16.0));
+    }
 
     #[test]
     fn ratios() {
