@@ -50,8 +50,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          # Abschnitt der aktuellen Version aus CHANGELOG.md
+          awk -v v="## ${VERSION}" '$0==v{on=1;next} /^## /{on=0} on' CHANGELOG.md > changes.md
+          [ -s changes.md ] || echo "- Kleinere Verbesserungen." > changes.md
+          sed "s/__VERSION__/${VERSION}/" .github/release-notes.md \
+            | awk '/__CHANGES__/{system("cat changes.md"); next} {print}' > notes.md
+          # „latest“ ist der feste Link für Download und Update-Prüfung
           gh release delete latest --cleanup-tag -y || true
           gh release create latest dist/Bilderrahmen-Swiper.exe dist/ANLEITUNG.md \
             --target "${{ github.sha }}" \
             --title "Bilderrahmen-Swiper ${VERSION}" \
-            --notes "Automatisch gebaut aus Commit ${{ github.sha }}. Einfach **Bilderrahmen-Swiper.exe** herunterladen und starten, keine Installation nötig. Anleitung: ANLEITUNG.md"
+            --notes-file notes.md
+          # jede Version bleibt zusätzlich als eigener Eintrag erhalten
+          if ! gh release view "v${VERSION}" >/dev/null 2>&1; then
+            gh release create "v${VERSION}" dist/Bilderrahmen-Swiper.exe dist/ANLEITUNG.md \
+              --target "${{ github.sha }}" \
+              --title "Version ${VERSION}" \
+              --notes-file notes.md \
+              --latest=false
+          fi

@@ -193,6 +193,8 @@ pub struct Config {
     pub slide_full: bool,
     /// Profil-Popup wurde schon einmal gezeigt (beim ersten Start fragt die App danach)
     pub profile_asked: bool,
+    /// Frage nach Startmenü/Desktop wurde schon beantwortet
+    pub install_asked: bool,
     /// beim Abgleich mit dem Stick nicht mehr behaltene Bilder dort entfernen
     pub copy_remove_stale: bool,
 }
@@ -260,6 +262,7 @@ impl Default for Config {
             slide_date: false,
             slide_full: true,
             profile_asked: false,
+            install_asked: false,
             copy_remove_stale: true,
         }
     }
@@ -361,6 +364,10 @@ pub struct SwiperApp {
     pub ask_profile: bool,
     /// im Bilderband angeklicktes, schon entschiedenes Foto: wird gezeigt, bis neu entschieden
     pub look_at: Option<PathBuf>,
+    /// Hinweis beim Start: beim letzten Mal abgestürzt (Fehlertext)
+    pub crash_note: Option<String>,
+    /// Frage „Im Startmenü ablegen?“ gerade sichtbar
+    pub install_prompt: bool,
 
     // aktuelle Sitzung
     pub queue: Vec<PathBuf>,
@@ -486,6 +493,8 @@ impl SwiperApp {
             gear_popup: false,
             ask_profile: false,
             look_at: None,
+            crash_note: crate::install::take_crash(),
+            install_prompt: false,
             queue: vec![],
             folder: None,
             items: vec![],
@@ -566,6 +575,7 @@ impl SwiperApp {
         }
         app.load_status();
         app.rescan();
+        app.install_prompt = !app.cfg.install_asked && crate::install::offer();
         app
     }
 

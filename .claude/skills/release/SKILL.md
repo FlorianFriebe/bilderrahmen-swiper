@@ -15,9 +15,12 @@ in dieser Sitzung ausdrücklich erlaubt hat** („mergen“, „bauen“).
    nur Fehlerbehebungen = letzte Zahl (3.10.0 → 3.10.1), reiner Umbau ohne sichtbare Änderung =
    keine neue Version. Danach `cargo build` (aktualisiert `Cargo.lock`).
    Die App zeigt die Version an und vergleicht sie für den Update-Hinweis.
-2. **Doku mitziehen**: `ANLEITUNG.md` (Nutzer, wird mit der .exe veröffentlicht) und `README.md`
+2. **`CHANGELOG.md`**: Abschnitt `## <Version>` oben anlegen, kurze Punkte in einfacher Sprache.
+   Dieser Abschnitt erscheint automatisch auf der Download-Seite (Vorlage `.github/release-notes.md`).
+   CI legt neben `latest` auch `v<Version>` als eigenes Release an.
+3. **Doku mitziehen**: `ANLEITUNG.md` (Nutzer, wird mit der .exe veröffentlicht) und `README.md`
    (Funktionsliste, Quellcode-Übersicht). Bei neuen Modulen auch die Landkarte in `CLAUDE.md`.
-3. **Checks wie in CI**:
+4. **Checks wie in CI**:
    ```
    cargo fmt --check
    cargo clippy --release --all-targets -- -D warnings
@@ -25,9 +28,9 @@ in dieser Sitzung ausdrücklich erlaubt hat** („mergen“, „bauen“).
    ```
    Code hinter `#[cfg(windows)]` wird unter Linux nicht gebaut; erst der Windows-Check im PR
    beweist ihn. Deshalb vor dem Merge immer auf den grünen PR-Check warten.
-4. **In der App prüfen** (Skill `app-testen`), mindestens die geänderten Abläufe.
-5. **PR** auf `main` mit kurzer deutscher Beschreibung: was der Nutzer merkt, was geprüft wurde.
-6. **Merge** (Squash) erst bei grünem Windows-Check und Freigabe. Danach den Lauf auf `main`
+5. **In der App prüfen** (Skill `app-testen`), mindestens die geänderten Abläufe.
+6. **PR** auf `main` mit kurzer deutscher Beschreibung: was der Nutzer merkt, was geprüft wurde.
+7. **Merge** (Squash) erst bei grünem Windows-Check und Freigabe. Danach den Lauf auf `main`
    abwarten und den Link zum Release `latest` melden.
 
 ## Nicht vergessen

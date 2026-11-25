@@ -8,10 +8,14 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 ## Starten
 
 1. `Bilderrahmen-Swiper.exe` herunterladen und doppelklicken. Keine Installation nötig.
-2. Beim ersten Start warnt Windows evtl. „Der Computer wurde durch Windows geschützt“.
-   Das liegt nur daran, dass das Programm nicht signiert ist:
-   **„Weitere Informationen“ → „Trotzdem ausführen“.**
-3. Beim ersten Klick auf Start fragt das Programm, **welchen Bilderrahmen du hast**, und öffnet
+2. Beim ersten Start warnt Windows mit dem blauen Fenster **„Der Computer wurde durch Windows
+   geschützt“**. Das kommt, weil das Programm von einer Privatperson stammt und nicht
+   kostenpflichtig signiert ist, es ist kein Virus. Klicke auf den unscheinbaren Link
+   **„Weitere Informationen“** und dann auf **„Trotzdem ausführen“**. Danach fragt Windows nicht mehr.
+3. Das Programm fragt, ob es sich **ins Startmenü und auf den Desktop** legen soll. Mit „Ja“ wird
+   die Datei an einen festen Ort kopiert (`%LOCALAPPDATA%\Programs\Bilderrahmen-Swiper`), die Datei
+   im Download-Ordner brauchst du danach nicht mehr. Später geht das auch über das **Zahnrad**.
+4. Beim ersten Klick auf Start fragt das Programm, **welchen Bilderrahmen du hast**, und öffnet
    dazu das Profil. Danach zeigt eine kurze Einführung die wichtigsten Handgriffe.
 
 ## In 4 Schritten zu fertigen Bildern
@@ -255,6 +259,14 @@ Gibt es eine neue Version, erscheint oben rechts auf dem Startbildschirm
 weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Download-Seite.
 
 ## Gut zu wissen
+
+- **Datenschutz:** Deine Fotos verlassen nie deinen PC. Die Originale werden nicht verändert,
+  bearbeitete Kopien landen im Zielordner. Ins Internet geht das Programm nur, um bei GitHub
+  nach Updates zu fragen und sie auf Wunsch zu laden.
+- **Wenn etwas schiefgeht:** Beendet sich das Programm unerwartet, ist dein Fortschritt trotzdem
+  gespeichert. Beim nächsten Start erscheint ein Hinweis mit dem Weg zum Protokoll
+  (`protokoll.txt`). Schick diese Datei an die Person, von der du das Programm hast. Das Protokoll
+  findest du auch im Zahnrad unten unter **Fehlerprotokoll**.
 
 - **Weitermachen:** Das **Haus** oben links merkt sich Ordner, Bild, Zeitraum und
   Einstellungen der laufenden Auswahl. Auf dem Startbildschirm steht sie unter
