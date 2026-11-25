@@ -48,7 +48,9 @@ src/imaging/         Bildverarbeitung ohne UI
 src/workers.rs       Hintergrund-Threads: Loader (Vorladen), Saver, ThumbLoader, DateScan
 src/system.rs        Protokoll, Vorschau-Cache, Laufwerke, Stick-Abgleich (copy_plan), Update-Abfrage
 src/install.rs       Startmenü/Desktop-Verknüpfung, Absturz-Merker für den nächsten Start
-src/daterange.rs  dupes.rs  textstyle.rs  update.rs  wic.rs  util.rs
+src/report.rs        Fehlerbericht („Problem melden“): Datei + Zwischenablage
+src/update.rs        Ein-Klick-Update, prüft SHA-256 aus dem GitHub-Asset (`digest`)
+src/daterange.rs  dupes.rs  textstyle.rs  wic.rs  util.rs
 src/ui/
   frame.rs           ein Frame: Ansicht wählen, globale Tasten, Toast, Popups
   style.rs           Design-Tokens: sp:: (8er-Raster), radius::, size::, ts::, Farben hell/dunkel

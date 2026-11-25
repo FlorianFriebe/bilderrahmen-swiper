@@ -1,5 +1,5 @@
 //! Hinweise beim Start: nach einem Absturz beruhigen, beim ersten Start anbieten,
-//! das Programm im Startmenü und auf dem Desktop abzulegen.
+//! das Programm im Startmenü und auf dem Desktop abzulegen. Dazu „Problem melden“.
 
 use super::*;
 
@@ -41,13 +41,14 @@ fn crash_note(app: &mut SwiperApp, ui: &mut Ui) {
         ui.add_space(sp::S);
         body(
             ui,
-            "Wenn es wieder passiert, schick bitte die Datei protokoll.txt an die Person, \
-             von der du das Programm hast.",
+            "Wenn es wieder passiert, erstell bitte einen Bericht und schick ihn an die \
+             Person, von der du das Programm hast.",
         );
         ui.add_space(sp::L);
         ui.horizontal(|ui| {
-            if ui.button("Protokoll-Ordner öffnen").clicked() {
-                crate::util::open_folder(&crate::system::data_dir());
+            if ui.button("Bericht erstellen").clicked() {
+                report_now(app, ui.ctx());
+                close = true;
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("Weiter").clicked() {
@@ -119,5 +120,21 @@ pub fn install_now(app: &mut SwiperApp, desktop: bool) {
             crate::system::log(&format!("Ablegen fehlgeschlagen: {e}"));
             app.toast(format!("Das hat leider nicht geklappt: {e}"));
         }
+    }
+}
+
+/// Fehlerbericht anlegen, in die Zwischenablage legen und die Datei zeigen.
+pub fn report_now(app: &mut SwiperApp, ctx: &egui::Context) {
+    match crate::report::create() {
+        Ok((path, text)) => {
+            ctx.copy_text(text);
+            crate::report::show_file(&path);
+            app.toast(
+                "Bericht erstellt und kopiert. Füg ihn in eine Nachricht ein oder schick die \
+                 Datei Fehlerbericht.txt an die Person, von der du das Programm hast."
+                    .into(),
+            );
+        }
+        Err(e) => app.toast(format!("Der Bericht ließ sich nicht anlegen: {e}")),
     }
 }

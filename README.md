@@ -72,7 +72,8 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Alle Einstellungen in der Leiste unter dem Start-Knopf als kleine Popups: Zeitraum, Ablauf, Text, Profil (Format und Größe) und Zahnrad (Zielordner, Farben, Schrift, Tasten, Hilfe)
 - Schriftgröße mit Strg + und Strg −
 - Kurze Einführung beim ersten Start
-- Hinweis auf neue Versionen; unter Windows Aktualisierung mit einem Klick (Download, Austausch der .exe, Neustart)
+- Hinweis auf neue Versionen; unter Windows Aktualisierung mit einem Klick (Download, Prüfung der SHA-256-Prüfsumme, Austausch der .exe, Neustart)
+- „Problem melden“ im Zahnrad: Fehlerbericht (Version, Windows, letzte Protokollzeilen) als Datei und in der Zwischenablage
 
 | Startbildschirm | Serien-Vergleich |
 |---|---|
@@ -123,7 +124,8 @@ src/
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import
-  update.rs      Ein-Klick-Update unter Windows
+  update.rs      Ein-Klick-Update unter Windows (mit Prüfsumme)
+  report.rs      Fehlerbericht für „Problem melden“
   install.rs     Ablegen im Startmenü/Desktop, Absturz-Hinweis beim nächsten Start
   imaging/       Laden (EXIF-Drehung), Zuschnitt, Ganz-Rand, Begradigen, Licht, Text, JPEG-Export
   dupes.rs       Fingerabdrücke (Differenz-Hash) zum Erkennen doppelter Fotos

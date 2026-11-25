@@ -255,7 +255,7 @@ aktuellen Fotos; alle anderen Ordner behalten den allgemeinen Stil.
 
 Gibt es eine neue Version, erscheint oben rechts auf dem Startbildschirm
 **„Version X installieren“**. Ein Klick lädt sie herunter, danach startet
-**„Neu starten mit X“** das Programm neu. Dein Stand bleibt erhalten. Klappt das nicht (etwa
+**„Neu starten mit X“** das Programm neu. Dein Stand bleibt erhalten. Vorher prüft das Programm, ob die Datei unbeschädigt angekommen ist. Klappt das nicht (etwa
 weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Download-Seite.
 
 ## Gut zu wissen
@@ -264,9 +264,11 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
   bearbeitete Kopien landen im Zielordner. Ins Internet geht das Programm nur, um bei GitHub
   nach Updates zu fragen und sie auf Wunsch zu laden.
 - **Wenn etwas schiefgeht:** Beendet sich das Programm unerwartet, ist dein Fortschritt trotzdem
-  gespeichert. Beim nächsten Start erscheint ein Hinweis mit dem Weg zum Protokoll
-  (`protokoll.txt`). Schick diese Datei an die Person, von der du das Programm hast. Das Protokoll
-  findest du auch im Zahnrad unten unter **Fehlerprotokoll**.
+  gespeichert. Beim nächsten Start erscheint ein Hinweis mit dem Knopf **Bericht erstellen**.
+  Auch sonst geht das jederzeit über das Zahnrad → **Problem melden**. Der Bericht (Version,
+  Windows-Version und die letzten Zeilen des Protokolls, keine Fotos) liegt danach in der
+  Zwischenablage und als Datei `Fehlerbericht.txt`. Füg ihn in eine Nachricht ein oder schick die
+  Datei an die Person, von der du das Programm hast.
 
 - **Weitermachen:** Das **Haus** oben links merkt sich Ordner, Bild, Zeitraum und
   Einstellungen der laufenden Auswahl. Auf dem Startbildschirm steht sie unter
