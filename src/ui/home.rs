@@ -147,6 +147,53 @@ fn drop_zone(ui: &Ui, r: Rect) -> bool {
     resp.clicked()
 }
 
+/// Feld über dem Start-Knopf mit Zeitraum und Ablauf. Gibt `false` zurück, wenn es
+/// geschlossen werden soll (Klick daneben oder Esc).
+fn start_menu(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect, caret: Rect) -> bool {
+    let pad = sp::L;
+    let range = app.range_draft.is_some();
+    let h = pad * 2.0 + DATE_H + if range { sp::S + RANGE_H } else { 0.0 } + sp::M + MODE_H;
+    let w = 660.0_f32.max(anchor.width() + 40.0);
+    let panel = Rect::from_min_size(
+        pos2(anchor.center().x - w / 2.0, anchor.top() - sp::S - h),
+        vec2(w, h),
+    );
+    kit::glass_with(
+        ui.painter(),
+        panel,
+        radius::XL,
+        super::style::panel().to_opaque(),
+    );
+    // Klicks auf das Feld nicht an die Kacheln darunter weitergeben
+    ui.interact(
+        panel,
+        ui.make_persistent_id("start_menu_bg"),
+        Sense::click(),
+    );
+    let cx = panel.center().x;
+    let mut y = panel.top() + pad;
+    date_filter_bar(app, ui, pos2(cx, y));
+    y += DATE_H;
+    if app.range_draft.is_some() {
+        y += sp::S;
+        range_row(app, ui, pos2(cx, y));
+        y += RANGE_H;
+    }
+    y += sp::M;
+    mode_switch(app, ui, pos2(cx, y));
+    let (clicked_at, esc) = ui.input(|i| {
+        (
+            i.pointer
+                .any_pressed()
+                .then(|| i.pointer.interact_pos())
+                .flatten(),
+            i.key_pressed(egui::Key::Escape),
+        )
+    });
+    let outside = clicked_at.is_some_and(|p| !panel.contains(p) && !caret.contains(p));
+    !(esc || outside)
+}
+
 /// Wahl des Ablaufs: alles in einem Durchgang oder erst sortieren, dann Feinschliff.
 fn mode_switch(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
     let labels = vec![
@@ -212,9 +259,10 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     } else if empty {
         44.0
     } else {
-        MODE_H + sp::M + 56.0 + sp::L + 44.0
+        56.0 + sp::L + 44.0
     };
-    let date_bar = start_screen && !app.folders.is_empty();
+    // Zeitraum und Ablauf stecken im Pfeil am Start-Knopf
+    let date_bar = false;
     let range_open = date_bar && app.range_draft.is_some();
     let date_h = if date_bar { sp::L + DATE_H } else { 0.0 }
         + if range_open { sp::S + RANGE_H } else { 0.0 };
@@ -297,8 +345,6 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     if start_screen && empty {
         settings_summary(app, ui, pos2(ws.center().x, y));
     } else if start_screen {
-        mode_switch(app, ui, pos2(ws.center().x, y));
-        y += MODE_H + sp::M;
         let open = app.selected_open();
         let range = app.cfg.date_filter.map(|r| r.label());
         let (glyph, label, enabled) = if open == 0 {
@@ -312,16 +358,55 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                 Some(r) => format!("{} aus {r} durchgehen", fotos(open)),
                 None => format!("{} durchgehen", fotos(open)),
             };
-            (icons::PLAY, l, true)
+            (
+                if app.cfg.two_pass {
+                    icons::LIGHTNING
+                } else {
+                    icons::PLAY
+                },
+                l,
+                true,
+            )
         };
         let w = (kit::text_size(ui, &label, font(ts::BUTTON, W::Semibold)).x + 120.0).max(400.0);
-        let r = Rect::from_center_size(pos2(ws.center().x, y + 28.0), vec2(w, 56.0));
-        let resp = kit::cta(ui, r, glyph, &label, enabled);
-        let resp = resp.on_hover_text("Startet eine neue Session mit den ausgewählten Ordnern. Doppelklick auf einen Ordner startet nur diesen.");
-        if resp.clicked() {
+        let caret_w = 56.0;
+        let both =
+            Rect::from_center_size(pos2(ws.center().x, y + 28.0), vec2(w + 2.0 + caret_w, 56.0));
+        let r = Rect::from_min_size(both.min, vec2(w, 56.0));
+        let cr = Rect::from_min_size(pos2(r.right() + 2.0, r.top()), vec2(caret_w, 56.0));
+        let tip = if app.cfg.two_pass {
+            "Erst schnell sortieren, danach Feinschliff der behaltenen Fotos. Doppelklick auf einen Ordner startet nur diesen."
+        } else {
+            "Startet mit den ausgewählten Ordnern. Doppelklick auf einen Ordner startet nur diesen."
+        };
+        if kit::cta(ui, r, glyph, &label, enabled)
+            .on_hover_text(tip)
+            .clicked()
+        {
             app.start_session();
         }
+        let menu_id = egui::Id::unique("start_menu");
+        let mut menu: bool = ui.ctx().data(|d| d.get_temp(menu_id)).unwrap_or(false);
+        let caret = if menu {
+            icons::CARET_UP
+        } else {
+            icons::CARET_DOWN
+        };
+        if kit::cta(ui, cr, caret, "", true)
+            .on_hover_text("Zeitraum und Ablauf")
+            .clicked()
+        {
+            menu = !menu;
+            if !menu {
+                app.range_draft = None;
+            }
+        }
         settings_summary(app, ui, pos2(ws.center().x, r.bottom() + sp::L));
+        if menu && !start_menu(app, ui, both, cr) {
+            menu = false;
+            app.range_draft = None;
+        }
+        ui.ctx().data_mut(|d| d.insert_temp(menu_id, menu));
     }
     folder_menu(app, ui);
 }
@@ -505,7 +590,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let h = size::CONTROL;
     let gap = sp::XS;
     let sep = sp::M * 2.0 + 1.0;
-    let set_w = kit::bar_button_width(ui, "Einstellungen");
+    let set_w = h;
     let kept = (app.total_kept > 0).then(|| format!("{} behalten", fmt_int(app.total_kept)));
     let kept_w = kept.as_ref().map(|k| kit::pill_width(ui, k)).unwrap_or(0.0);
     let mut total = pad * 2.0 + set_w + sep + h;
@@ -522,7 +607,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, cy - h / 2.0), vec2(w, h));
     let mut x = bar.left() + pad;
 
-    if kit::bar_button(ui, row(x, set_w), icons::GEAR, "Einstellungen")
+    if kit::icon_button(ui, row(x, set_w), icons::GEAR, true)
         .on_hover_text("Rahmen, Format, Text, Zielordner und Tasten (Strg+B)")
         .clicked()
     {
@@ -854,20 +939,20 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
     let frame = match app.frame_res() {
         Some((w, h)) => match app.profile_name() {
             Some(n) => format!("{n}: {w} × {h}"),
-            None => format!("Rahmen {w} × {h}"),
+            None => format!("{w} × {h}"),
         },
         None => format!(
-            "Quer {}  ·  Hochkant {}",
+            "{}  ·  {}",
             app.ratio_label(Orient::Quer),
             app.ratio_label(Orient::Hochkant)
         ),
     };
     let text_lbl = if app.cfg.text.enabled {
-        format!("Text: {}", app.cfg.text.look().summary())
+        app.cfg.text.look().summary()
     } else {
         "Kein Text".to_string()
     };
-    let mut target = format!("Ziel: {}", short_path(&app.cfg.target));
+    let mut target = short_path(&app.cfg.target);
     if app.cfg.max_mb > 0.0 {
         target.push_str(&format!("  ·  max. {} MB", app.cfg.max_mb));
     }
@@ -881,7 +966,7 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
         .iter()
         .map(|(_, l, _)| kit::text_size(ui, l, f.clone()).x + 16.0 + sp::S + sp::M * 2.0)
         .collect();
-    let change_w = kit::secondary_width(ui, icons::GEAR, "Ändern").max(112.0);
+    let change_w = 36.0;
     let h = 44.0;
     let total =
         sp::XS * 2.0 + item_w.iter().sum::<f32>() + (items.len() as f32 + 1.0) * sp::XS + change_w;
@@ -925,7 +1010,7 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
         x += w + sp::XS;
     }
     let r = ir(x, change_w);
-    if kit::secondary(ui, r, icons::GEAR, "Ändern", true)
+    if kit::icon_button(ui, r, icons::GEAR, true)
         .on_hover_text("Alle Einstellungen öffnen (Strg+B)")
         .clicked()
     {
@@ -984,19 +1069,17 @@ fn header_lines(app: &SwiperApp) -> Header {
     }
     Header {
         title: "Welche Fotos möchtest du durchgehen?".into(),
-        sub: if app.folders.is_empty() {
-            "Deine Originale bleiben, wie sie sind. Behaltene Fotos landen zugeschnitten im Zielordner.".into()
-        } else {
-            "Wähle einen oder mehrere Ordner. Fertige Ordner bleiben mit ihrem Fortschritt hier."
-                .into()
-        },
+        sub: String::new(),
         goal,
     }
 }
 
 /// Höhe des Kopfbereichs inklusive Knöpfe im „Fertig“-Zustand.
 fn header_height(app: &SwiperApp) -> f32 {
-    let mut h = 48.0 + sp::M + 20.0;
+    let mut h = 48.0;
+    if app.finished.is_some() {
+        h += sp::M + 20.0;
+    }
     if app.cfg.goal > 0 {
         h += sp::S + 18.0;
     }
@@ -1023,15 +1106,18 @@ impl Header {
             font(ts::DISPLAY, W::Bold),
             text(),
         );
-        *y += 48.0 + sp::M;
-        p.text(
-            pos2(cx, *y + 10.0),
-            Align2::CENTER_CENTER,
-            &self.sub,
-            font(ts::LABEL, W::Regular),
-            text_soft(),
-        );
-        *y += 20.0;
+        *y += 48.0;
+        if !self.sub.is_empty() {
+            *y += sp::M;
+            p.text(
+                pos2(cx, *y + 10.0),
+                Align2::CENTER_CENTER,
+                &self.sub,
+                font(ts::LABEL, W::Regular),
+                text_soft(),
+            );
+            *y += 20.0;
+        }
         if let Some(g) = &self.goal {
             *y += sp::S;
             p.text(

@@ -1,4 +1,4 @@
-//! Einstellungen als Karte in der Bildschirmmitte, mit fünf Bereichen.
+//! Einstellungen als Karte in der Bildschirmmitte, mit drei Seiten: Rahmen, Bild, App.
 
 use egui::{pos2, vec2, Align2, Color32, Rect, Sense, Stroke, StrokeKind, Ui};
 
@@ -10,17 +10,18 @@ use crate::imaging::{self, Orient};
 use crate::system;
 use crate::util::open_folder;
 
+/// Rahmen: Format, Größe, Zielordner, Kopieren
 pub const TAB_FRAME: usize = 0;
+/// Bild: Ausschnitt, Ablauf, Rand bei „Ganz“, Text
 pub const TAB_TEXT: usize = 1;
-pub const TAB_TARGET: usize = 2;
-pub const TAB_KEYS: usize = 4;
+pub const TAB_TARGET: usize = 0;
+/// App: Farben, Schrift, Tasten, Hilfe
+pub const TAB_KEYS: usize = 2;
 
-const TABS: [(&str, &str); 5] = [
-    (icons::FRAME, "Rahmen und Format"),
-    (icons::TEXT, "Text aufs Bild"),
-    (icons::FOLDER_OPEN, "Zielordner und Kopieren"),
-    (icons::IMAGE, "Darstellung"),
-    (icons::KEYBOARD, "Tasten"),
+const TABS: [(&str, &str); 3] = [
+    (icons::FRAME, "Rahmen"),
+    (icons::IMAGE, "Bild"),
+    (icons::GEAR, "App"),
 ];
 
 fn button(text: &str) -> egui::Button<'_> {
@@ -65,7 +66,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
                 StrokeKind::Inside,
             );
             // Navigation links
-            let nav = Rect::from_min_size(r.min, vec2(248.0, r.height()));
+            let nav = Rect::from_min_size(r.min, vec2(200.0, r.height()));
             p.rect_filled(
                 nav,
                 kit::corners(true, false, true, false, radius::CARD),
@@ -113,17 +114,13 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
                 .auto_shrink([false, false])
                 .show(&mut child, |ui| {
                     ui.set_width(pane.width() - sp::M);
-                    let (_, title) = TABS[app.settings_tab.min(TABS.len() - 1)];
-                    ui.label(egui::RichText::new(title).font(font(ts::TITLE, W::Semibold)));
                     match app.settings_tab {
-                        TAB_FRAME => tab_frame(app, ui),
-                        TAB_TEXT => tab_text(app, ui),
-                        TAB_TARGET => tab_target(app, ui),
-                        3 => tab_look(app, ui),
-                        _ => {
-                            ui.add_space(sp::S);
-                            dialogs::keys_editor(app, ui);
+                        TAB_FRAME => {
+                            tab_frame(app, ui);
+                            tab_target(app, ui);
                         }
+                        TAB_TEXT => tab_image(app, ui),
+                        _ => tab_look(app, ui),
                     }
                     ui.add_space(sp::L);
                 });
@@ -134,13 +131,6 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, full: Rect) {
             if kit::cta(ui, done, "", "Fertig", true).clicked() {
                 close = true;
             }
-            p.text(
-                pos2(nav.right() + sp::XXL, done.center().y),
-                Align2::LEFT_CENTER,
-                "Gilt für alle Bilder, die du ab jetzt behältst.",
-                font(ts::SMALL, W::Regular),
-                muted(),
-            );
         });
     let esc = ui.input(|i| i.key_pressed(egui::Key::Escape));
     if (close || esc) && app.capture.is_none() {
@@ -216,86 +206,57 @@ fn footer(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
     });
 }
 
-/// Rahmen-Profile als anklickbare Kacheln.
-fn profile_tiles(app: &mut SwiperApp, ui: &mut Ui) {
-    let mut items: Vec<(String, String, Option<&str>)> =
-        vec![("Kein Profil".into(), "Format selbst wählen".into(), None)];
-    for (name, res) in FRAMES {
-        let (title, sub) = match name.split_once(" · ") {
-            Some((a, b)) => (a.to_string(), b.to_string()),
-            None => (name.to_string(), String::new()),
-        };
-        items.push((title, sub, Some(res)));
-    }
-    items.push(("Eigene".into(), "Auflösung …".into(), Some("")));
-    let cols = 4;
-    let gap = sp::S + 2.0;
-    let w = (ui.available_width() - gap * (cols as f32 - 1.0)) / cols as f32;
-    let h = 60.0;
-    let rows = items.len().div_ceil(cols);
-    let (area, _) = ui.allocate_exact_size(
-        vec2(ui.available_width(), rows as f32 * (h + gap) - gap),
-        Sense::hover(),
-    );
-    for (i, (title, sub, res)) in items.iter().enumerate() {
-        let r = Rect::from_min_size(
-            area.min + vec2((i % cols) as f32 * (w + gap), (i / cols) as f32 * (h + gap)),
-            vec2(w, h),
-        );
-        let on = match res {
-            None => app.cfg.frame.is_empty(),
-            Some("") => app.custom_frame,
-            Some(v) => !app.custom_frame && app.cfg.frame == *v,
-        };
-        let resp = ui
-            .interact(r, ui.make_persistent_id(("profile", i)), Sense::click())
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
-        let t = kit::anim(ui, resp.id, resp.hovered());
-        let p = ui.painter();
-        p.rect(
-            r,
-            radius::L,
-            kit::mix(
-                kit::mix(field(), glass_hover(), t),
-                accent_soft(),
-                if on { 1.0 } else { 0.0 },
-            ),
-            Stroke::new(1.0, if on { accent() } else { divider() }),
-            StrokeKind::Inside,
-        );
-        p.text(
-            pos2(r.left() + sp::M, r.top() + sp::M + 8.0),
-            Align2::LEFT_CENTER,
-            title,
-            font(ts::BODY, W::Semibold),
-            text(),
-        );
-        p.text(
-            pos2(r.left() + sp::M, r.bottom() - sp::M - 7.0),
-            Align2::LEFT_CENTER,
-            sub,
-            font(ts::SMALL, W::Regular),
-            text_soft(),
-        );
-        if resp.clicked() {
-            match res {
-                None => {
+/// Auflösung des Rahmens als Auswahlliste (stellt Format und Größe automatisch ein).
+fn profile_combo(app: &mut SwiperApp, ui: &mut Ui) {
+    let current = if app.custom_frame {
+        "Eigene Auflösung …".to_string()
+    } else if app.cfg.frame.is_empty() {
+        "Kein Profil, Format selbst wählen".to_string()
+    } else {
+        FRAMES
+            .iter()
+            .find(|(_, r)| *r == app.cfg.frame)
+            .map(|(n, _)| n.to_string())
+            .unwrap_or_else(|| app.cfg.frame.clone())
+    };
+    ui.horizontal(|ui| {
+        ui.add_sized([78.0, 20.0], egui::Label::new("Rahmen"));
+        egui::ComboBox::from_id_salt("frame_res")
+            .width(ui.available_width())
+            .selected_text(current)
+            .show_ui(ui, |ui| {
+                if ui
+                    .selectable_label(
+                        app.cfg.frame.is_empty() && !app.custom_frame,
+                        "Kein Profil, Format selbst wählen",
+                    )
+                    .clicked()
+                {
                     app.cfg.frame.clear();
                     app.custom_frame = false;
                 }
-                Some("") => {
+                for (name, res) in FRAMES {
+                    if ui
+                        .selectable_label(!app.custom_frame && app.cfg.frame == *res, *name)
+                        .clicked()
+                    {
+                        app.cfg.frame = res.to_string();
+                        app.custom_frame = false;
+                    }
+                }
+                if ui
+                    .selectable_label(app.custom_frame, "Eigene Auflösung …")
+                    .clicked()
+                {
                     app.custom_frame = true;
                     if app.cfg.frame.is_empty() {
                         app.cfg.frame = "1280x800".into();
                     }
                 }
-                Some(v) => {
-                    app.cfg.frame = v.to_string();
-                    app.custom_frame = false;
-                }
-            }
-        }
-    }
+            });
+    })
+    .response
+    .on_hover_text("Wähle deinen Bilderrahmen, dann passen Format und Auflösung automatisch.");
 }
 
 /// Mehrere Rahmen: Auswahl, neu, umbenennen, entfernen.
@@ -383,15 +344,7 @@ fn profiles_ui(app: &mut SwiperApp, ui: &mut Ui) {
 fn tab_frame(app: &mut SwiperApp, ui: &mut Ui) {
     kit::section(ui, "Deine Rahmen");
     profiles_ui(app, ui);
-    ui.colored_label(
-        muted(),
-        egui::RichText::new(
-            "Wähle deinen Rahmen, dann passen Seitenverhältnis und Auflösung automatisch.",
-        )
-        .size(12.5),
-    );
-    ui.add_space(sp::M);
-    profile_tiles(app, ui);
+    profile_combo(app, ui);
     ui.add_space(sp::S);
     if app.custom_frame {
         let ok = app.frame_res().is_some();
@@ -408,17 +361,11 @@ fn tab_frame(app: &mut SwiperApp, ui: &mut Ui) {
         ui.colored_label(
             muted(),
             egui::RichText::new(format!(
-                "Quer {} · Hochkant {} · höchstens {l} × {sh} Pixel. Format und Auflösung stellen sich danach ein.",
+                "Quer {}  ·  Hochkant {}  ·  {l} × {sh} Pixel",
                 app.ratio_label(Orient::Quer),
                 app.ratio_label(Orient::Hochkant)
             ))
             .size(11.5),
-        );
-    } else {
-        ui.colored_label(
-            muted(),
-            egui::RichText::new("Wähl die Auflösung deines Rahmens, dann passt alles automatisch.")
-                .size(11.5),
         );
     }
     ui.add_space(8.0);
@@ -492,30 +439,8 @@ fn tab_frame(app: &mut SwiperApp, ui: &mut Ui) {
     });
     ui.add_space(8.0);
 
-    kit::section(ui, "Ausschnitt und Ablauf");
-    ui.checkbox(
-        &mut app.cfg.smart_crop,
-        "Ausschnitt automatisch auf das Wichtigste legen",
-    )
-    .on_hover_text("Bei neuen Fotos sucht die App den Teil mit Menschen und Details. Du kannst den Rahmen danach wie immer verschieben.");
-    ui.checkbox(&mut app.cfg.two_pass, "Erst sortieren, dann Feinschliff")
-        .on_hover_text("Erster Durchgang nur behalten oder weg. Danach schneidest du die behaltenen Fotos in Ruhe zu.");
-    ui.add_space(8.0);
-
-    kit::section(ui, "Rand bei „Ganz“");
-    super::dialogs::fill_bg_ui(ui, &mut app.cfg.fill_bg);
-    ui.colored_label(
-        muted(),
-        egui::RichText::new(
-            "Standard für neue Bilder. Pro Bild über den Pfeil an „Ganz“ änderbar.",
-        )
-        .size(11.5),
-    );
-    ui.add_space(8.0);
-
-    kit::section(ui, "Ziel");
     ui.horizontal(|ui| {
-        ui.add_sized([78.0, 20.0], egui::Label::new("Bilder"));
+        ui.add_sized([78.0, 20.0], egui::Label::new("Ziel"));
         let before = app.cfg.goal;
         ui.add(
             egui::DragValue::new(&mut app.cfg.goal)
@@ -541,22 +466,28 @@ fn tab_frame(app: &mut SwiperApp, ui: &mut Ui) {
     ui.add_space(8.0);
 }
 
-fn tab_text(app: &mut SwiperApp, ui: &mut Ui) {
-    ui.add_space(sp::S);
+fn tab_image(app: &mut SwiperApp, ui: &mut Ui) {
+    kit::section(ui, "Ausschnitt");
+    ui.checkbox(
+        &mut app.cfg.smart_crop,
+        "Ausschnitt automatisch auf das Wichtigste legen",
+    )
+    .on_hover_text("Bei neuen Fotos sucht die App den Teil mit Menschen und Details. Du kannst den Rahmen danach wie immer verschieben.");
+    ui.checkbox(&mut app.cfg.two_pass, "Erst sortieren, dann Feinschliff")
+        .on_hover_text("Erster Durchgang nur behalten oder weg. Danach schneidest du die behaltenen Fotos in Ruhe zu.");
+    ui.add_space(8.0);
+
+    kit::section(ui, "Rand bei „Ganz“");
+    super::dialogs::fill_bg_ui(ui, &mut app.cfg.fill_bg);
+    ui.add_space(8.0);
+
+    kit::section(ui, "Text aufs Bild");
     ui.checkbox(
         &mut app.cfg.text.enabled,
         "Datum, Ort oder Notiz aufs Bild schreiben",
     );
     if app.cfg.text.enabled {
         dialogs::text_settings(app, ui, "drawer");
-        ui.colored_label(
-            muted(),
-            egui::RichText::new(format!(
-                "Ort und Notiz trägst du direkt am Bild ein (Taste {} oder „Text“).",
-                app.key_label("text")
-            ))
-            .size(11.5),
-        );
     }
     ui.add_space(8.0);
 }
@@ -585,24 +516,15 @@ fn tab_target(app: &mut SwiperApp, ui: &mut Ui) {
             let _ = std::fs::create_dir_all(&app.cfg.target);
             open_folder(&app.cfg.target);
         }
+        if ui.add(button("Auf USB-Stick / SD-Karte …")).clicked() {
+            app.dialog = Some(Dialog::Copy);
+        }
     });
-    ui.colored_label(
-        muted(),
-        egui::RichText::new("Darin entstehen die Ordner „Quer“ und „Hochkant“.").size(11.5),
-    );
-    ui.add_space(8.0);
-
-    if ui
-        .add(button("Auf USB-Stick / SD-Karte kopieren …"))
-        .clicked()
-    {
-        app.dialog = Some(Dialog::Copy);
-    }
     ui.add_space(8.0);
 }
 
 fn tab_look(app: &mut SwiperApp, ui: &mut Ui) {
-    kit::section(ui, "Aussehen");
+    kit::section(ui, "Darstellung");
     ui.horizontal(|ui| {
         ui.add_sized([78.0, 20.0], egui::Label::new("Farben"));
         let themes = super::style::THEMES;
@@ -621,6 +543,7 @@ fn tab_look(app: &mut SwiperApp, ui: &mut Ui) {
         let r = ui.add(
             egui::Slider::new(&mut pct, 70.0..=180.0)
                 .step_by(10.0)
+                .fixed_decimals(0)
                 .suffix(" %"),
         );
         if r.drag_stopped() || (r.changed() && !r.dragged()) {
@@ -641,6 +564,10 @@ fn tab_look(app: &mut SwiperApp, ui: &mut Ui) {
             }
         }
     });
+    ui.add_space(8.0);
+
+    kit::section(ui, "Tasten");
+    dialogs::keys_editor(app, ui);
 }
 
 fn ratio_ui(

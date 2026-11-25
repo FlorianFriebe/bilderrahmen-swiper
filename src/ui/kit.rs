@@ -309,31 +309,6 @@ pub fn key_hint(p: &Painter, r: Rect, key: &str, col: Color32) {
     );
 }
 
-/// Knopf in einer Leiste: Symbol und Text auf leichter Fläche.
-pub fn bar_button(ui: &Ui, r: Rect, glyph: &str, label: &str) -> Response {
-    let resp = clickable(ui, r, ("bar_btn", label), true);
-    let t = anim(ui, resp.id, resp.hovered());
-    let p = ui.painter();
-    p.rect_filled(r, radius::M, mix(field(), glass_hover(), t));
-    let f = font(ts::BODY, W::Medium);
-    let lw = text_size(ui, label, f.clone()).x;
-    let x = r.center().x - (18.0 + sp::S + lw) / 2.0;
-    let col = mix(text_soft(), text(), t);
-    icon(p, pos2(x + 9.0, r.center().y), glyph, 18.0, col);
-    p.text(
-        pos2(x + 18.0 + sp::S, r.center().y),
-        Align2::LEFT_CENTER,
-        label,
-        f,
-        col,
-    );
-    resp
-}
-
-pub fn bar_button_width(ui: &Ui, label: &str) -> f32 {
-    text_size(ui, label, font(ts::BODY, W::Medium)).x + 18.0 + sp::S + sp::M * 2.0
-}
-
 /// Flacher, farbiger Chip ohne Schatten (in Leisten).
 pub fn pill(ui: &Ui, r: Rect, glyph: &str, label: &str, tone: Tone) -> Response {
     let resp = clickable(ui, r, ("pill", label), true);

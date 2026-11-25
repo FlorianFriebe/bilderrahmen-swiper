@@ -15,9 +15,8 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 
 ## In 4 Schritten zum fertigen Rahmen
 
-1. **Rahmen einstellen:** Unter dem Start-Knopf stehen die wichtigsten Einstellungen auf einen
-   Blick. **„Ändern“** (oder ein Klick auf einen Eintrag) öffnet die Einstellungen. Unter
-   *Rahmen und Format* die Auflösung deines Rahmens wählen (z. B. *10 Zoll · 1280 × 800*)
+1. **Rahmen einstellen:** Das **Zahnrad** (oben rechts oder unter dem Start-Knopf) öffnet die
+   Einstellungen. Sie haben drei Seiten: *Rahmen*, *Bild* und *App*. Unter *Rahmen* die Auflösung deines Rahmens wählen (z. B. *10 Zoll · 1280 × 800*)
    oder eigene eintippen. Format und Größe passen sich dann automatisch an.
 2. **Ordner wählen:** Ordner aus dem Explorer auf die Fläche **„Ordner hierher ziehen“**
    ziehen oder darauf klicken. Die Fläche leuchtet auf, sobald du etwas darüber hältst, und
@@ -26,10 +25,9 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    die Fotos eines Ordners groß, das Mausrad blättert. Ein **kurzer Rechtsklick** (oder **⋯**
    an der Kachel) öffnet das Ordner-Menü: **Aussortierte nochmal zeigen**, **Ganz von vorn**
    (behaltene Bilder bleiben im Zielordner) und **Aus der Liste entfernen**.
-   Mit **Zeitraum** (unter der Überschrift) gehst du nur Fotos aus einem Jahr oder einem
-   eigenen Zeitraum durch, z. B. *Juni – August 2023*. Der eigene Zeitraum klappt direkt
-   darunter auf.
-3. **Loslegen:** Über dem Start-Knopf wählst du den Ablauf: **Alles in einem Durchgang** oder
+   Der **Pfeil rechts am Start-Knopf** öffnet den **Zeitraum**: nur Fotos aus einem Jahr oder
+   einem eigenen Zeitraum, z. B. *Juni – August 2023*.
+3. **Loslegen:** Im selben Pfeil-Menü wählst du den Ablauf: **Alles in einem Durchgang** oder
    **Erst sortieren, dann Feinschliff** (siehe unten). Die Fotos kommen nach Aufnahmedatum
    sortiert. Ist ein Ordner durch, zeigt eine Abschlussseite, wie viele Fotos du behalten und
    aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit zum
@@ -85,7 +83,7 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Vollbild | – | F11 |
 | Alle Tastenkürzel | Tastatur-Symbol oben | **?** oder F1 |
 
-**Tasten ändern:** Einstellungen → *Tasten*. Auf ein Feld klicken und die
+**Tasten ändern:** Einstellungen → *App* → *Tasten*. Auf ein Feld klicken und die
 neue Taste drücken. Rechtsklick leert ein Feld.
 
 ## Zuschneiden
@@ -97,7 +95,7 @@ zwei Finger am Touchpad zoomen ebenfalls. **Doppelklick** setzt zurück.
 
 Neue Fotos bekommen gleich einen **schlauen Ausschnitt**: Das Programm legt den Rahmen auf
 den Teil mit Menschen und Details statt stur in die Mitte. Abschalten unter Einstellungen →
-*Rahmen und Format* → *Ausschnitt und Ablauf*.
+*Bild* → *Ausschnitt*.
 
 ## Erst sortieren, dann Feinschliff
 
@@ -131,7 +129,7 @@ gestellt und landet im Ordner `Quer`. Mit **H** kannst du das wie gewohnt umstel
   ziehen, Mausrad zoomt. Kleiner lässt mehr Rand, größer schneidet an. Doppelklick setzt zurück.
 - **Rand:** Der Pfeil an **Ganz** wählt *Unscharf* (mit Regler für die Stärke), *Fotofarbe*,
   *Schwarz* oder *Weiß*. **Als Standard** übernimmt die Wahl für alle neuen Bilder (auch unter
-  Einstellungen → *Rahmen und Format*).
+  Einstellungen → *Bild*).
 
 ## Hilfslinien
 
@@ -169,7 +167,7 @@ Löschst du Bilder direkt im Zielordner, verschwinden sie auch hier und gelten a
 
 ## Mehrere Rahmen
 
-Einstellungen → *Rahmen und Format* → **+ Weiterer Rahmen**, z. B. für die Großeltern. Jeder
+Einstellungen → *Rahmen* → **+ Weiterer Rahmen**, z. B. für die Großeltern. Jeder
 Rahmen hat sein eigenes Format und seinen eigenen Zielordner (`Bilderrahmen <Name>`), und
 dasselbe Foto kann für jeden Rahmen behalten werden. Umschalten per Klick auf den Namen.
 
@@ -216,7 +214,7 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
   funktioniert nach einem Neustart weiterhin.
 - **Zeitraum:** Die Aufnahmedaten werden einmal im Hintergrund gelesen und gemerkt. Solange
   das läuft, zählen Fotos ohne bekanntes Datum vorerst mit.
-- **Farben:** Einstellungen → *Darstellung*: *wie Windows*, *Hell*, *Dunkel*, *Sand*, *Salbei*
+- **Farben:** Einstellungen → *App*: *wie Windows*, *Hell*, *Dunkel*, *Sand*, *Salbei*
   oder *Nachtblau*. Der Hintergrund ist immer eine ruhige, volle Farbe.
 - **Formate:** JPG, PNG, WebP, BMP, TIFF, GIF. **iPhone-Fotos (HEIC)** funktionieren, wenn
   in Windows die kostenlosen *HEIF-Bilderweiterungen* (und ggf. *HEVC-Videoerweiterungen*)

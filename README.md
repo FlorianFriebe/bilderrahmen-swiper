@@ -60,7 +60,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 **Bedienung**
 - Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit ? oder F1
 - Farbthemen wie Windows, Hell, Dunkel, Sand, Salbei und Nachtblau mit vollflächigem Hintergrund
-- Einstellungen als Karte mit Seiten für Rahmen und Format, Text, Zielordner, Darstellung und Tasten; die wichtigsten stehen auch auf dem Startbildschirm
+- Aufgeräumte Einstellungen auf drei Seiten: Rahmen, Bild und App; Zeitraum und Ablauf im Pfeil-Menü am Start-Knopf
 - Schriftgröße mit Strg + und Strg −
 - Kurze Einführung beim ersten Start
 - Hinweis auf neue Versionen; unter Windows Aktualisierung mit einem Klick (Download, Austausch der .exe, Neustart)
