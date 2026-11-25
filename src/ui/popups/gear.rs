@@ -80,6 +80,17 @@ pub fn app_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool 
             app.cfg.install_asked = true;
             close = true;
         }
+        if menu_row(
+            ui,
+            "Problem melden …",
+            "Bericht zum Weiterschicken erstellen",
+            false,
+        )
+        .clicked()
+        {
+            crate::ui::dialogs::report_now(app, ui.ctx());
+            close = true;
+        }
         if menu_row(ui, "Einführung zeigen", "", false).clicked() {
             app.cfg.intro_done = false;
             app.cfg.intro_version = 0;

@@ -11,6 +11,7 @@ mod folders;
 mod history;
 mod imaging;
 mod install;
+mod report;
 mod session;
 mod system;
 mod textstyle;

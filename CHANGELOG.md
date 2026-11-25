@@ -3,6 +3,14 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.12.0
+
+- Updates werden vor dem Einsetzen geprüft: Stimmt die Prüfsumme nicht mit der Angabe von GitHub
+  überein, wird die Datei verworfen und die bisherige Version bleibt.
+- Neu im Zahnrad: **Problem melden**. Das erstellt einen kurzen Bericht und legt ihn in die
+  Zwischenablage, sodass du ihn direkt in eine Nachricht einfügen kannst.
+- Nach einem Absturz führt der Hinweis direkt zu diesem Bericht.
+
 ## 3.11.0
 
 - Beim ersten Start bietet das Programm an, sich ins Startmenü und auf den Desktop zu legen

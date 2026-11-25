@@ -607,18 +607,15 @@ pub fn check_update(ctx: egui::Context) -> Arc<Mutex<Option<String>>> {
             return;
         };
         let name = json.get("name").and_then(|n| n.as_str()).unwrap_or("");
-        if let Some(size) = json
-            .get("assets")
-            .and_then(|a| a.as_array())
-            .and_then(|a| {
-                a.iter().find(|x| {
-                    x.get("name").and_then(|n| n.as_str()) == Some("Bilderrahmen-Swiper.exe")
-                })
-            })
-            .and_then(|x| x.get("size"))
-            .and_then(|s| s.as_u64())
-        {
+        let asset = json.get("assets").and_then(|a| a.as_array()).and_then(|a| {
+            a.iter()
+                .find(|x| x.get("name").and_then(|n| n.as_str()) == Some("Bilderrahmen-Swiper.exe"))
+        });
+        if let Some(size) = asset.and_then(|x| x.get("size")).and_then(|s| s.as_u64()) {
             crate::update::ASSET_SIZE.store(size, std::sync::atomic::Ordering::Relaxed);
+        }
+        if let Some(d) = asset.and_then(|x| x.get("digest")).and_then(|d| d.as_str()) {
+            crate::update::set_digest(d);
         }
         let Some(v) = name.split_whitespace().find_map(parse_version) else {
             return;
