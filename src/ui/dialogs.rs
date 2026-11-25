@@ -867,7 +867,7 @@ pub fn fill_panel(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect) {
                     ui.add_space(4.0);
                     ui.colored_label(
                         muted(),
-                        egui::RichText::new("Mausrad: Größe · rechte Maustaste: verschieben")
+                        egui::RichText::new("Foto ziehen: verschieben · Ecken oder Mausrad: Größe")
                             .size(11.5),
                     );
                     ui.add_space(4.0);
