@@ -776,7 +776,11 @@ fn guides(painter: &Painter, r: Rect, kind: u8, flip: u8, tr: &dyn Fn(Pos2) -> P
     let (w, h) = (r.width(), r.height());
     match kind {
         1 | 2 => {
-            let k = if kind == 1 { 1.0 / 3.0 } else { 0.381_966 };
+            let k = if kind == 1 {
+                1.0 / 3.0
+            } else {
+                2.0 - (1.0 + 5f32.sqrt()) / 2.0
+            };
             for t in [k, 1.0 - k] {
                 line((t, 0.0), (t, 1.0));
                 line((0.0, t), (1.0, t));
@@ -818,17 +822,17 @@ fn guides(painter: &Painter, r: Rect, kind: u8, flip: u8, tr: &dyn Fn(Pos2) -> P
         }
         _ => {
             // goldene Spirale aus Viertelkreisen, auf die Fläche gestreckt
-            const PHI: f32 = 1.618_034;
+            let phi = (1.0 + 5f32.sqrt()) / 2.0;
             let wide = w >= h;
             let map = |u: f32, v: f32| {
-                // u: 0..PHI entlang der langen Seite, v: 0..1 entlang der kurzen
+                // u: 0..phi entlang der langen Seite, v: 0..1 entlang der kurzen
                 if wide {
-                    (u / PHI, v)
+                    (u / phi, v)
                 } else {
-                    (v, u / PHI)
+                    (v, u / phi)
                 }
             };
-            let (mut rx, mut ry, mut rw, mut rh) = (0.0f32, 0.0f32, PHI, 1.0f32);
+            let (mut rx, mut ry, mut rw, mut rh) = (0.0f32, 0.0f32, phi, 1.0f32);
             let mut pts = vec![];
             for i in 0..12 {
                 // Quadrat abtrennen (links, oben, rechts, unten), darin ein Viertelkreis
