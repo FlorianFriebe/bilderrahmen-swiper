@@ -1,7 +1,11 @@
+//! Programmstart: Fenster öffnen, Grafik wählen (wgpu, sonst OpenGL), App starten.
+
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
 mod daterange;
+#[cfg(test)]
+mod design_check;
 mod dupes;
 mod folders;
 mod history;

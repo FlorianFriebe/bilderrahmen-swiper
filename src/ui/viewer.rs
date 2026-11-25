@@ -426,11 +426,7 @@ fn tag(ui: &Ui, center: egui::Pos2, label: &str, esc: bool) {
     let ew = if esc { 28.0 + sp::S } else { 0.0 };
     let w = sp::M + 16.0 + sp::S + lw + ew + sp::M;
     let r = Rect::from_center_size(center, vec2(w, 34.0));
-    p.rect_filled(
-        r,
-        radius::M,
-        Color32::from_rgba_unmultiplied(20, 20, 24, 170),
-    );
+    p.rect_filled(r, radius::M, SCRIM);
     let col = Color32::from_white_alpha(225);
     kit::icon(
         p,
@@ -484,11 +480,7 @@ fn controls(v: &mut Viewer, ui: &Ui, full: Rect, now: f64) -> bool {
     }
     let mut p = ui.painter().clone();
     p.set_opacity(a);
-    p.rect_filled(
-        r,
-        radius::L,
-        Color32::from_rgba_unmultiplied(20, 20, 24, 190),
-    );
+    p.rect_filled(r, radius::L, SCRIM_STRONG);
     let mut x = r.left() + sp::S;
     let row = |x: f32| Rect::from_min_size(pos2(x, r.center().y - b / 2.0), vec2(b, b));
     let mut hit = false;

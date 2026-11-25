@@ -324,7 +324,7 @@ fn list_item(ui: &mut Ui, w: f32, l: &TextLook, on: bool, deletable: bool) -> (b
     p.rect_filled(r, radius::M, fill);
     // kleines Muster
     let sw = Rect::from_min_size(pos2(r.left() + sp::S, r.top() + 6.0), vec2(44.0, 32.0));
-    p.rect_filled(sw, radius::S, Color32::from_rgb(0x5a, 0x6e, 0x86));
+    p.rect_filled(sw, radius::S, SWATCH);
     let [cr, cg, cb] = l.color;
     if l.bg >= 2 {
         p.rect_filled(
