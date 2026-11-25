@@ -321,8 +321,8 @@ pub struct Spots {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Dialog {
-    /// Einstellungs-Karte
-    Settings,
+    /// Tasten ändern
+    Keys,
     Copy,
     /// Übersicht der Tastenkürzel
     Shortcuts,
@@ -339,7 +339,8 @@ pub struct SwiperApp {
     /// laufende Session im Verlauf
     pub active_session: Option<u64>,
     /// gewählter Bereich der Einstellungs-Karte
-    pub settings_tab: usize,
+    /// Zahnrad-Popup offen (Strg+B oder Zahnrad)
+    pub gear_popup: bool,
 
     // aktuelle Sitzung
     pub queue: Vec<PathBuf>,
@@ -456,7 +457,7 @@ impl SwiperApp {
             folders: vec![],
             view: View::Home,
             active_session: None,
-            settings_tab: 0,
+            gear_popup: false,
             queue: vec![],
             folder: None,
             items: vec![],
@@ -521,6 +522,12 @@ impl SwiperApp {
         };
         app.custom_frame =
             !app.cfg.frame.is_empty() && !FRAMES.iter().any(|f| f.1 == app.cfg.frame);
+        // „Rahmen“ heißt jetzt „Profil“
+        for p in &mut app.cfg.profiles {
+            if p.name == "Mein Rahmen" {
+                p.name = "Mein Profil".into();
+            }
+        }
         system::log(&format!("Start Version {}", system::VERSION));
         system::trim_cache();
         for a in args {
@@ -1052,7 +1059,7 @@ impl SwiperApp {
         {
             self.goal_announced = true;
             self.toast(format!(
-                "Ziel erreicht: {} Bilder für den Rahmen!",
+                "Ziel erreicht: {} Bilder behalten!",
                 fmt_int(self.total_kept)
             ));
         }
@@ -1954,7 +1961,7 @@ impl SwiperApp {
     /// Aktive Einstellungen in die Liste zurückschreiben (legt den ersten Rahmen an).
     pub fn store_profile(&mut self) {
         if self.cfg.profiles.is_empty() {
-            let snap = self.profile_snapshot("Mein Rahmen".into());
+            let snap = self.profile_snapshot("Mein Profil".into());
             self.cfg.profiles.push(snap);
             self.cfg.profile = 0;
             return;
@@ -1984,7 +1991,7 @@ impl SwiperApp {
         self.custom_frame = false;
         self.stats = None;
         self.set_target(p.target);
-        self.toast(format!("Rahmen „{}“", p.name));
+        self.toast(format!("Profil „{}“", p.name));
     }
 
     /// Neuen Rahmen anlegen (Kopie der aktuellen Einstellungen, eigener Zielordner).
@@ -1992,7 +1999,7 @@ impl SwiperApp {
         self.store_profile();
         let name = name.trim();
         let name = if name.is_empty() {
-            format!("Rahmen {}", self.cfg.profiles.len() + 1)
+            format!("Profil {}", self.cfg.profiles.len() + 1)
         } else {
             name.to_string()
         };

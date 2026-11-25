@@ -231,7 +231,7 @@ fn header(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, n: usize) -> bool {
         let r = Rect::from_min_size(pos2(right - w, ws.top()), vec2(w, size::BAR));
         let resp = kit::secondary(ui, r, glyph, label, n > 0);
         let resp = if act == 2 {
-            resp.on_hover_text("Behaltene Bilder ansehen, so wie der Rahmen sie zeigt (Leertaste: Pause, Pfeile: blättern, Esc: beenden)")
+            resp.on_hover_text("Behaltene Bilder nacheinander ansehen, so wie sie gespeichert sind (Leertaste: Pause, Pfeile: blättern, Esc: beenden)")
         } else {
             resp
         };

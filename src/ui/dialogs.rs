@@ -31,7 +31,7 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
     vec![
         Step {
             kicker: "WILLKOMMEN",
-            title: "Aus vielen Fotos die besten für deinen Rahmen wählen",
+            title: "Aus vielen Fotos die besten auswählen",
             bullets: vec![
                 b(icons::HEART, "Behalten: grüner Knopf, Pfeiltaste oder nach rechts wischen", k("keep")),
                 b(icons::X, "Weg: roter Knopf, Pfeiltaste oder nach links wischen", k("skip")),
@@ -86,7 +86,7 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
                 ),
                 b(
                     icons::GEAR,
-                    "Einstellungen: Rahmen, Text, Zielordner und Tasten",
+                    "Zahnrad: Zielordner, Farben, Tasten und Hilfe",
                     String::new(),
                 ),
                 b(icons::KEYBOARD, "Alle Tastenkürzel auf einen Blick", "?".into()),
@@ -476,7 +476,7 @@ pub fn copy(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
             }
             ui.add_space(sp::M);
             ui.label(
-                egui::RichText::new(format!("{}  Reihenfolge auf dem Rahmen", icons::SHUFFLE))
+                egui::RichText::new(format!("{}  Reihenfolge auf dem Gerät", icons::SHUFFLE))
                     .font(bold(14.0)),
             );
             ui.horizontal(|ui| {
@@ -854,7 +854,7 @@ pub fn fill_panel(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect) {
                         }
                         if ui
                             .add_sized(vec2(96.0, 30.0), egui::Button::selectable(fill_on, "Ganz"))
-                            .on_hover_text("Ganzes Foto auf den Rahmen statt zuschneiden")
+                            .on_hover_text("Ganzes Foto ins Format statt zuschneiden")
                             .clicked()
                         {
                             toggle_fill = true;
@@ -1022,8 +1022,7 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
         close
     });
     if change {
-        app.settings_tab = super::settings::TAB_KEYS;
-        app.dialog = Some(Dialog::Settings);
+        app.dialog = Some(Dialog::Keys);
     } else if resp.inner || resp.should_close() {
         app.dialog = None;
     }

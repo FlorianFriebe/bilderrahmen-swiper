@@ -47,8 +47,8 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Begradigen um bis zu ±15°: Vorschlag aus erkannten Kanten oder eine selbst gezogene Linie am Horizont
 - Licht: automatische Tonwertkorrektur, Helligkeit und Kontrast
 - Alternativ das ganze Foto statt Zuschnitt, frei zoom- und verschiebbar; Rand unscharf (Stärke einstellbar), in Fotofarbe, schwarz oder weiß
-- Rahmen-Profile (z. B. 1280 × 800) setzen Seitenverhältnis und Auflösung automatisch
-- Mehrere Rahmen mit eigenem Format und Zielordner; dasselbe Foto kann für jeden Rahmen behalten werden
+- Geräte-Vorlagen (z. B. 1280 × 800) setzen Seitenverhältnis und Auflösung automatisch
+- Mehrere Profile mit eigenem Format, eigener Größe und eigenem Zielordner; dasselbe Foto kann für jedes Profil behalten werden
 - Optionale Begrenzung von Auflösung und Dateigröße (die JPEG-Qualität wird angepasst)
 - Optional Text aufs Bild: Datum, Ort (pro Ordner), Notiz (pro Bild)
 - Stil-Editor mit Vorschau am echten Foto: vier Schriften, Größe, Farbe, Deckkraft, Hintergrund (Schatten, Band, Glas), neun Positionen und Randabstand; sieben mitgelieferte Stile, eigene Stile speichern, pro Ordner festlegen, als Datei exportieren und importieren
@@ -63,7 +63,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 **Bedienung**
 - Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit ? oder F1
 - Farbthemen wie Windows, Hell, Dunkel, Sand, Salbei und Nachtblau mit vollflächigem Hintergrund
-- Aufgeräumte Einstellungen auf drei Seiten: Rahmen, Bild und App; Zeitraum und Ablauf in der Leiste unter dem Start-Knopf
+- Alle Einstellungen in der Leiste unter dem Start-Knopf als kleine Popups: Zeitraum, Ablauf, Text, Profil (Format und Größe) und Zahnrad (Zielordner, Farben, Schrift, Tasten, Hilfe)
 - Schriftgröße mit Strg + und Strg −
 - Kurze Einführung beim ersten Start
 - Hinweis auf neue Versionen; unter Windows Aktualisierung mit einem Klick (Download, Austausch der .exe, Neustart)

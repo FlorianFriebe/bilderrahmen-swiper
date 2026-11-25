@@ -1049,10 +1049,12 @@ enum SessionAction {
 /// Einstellungsleiste unter dem Start-Knopf: Zeitraum, Ablauf, Rahmen, Text, Zielordner.
 /// Immer so breit wie der Start-Knopf.
 fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
-    let text_lbl = if app.cfg.text.enabled {
-        "Mit Text"
-    } else {
+    let text_lbl = if !app.cfg.text.enabled {
         "Kein Text"
+    } else if app.cfg.text.place {
+        "Datum + Ort"
+    } else {
+        "Datum"
     }
     .to_string();
     let range = app
@@ -1065,22 +1067,12 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
     } else {
         (icons::PLAY, "1 Durchgang")
     };
-    // (Symbol, Beschriftung, Aktion: <10 = Menü, sonst Einstellungsseite + 10)
+    // (Symbol, Beschriftung, Popup, Tooltip); Popup 4 = Zahnrad
     let mut items: Vec<(&str, String, usize, &str)> = vec![
         (icons::CALENDAR, range, 0, "Zeitraum"),
         (mode_glyph, mode.to_string(), 1, "Ablauf"),
-        (
-            icons::TEXT,
-            text_lbl,
-            10 + super::settings::TAB_TEXT,
-            "Text",
-        ),
-        (
-            icons::FRAME,
-            String::new(),
-            10 + super::settings::TAB_FRAME,
-            "Format, Größe und Zielordner",
-        ),
+        (icons::TEXT, text_lbl, 2, "Text aufs Bild"),
+        (icons::FRAME, String::new(), 3, "Profil: Format und Größe"),
     ];
     let f = font(ts::SMALL, W::Medium);
     let h = 44.0;
@@ -1139,6 +1131,11 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
     kit::glass(&p, bar, radius::L);
     let menu_id = egui::Id::unique("home_bar_menu");
     let mut menu: Option<u8> = ui.ctx().data(|d| d.get_temp(menu_id)).flatten();
+    if app.gear_popup {
+        // Strg+B
+        app.gear_popup = false;
+        menu = if menu == Some(4) { None } else { Some(4) };
+    }
     let mut menu_item = Rect::NOTHING;
     let mut x = bar.left() + sp::XS;
     let ir = |x: f32, w: f32| Rect::from_min_size(pos2(x, bar.top() + 4.0), vec2(w, h - 8.0));
@@ -1148,7 +1145,7 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
             .interact(r, ui.make_persistent_id(("summary", *act)), Sense::click())
             .on_hover_cursor(egui::CursorIcon::PointingHand)
             .on_hover_text(*tip);
-        let open = *act < 10 && menu == Some(*act as u8);
+        let open = menu == Some(*act as u8);
         if open {
             menu_item = r;
         }
@@ -1173,33 +1170,39 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
             col,
         );
         if resp.clicked() {
-            if *act < 10 {
-                let which = *act as u8;
-                menu = if menu == Some(which) {
-                    None
-                } else {
-                    Some(which)
-                };
-                app.range_draft = None;
-                if menu.is_some() {
-                    menu_item = r;
-                }
+            let which = *act as u8;
+            menu = if menu == Some(which) {
+                None
             } else {
-                app.settings_tab = act - 10;
-                app.dialog = Some(Dialog::Settings);
+                Some(which)
+            };
+            app.range_draft = None;
+            if menu.is_some() {
+                menu_item = r;
             }
         }
         x += w + sp::XS;
     }
     let r = ir(x, gear_w);
+    if menu == Some(4) {
+        menu_item = r;
+        p.rect_filled(r, radius::M, glass_hover());
+    }
     if kit::icon_button(ui, r, icons::GEAR, true)
-        .on_hover_text("Alle Einstellungen (Strg+B)")
+        .on_hover_text("Zielordner, Farben, Schrift, Tasten und Hilfe (Strg+B)")
         .clicked()
     {
-        app.dialog = Some(Dialog::Settings);
+        menu = if menu == Some(4) { None } else { Some(4) };
+        menu_item = r;
     }
     if let Some(which) = menu {
-        if !bar_menu(app, ui, which, bar, menu_item) {
+        let keep = match which {
+            0 | 1 => bar_menu(app, ui, which, bar, menu_item),
+            2 => super::popups::text_popup(app, ui, menu_item, true),
+            3 => super::popups::profile_popup(app, ui, menu_item, true),
+            _ => super::popups::app_popup(app, ui, menu_item, true),
+        };
+        if !keep {
             menu = None;
             app.range_draft = None;
         }
@@ -1737,30 +1740,10 @@ fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction
     }
 }
 
-/// Text hinten kürzen („2021_08_12_Russl…“), bis er in `w` passt.
 fn fit_end(ui: &Ui, s: &str, f: egui::FontId, w: f32) -> String {
-    if kit::text_size(ui, s, f.clone()).x <= w {
-        return s.to_string();
-    }
-    let chars: Vec<char> = s.chars().collect();
-    let mut n = chars.len();
-    while n > 3 {
-        n -= 1;
-        let t = format!("{}…", chars[..n].iter().collect::<String>());
-        if kit::text_size(ui, &t, f.clone()).x <= w {
-            return t;
-        }
-    }
-    s.to_string()
+    kit::fit_text(ui, s, f, w)
 }
 
-/// Text vorne kürzen („…Bilder › 2021“), bis er in `w` passt.
 fn fit_start(ui: &Ui, s: &str, f: egui::FontId, w: f32) -> String {
-    let mut n = s.chars().count();
-    let mut t = s.to_string();
-    while n > 4 && kit::text_size(ui, &t, f.clone()).x > w {
-        n -= 1;
-        t = ellipsize(s, n);
-    }
-    t
+    kit::fit_text_start(ui, s, f, w)
 }

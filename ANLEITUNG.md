@@ -13,11 +13,16 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    **„Weitere Informationen“ → „Trotzdem ausführen“.**
 3. Beim ersten Durchgehen zeigt eine kurze Einführung die wichtigsten Handgriffe.
 
-## In 4 Schritten zum fertigen Rahmen
+## In 4 Schritten zu fertigen Bildern
 
-1. **Rahmen einstellen:** Das **Zahnrad** (rechts in der Leiste unter dem Start-Knopf) öffnet die
-   Einstellungen. Sie haben drei Seiten: *Rahmen*, *Bild* und *App*. Unter *Rahmen* die Auflösung deines Rahmens wählen (z. B. *10 Zoll · 1280 × 800*)
-   oder eigene eintippen. Format und Größe passen sich dann automatisch an.
+1. **Profil einstellen:** In der Leiste unter dem Start-Knopf öffnet das **Format-Symbol** ein
+   kleines Popup mit deinen **Profilen**. Zu jedem Profil gehören Format und Größe: Unter
+   *Vorlage* wählst du dein Gerät (z. B. *10 Zoll · 1280 × 800*) oder tippst eine eigene
+   Auflösung ein, dann passen Format und Größe automatisch. Ohne Vorlage stellst du *Quer*,
+   *Hochkant* und *Auflösung* selbst ein. Die Leiste hat außerdem **Zeitraum**, **Ablauf** und
+   **Text** (Aus, Datum oder Datum + Ort, darunter der Stil), jeweils als kleines Popup.
+   Das **Zahnrad** ganz rechts enthält, was man einmal einstellt: Zielordner, Farben,
+   Schriftgröße, Tasten und Hilfe.
 2. **Ordner wählen:** Ordner aus dem Explorer auf die Fläche **„Ordner hierher ziehen“**
    ziehen oder darauf klicken. Die Fläche leuchtet auf, sobald du etwas darüber hältst, und
    sagt dir, wenn es kein Ordner ist; Ordner ohne Fotos werden nicht übernommen. Klick = an-/abwählen,
@@ -44,13 +49,13 @@ Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** 
 ## Bedienung
 
 Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zum Startbildschirm, speichert
-deinen Stand), das Zahnrad für die **Einstellungen**, die beiden Symbole **Quer / Hochkant**
+deinen Stand), das Zahnrad (Zielordner, Farben, Schrift, Tasten, Hilfe), die beiden Symbole **Quer / Hochkant**
 (nicht beim schnellen Sortieren; das Format steht im Tooltip), ein kleiner Hinweis auf den Schritt
 (*Schnell sortieren*, *Feinschliff 3 / 12*), Ordner und Fortschritt und die Zahl der behaltenen
 Bilder. Alle Tastenkürzel zeigt **?** (oder **F1**).
 
 Auf dem Startbildschirm steht oben nur der grüne Zähler der behaltenen Bilder; ein Klick
-öffnet die Galerie. Die Einstellungen erreichst du dort über das Zahnrad unter dem Start-Knopf.
+öffnet die Galerie. Alle Einstellungen sitzen in der Leiste unter dem Start-Knopf.
 
 Unten schwebt die Leiste fürs Bild, sortiert nach Wichtigkeit: in der Mitte die beiden großen
 Knöpfe **Weg** (rot, ✕) und **Behalten** (grün, ♥), links **Zurück**, rechts die Werkzeuge
@@ -89,12 +94,12 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Mehrere Bilder in der Galerie markieren | **Strg**+Klick, **Shift**+Klick für einen Bereich | Strg+A, Esc hebt auf |
 | Behaltenes Bild groß ansehen | in der Galerie Doppelklick, dann **← →** | – |
 | Behaltenes Bild nachbearbeiten | in der Galerie **Bearbeiten** | – |
-| Einstellungen | Zahnrad | Strg+B |
+| Zielordner, Farben, Tasten, Hilfe | Zahnrad | Strg+B |
 | Schrift größer / kleiner | – | **Strg +** / **Strg −** (Strg 0 = normal) |
 | Vollbild | – | F11 |
-| Alle Tastenkürzel | Einstellungen → *App* → *Tasten* | **?** oder F1 |
+| Alle Tastenkürzel | Zahnrad → *Alle Tastenkürzel* | **?** oder F1 |
 
-**Tasten ändern:** Einstellungen → *App* → *Tasten*. Auf ein Feld klicken und die
+**Tasten ändern:** Zahnrad → *Tasten ändern …*. Auf ein Feld klicken und die
 neue Taste drücken. Rechtsklick leert ein Feld.
 
 ## Zuschneiden
@@ -105,8 +110,8 @@ ziehst du ihn größer oder kleiner, das Seitenverhältnis bleibt dabei gleich. 
 zwei Finger am Touchpad zoomen ebenfalls. **Doppelklick** setzt zurück.
 
 Neue Fotos bekommen gleich einen **schlauen Ausschnitt**: Das Programm legt den Rahmen auf
-den Teil mit Menschen und Details statt stur in die Mitte. Abschalten unter Einstellungen →
-*Bild* → *Ausschnitt*.
+den Teil mit Menschen und Details statt stur in die Mitte. Abschalten im
+Format-Popup unter der Leiste.
 
 ## Erst sortieren, dann Feinschliff
 
@@ -156,8 +161,8 @@ gestellt und landet im Ordner `Quer`. Mit **H** kannst du das wie gewohnt umstel
 - **Größe und Lage:** Das Foto mit der Maus verschieben, an den Ecken größer oder kleiner
   ziehen, Mausrad zoomt. Kleiner lässt mehr Rand, größer schneidet an. Doppelklick setzt zurück.
 - **Rand:** Der Pfeil an **Format** wählt unter *Rand bei „Ganz“* *Unscharf* (mit Regler für die Stärke), *Fotofarbe*,
-  *Schwarz* oder *Weiß*. **Als Standard** übernimmt die Wahl für alle neuen Bilder (auch unter
-  Einstellungen → *Bild*).
+  *Schwarz* oder *Weiß*. **Als Standard** übernimmt die Wahl für alle neuen Bilder (auch im
+  Format-Popup unter der Leiste).
 
 ## Hilfslinien
 
@@ -195,11 +200,12 @@ mit allen Werkzeugen (Zuschnitt, Ganz, Text, Begradigen, Licht). **Behalten** sp
 Bild neu und ersetzt das alte, **Weg** nimmt es aus den Behaltenen, **Esc** bricht ab.
 Löschst du Bilder direkt im Zielordner, verschwinden sie auch hier und gelten als aussortiert.
 
-## Mehrere Rahmen
+## Mehrere Profile
 
-Einstellungen → *Rahmen* → **+ Weiterer Rahmen**, z. B. für die Großeltern. Jeder
-Rahmen hat sein eigenes Format und seinen eigenen Zielordner (`Bilderrahmen <Name>`), und
-dasselbe Foto kann für jeden Rahmen behalten werden. Umschalten per Klick auf den Namen.
+Im Format-Popup legt **+ Neues Profil** ein weiteres an, z. B. für ein zweites Gerät bei den
+Großeltern. Jedes Profil hat sein eigenes Format, seine eigene Größe und seinen eigenen
+Zielordner (`Bilderrahmen <Name>`), und dasselbe Foto kann für jedes Profil behalten werden.
+Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Profil.
 
 ## Text aufs Bild
 
@@ -245,7 +251,7 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
   funktioniert nach einem Neustart weiterhin.
 - **Zeitraum:** Die Aufnahmedaten werden einmal im Hintergrund gelesen und gemerkt. Solange
   das läuft, zählen Fotos ohne bekanntes Datum vorerst mit.
-- **Farben:** Einstellungen → *App*: *wie Windows*, *Hell*, *Dunkel*, *Sand*, *Salbei*
+- **Farben:** Zahnrad → *Farben*: *wie Windows*, *Hell*, *Dunkel*, *Sand*, *Salbei*
   oder *Nachtblau*. Der Hintergrund ist immer eine ruhige, volle Farbe.
 - **Formate:** JPG, PNG, WebP, BMP, TIFF, GIF. **iPhone-Fotos (HEIC)** funktionieren, wenn
   in Windows die kostenlosen *HEIF-Bilderweiterungen* (und ggf. *HEVC-Videoerweiterungen*)
@@ -255,7 +261,7 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
 - **Sicherung:** Dein Fortschritt liegt im Zielordner und zusätzlich unter
   `%LOCALAPPDATA%\Bilderrahmen-Swiper\sicherung`. Geht die Datei im Zielordner verloren,
   wird sie von dort wiederhergestellt.
-- **Falls etwas schiefgeht:** Unten links in den Einstellungen steht die Version und der Link
+- **Falls etwas schiefgeht:** Unten im Zahnrad-Popup steht die Version und der Link
   **„Fehlerprotokoll“**. Die Datei
   `%LOCALAPPDATA%\Bilderrahmen-Swiper\protokoll.txt` hilft bei der Fehlersuche.
   Dort liegen auch die zwischengespeicherten Vorschaubilder (höchstens etwa 200 MB).

@@ -8,7 +8,7 @@ pub mod gallery;
 pub mod home;
 pub mod icons;
 pub mod kit;
-mod settings;
+pub mod popups;
 pub mod style;
 mod swipe;
 pub mod textstyles;

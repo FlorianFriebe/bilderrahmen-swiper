@@ -15,7 +15,7 @@ use egui::{
 use super::kit::{self, Primary, Tone};
 use super::style::*;
 use super::{cover_uv, dialogs, ellipsize, icons, FULL_UV};
-use crate::app::{Dialog, SwiperApp, View};
+use crate::app::{SwiperApp, View};
 use crate::folders;
 use crate::imaging::{self, Orient};
 use crate::util::fmt_int;
@@ -227,11 +227,18 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         return false;
     }
     x += pause_w + gap;
-    if kit::icon_button(ui, row(x, h), icons::GEAR, true)
-        .on_hover_text("Einstellungen (Strg+B)")
+    let gear = row(x, h);
+    if app.gear_popup {
+        p.rect_filled(gear, radius::M, glass_hover());
+    }
+    if kit::icon_button(ui, gear, icons::GEAR, true)
+        .on_hover_text("Zielordner, Farben, Schrift, Tasten und Hilfe (Strg+B)")
         .clicked()
     {
-        app.dialog = Some(Dialog::Settings);
+        app.gear_popup = !app.gear_popup;
+    }
+    if app.gear_popup && !super::popups::app_popup(app, ui, gear, false) {
+        app.gear_popup = false;
     }
     x += h + sp::M;
     kit::vsep(&p, x, cy);
@@ -1611,7 +1618,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
             },
         )
         .on_hover_text(format!(
-            "Doch nicht für den Rahmen: aus den Behaltenen nehmen ({})",
+            "Doch nicht behalten: aus den Behaltenen nehmen ({})",
             k("undo")
         ))
         .clicked()
@@ -1683,7 +1690,7 @@ fn dock_ui(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64, width: f32) -
             .on_hover_text(if app.reedit.is_some() {
                 format!("Neu speichern ({})", k("keep"))
             } else {
-                format!("Behalten: für den Rahmen speichern ({})", k("keep"))
+                format!("Behalten: zugeschnitten speichern ({})", k("keep"))
             })
             .clicked()
         {

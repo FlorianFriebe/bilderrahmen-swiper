@@ -6,7 +6,7 @@ use egui::{pos2, vec2, Align2, Color32, Id, Key, Rect, Stroke, StrokeKind, Ui};
 
 use super::kit;
 use super::style::{self, *};
-use super::{burst, dialogs, gallery, home, settings, swipe};
+use super::{burst, dialogs, gallery, home, swipe};
 use crate::app::{Dialog, SwiperApp, View};
 
 /// Wie lange eine Meldung stehen bleibt (Sekunden).
@@ -61,7 +61,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         dialogs::intro(app, ui, full);
     }
     match app.dialog {
-        Some(Dialog::Settings) => settings::show(app, ui, full),
+        Some(Dialog::Keys) => super::popups::keys_dialog(app, ui),
         Some(Dialog::Copy) => dialogs::copy(app, ui, now),
         Some(Dialog::Shortcuts) => dialogs::shortcuts(app, ui),
         Some(Dialog::TextStyles) => super::textstyles::show(app, ui, full),
@@ -267,7 +267,9 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         return;
     }
     if k(Key::Escape) {
-        if app.fill_panel || app.adjust_panel {
+        if app.gear_popup {
+            app.gear_popup = false;
+        } else if app.fill_panel || app.adjust_panel {
             app.fill_panel = false;
             app.adjust_panel = false;
         } else if app.text_panel {
@@ -289,7 +291,7 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         return;
     }
     if m.command && k(Key::B) {
-        app.dialog = Some(Dialog::Settings);
+        app.gear_popup = !app.gear_popup;
         return;
     }
     let question = ctx.input(|i| {

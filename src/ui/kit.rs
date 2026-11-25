@@ -11,8 +11,8 @@ use egui::{
     Response, Sense, Stroke, StrokeKind, TextureHandle, TextureOptions, Ui, Vec2,
 };
 
-use super::icons;
 use super::style::{self as pal, *};
+use super::{ellipsize, icons};
 
 // ------------------------------------------------------------------ Grundlagen
 
@@ -998,4 +998,32 @@ pub fn orient_switch(
         }
     }
     clicked
+}
+
+/// Text hinten kürzen („2021_08_12_Russl…“), bis er in `w` passt.
+pub fn fit_text(ui: &Ui, s: &str, f: egui::FontId, w: f32) -> String {
+    if text_size(ui, s, f.clone()).x <= w {
+        return s.to_string();
+    }
+    let chars: Vec<char> = s.chars().collect();
+    let mut n = chars.len();
+    while n > 3 {
+        n -= 1;
+        let t = format!("{}…", chars[..n].iter().collect::<String>());
+        if text_size(ui, &t, f.clone()).x <= w {
+            return t;
+        }
+    }
+    s.to_string()
+}
+
+/// Text vorne kürzen („…Bilder › 2021“), bis er in `w` passt.
+pub fn fit_text_start(ui: &Ui, s: &str, f: egui::FontId, w: f32) -> String {
+    let mut n = s.chars().count();
+    let mut t = s.to_string();
+    while n > 4 && text_size(ui, &t, f.clone()).x > w {
+        n -= 1;
+        t = ellipsize(s, n);
+    }
+    t
 }
