@@ -7,6 +7,9 @@ Oberfläche und Texte sind **deutsch, in Du-Form**. Nutzerdoku: `ANLEITUNG.md`, 
 Lies diese Datei zuerst, dann gezielt nur die Module, die die Aufgabe betrifft (Landkarte unten).
 Jede `.rs`-Datei beginnt mit einem `//!`-Satz, der sagt, was drinsteht.
 
+Skills in `.claude/skills/`: **app-testen** (App unter Linux starten, bedienen, Screenshots),
+**release** (Version, Doku, Checks, Merge), **ui-baustein** (Stil und Bausteine der Oberfläche).
+
 ## Befehle
 
 ```
@@ -35,6 +38,7 @@ src/app/             Zustand SwiperApp + Logik, ein impl-Block pro Thema
   keys.rs            Tastenbelegung
   profiles.rs        Profile je Bilderrahmen
   textures.rs        Ergebnisse der Worker abholen (Speichern, Vorschaubilder, Texturen)
+  tests.rs           Ablauf-Tests ohne UI (Behalten, Rückgängig, Ganz von vorn, Nachbearbeiten)
 src/history.rs       Rückgängig: Step-Stapel, Papierkorb `.papierkorb` (14 Tage), Ganz von vorn
 src/folders.rs       Ordnerbaum, natürliche Sortierung, StatusFile (.bilderrahmen_status.json)
 src/session.rs       Weitermachen: Auswahlen pausieren/fortsetzen
@@ -78,16 +82,11 @@ src/ui/
 - Neue Logik bekommt Tests (`#[cfg(test)]` im selben Modul oder `imaging/tests.rs`).
   Windows-spezifische Tests mit `#[cfg(windows)]`.
 - Keine `unwrap()` auf Dateioperationen im App-Code; Fehler als Toast auf Deutsch zeigen.
+- Abläufe, die Dateien anlegen oder entfernen, bekommen einen Test in `src/app/tests.rs`
+  (Muster: `setup()` baut eine App mit Testfotos, `wait_saved()` wartet aufs Speichern).
 
 ## App unter Linux testen (ohne Windows)
 
-```
-apt-get install -y libxkbcommon-x11-0 libgl1 libegl1 xvfb imagemagick
-Xvfb :99 -screen 0 1280x800x24 &
-HOME=/tmp/brs DISPLAY=:99 BRS_RENDERER=glow BRS_SIZE=1280x800 BRS_DEBUG=1 \
-  target/release/bilderrahmen-swiper <Fotoordner>
-```
-
-Eingaben mit python-xlib (XTEST) schicken, Screenshots mit `import -window root`. Fenster braucht
-expliziten Tastaturfokus (kein Fenstermanager). `cargo test` und App-Läufe aus dem Repo-Ordner
-können Dateien wie `protokoll.txt` oder `vorschau/` anlegen: nicht einchecken.
+Werkzeuge in `tools/ui-test/` (Start im virtuellen Bildschirm, Bedienen, Testfotos), Anleitung im
+Skill `app-testen`. App-Läufe aus dem Repo-Ordner können Dateien wie `protokoll.txt` oder
+`vorschau/` anlegen: stehen in `.gitignore`, nicht einchecken.

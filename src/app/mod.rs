@@ -23,6 +23,8 @@ mod library;
 mod media;
 mod profiles;
 mod reedit;
+#[cfg(test)]
+mod tests;
 mod textures;
 
 pub const QUER_FORMATS: &[&str] = &["16:9", "16:10", "4:3", "3:2", "5:4", "1:1"];
