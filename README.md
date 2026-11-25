@@ -42,7 +42,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Zuschnitt auf das Seitenverhältnis des Rahmens, getrennt für Quer und Hochkant; Rahmen direkt mit der Maus verschieben und an den Ecken skalieren, Startausschnitt automatisch auf Menschen und Details
 - Ausschnitt verschieben und zoomen, Drehen in 90°-Schritten
 - Hilfslinien wie in Lightroom: Drittel, Goldener Schnitt, Raster, Diagonale, Goldenes Dreieck, Goldene Spirale (Taste O)
-- Begradigen um bis zu ±10°: Vorschlag aus erkannten Kanten oder eine selbst gezogene Linie am Horizont
+- Begradigen um bis zu ±15°: Vorschlag aus erkannten Kanten oder eine selbst gezogene Linie am Horizont
 - Licht: automatische Tonwertkorrektur, Helligkeit und Kontrast
 - Alternativ das ganze Foto statt Zuschnitt, frei zoom- und verschiebbar; Rand unscharf (Stärke einstellbar), in Fotofarbe, schwarz oder weiß
 - Rahmen-Profile (z. B. 1280 × 800) setzen Seitenverhältnis und Auflösung automatisch

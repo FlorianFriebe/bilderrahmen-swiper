@@ -559,10 +559,11 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
     let out_r = if fill {
         let bg = app.fill_bg_of(&edit);
         let bg_id = app.fill_bg_texture(ui.ctx(), ratio, bg).unwrap_or(tex_id);
-        painter.add(
-            RectShape::filled(card, rad, Color32::WHITE)
-                .with_texture(bg_id, FULL_UV)
-                .with_angle_and_pivot(angle, pivot),
+        kit::rotated_image(
+            &painter,
+            RectShape::filled(card, rad, Color32::WHITE).with_texture(bg_id, FULL_UV),
+            angle,
+            pivot,
         );
         // Foto an seiner Stelle; was über den Rand ragt, wird abgeschnitten
         let pr = Rect::from_min_size(
@@ -594,25 +595,39 @@ fn card(app: &mut SwiperApp, ui: &mut Ui, area: Rect, now: f64) -> Option<Rect> 
                 )
             };
             if edit.angle.abs() < 0.01 {
-                painter.add(
-                    RectShape::filled(vis, crad, Color32::WHITE)
-                        .with_texture(tex_id, uv)
-                        .with_angle_and_pivot(angle, pivot),
+                kit::rotated_image(
+                    &painter,
+                    RectShape::filled(vis, crad, Color32::WHITE).with_texture(tex_id, uv),
+                    angle,
+                    pivot,
                 );
             } else {
-                straightened(&painter, vis, pr, tex_id, size, edit.angle, angle, pivot);
+                straightened(
+                    &painter, vis, crad, pr, tex_id, size, edit.angle, angle, pivot,
+                );
             }
         }
         card
     } else {
         if edit.angle.abs() < 0.01 || quick_uv != FULL_UV {
-            painter.add(
-                RectShape::filled(card, rad, Color32::WHITE)
-                    .with_texture(tex_id, quick_uv)
-                    .with_angle_and_pivot(angle, pivot),
+            kit::rotated_image(
+                &painter,
+                RectShape::filled(card, rad, Color32::WHITE).with_texture(tex_id, quick_uv),
+                angle,
+                pivot,
             );
         } else {
-            straightened(&painter, card, card, tex_id, size, edit.angle, angle, pivot);
+            straightened(
+                &painter,
+                card,
+                CornerRadius::same(rad),
+                card,
+                tex_id,
+                size,
+                edit.angle,
+                angle,
+                pivot,
+            );
         }
         let cr = Rect::from_min_size(card.min + vec2(x * s, y * s), vec2(cw * s, ch * s));
         if !quick {
@@ -946,11 +961,13 @@ fn grip_handles(painter: &Painter, r: Rect, hover: Option<Pos2>) {
     }
 }
 
-/// Foto um `deg` gedreht und vergrößert (wie beim Speichern), auf `clip` beschnitten.
+/// Foto um `deg` gedreht und vergrößert (wie beim Speichern) in `clip` malen.
+/// Die Fläche bleibt ein abgerundetes Rechteck; gedreht werden nur die Bildkoordinaten.
 #[allow(clippy::too_many_arguments)]
 fn straightened(
     painter: &Painter,
     clip: Rect,
+    crad: CornerRadius,
     photo: Rect,
     tex: egui::TextureId,
     size: egui::Vec2,
@@ -959,15 +976,30 @@ fn straightened(
     pivot: Pos2,
 ) {
     let k = imaging::straighten_scale(size.x, size.y, deg);
-    let big = Rect::from_center_size(photo.center(), photo.size() * k);
-    let rot = Rot2::from_angle(swipe_angle);
-    let c = pivot + rot * (big.center() - pivot);
-    let p = painter.with_clip_rect(clip.intersect(painter.clip_rect()));
-    p.add(
-        RectShape::filled(Rect::from_center_size(c, big.size()), 0, Color32::WHITE)
-            .with_texture(tex, FULL_UV)
-            .with_angle_and_pivot(swipe_angle + deg.to_radians(), c),
+    let back = Rot2::from_angle(-deg.to_radians());
+    let c = photo.center();
+    let ctx = painter.ctx();
+    let mut tess = egui::epaint::Tessellator::new(
+        ctx.pixels_per_point(),
+        ctx.tessellation_options(|o| *o),
+        [1, 1],
+        Vec::new(),
     );
+    let mut mesh = egui::epaint::Mesh::default();
+    tess.tessellate_rect(
+        &RectShape::filled(clip, crad, Color32::WHITE).with_texture(tex, FULL_UV),
+        &mut mesh,
+    );
+    for v in &mut mesh.vertices {
+        // Bildschirmpunkt -> Punkt im ungedrehten Foto
+        let q = c + back * (v.pos - c) / k;
+        v.uv = pos2(
+            (q.x - photo.left()) / photo.width(),
+            (q.y - photo.top()) / photo.height(),
+        );
+    }
+    mesh.rotate(Rot2::from_angle(swipe_angle), pivot);
+    painter.add(Shape::mesh(mesh));
 }
 
 /// Abgedunkelte Ränder außerhalb des Ausschnitts, Drittel-Linien und heller Rahmen.

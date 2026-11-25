@@ -935,3 +935,23 @@ pub fn toast(
         });
     clicked
 }
+
+/// Bild-Rechteck gedreht malen. egui dreht bei `RectShape` nur die Umrisse, nicht
+/// die Textur – deshalb erst ungedreht zerlegen und dann das ganze Netz drehen.
+pub fn rotated_image(p: &Painter, shape: RectShape, angle: f32, pivot: Pos2) {
+    if angle == 0.0 {
+        p.add(shape);
+        return;
+    }
+    let ctx = p.ctx();
+    let mut tess = egui::epaint::Tessellator::new(
+        ctx.pixels_per_point(),
+        ctx.tessellation_options(|o| *o),
+        [1, 1],
+        Vec::new(),
+    );
+    let mut mesh = egui::epaint::Mesh::default();
+    tess.tessellate_rect(&shape, &mut mesh);
+    mesh.rotate(egui::emath::Rot2::from_angle(angle), pivot);
+    p.add(egui::Shape::mesh(mesh));
+}

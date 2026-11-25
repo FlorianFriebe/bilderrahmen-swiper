@@ -57,7 +57,7 @@ pub struct Edit {
     pub fill: bool,
     /// Hintergrund bei `fill`; None = Standard aus den Einstellungen
     pub bg: Option<FillBg>,
-    /// Begradigen in Grad (im Uhrzeigersinn), höchstens ±10
+    /// Begradigen in Grad (im Uhrzeigersinn), höchstens ±15
     pub angle: f32,
     /// Licht: automatisch verbessern, Helligkeit und Kontrast (je −50..50)
     pub tone: Tone,
@@ -77,7 +77,7 @@ impl Tone {
     }
 }
 
-pub const MAX_ANGLE: f32 = 10.0;
+pub const MAX_ANGLE: f32 = 15.0;
 
 /// Womit der Rand gefüllt wird, wenn das ganze Foto auf den Rahmen kommt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -818,12 +818,13 @@ pub fn suggest_angle(img: &RgbImage) -> Option<f32> {
     }
     // Für jeden Winkel die Kanten auf Linien projizieren: Wo Linien genau
     // übereinanderfallen, wird die Verteilung „spitz“ (hohe Quadratsumme).
-    const STEPS: usize = 81; // −10..10 in 0,25°
+    const STEPS: usize = 81; // −10..10 in 0,25° (Vorschlag bleibt vorsichtig)
+    const RANGE: f32 = 10.0;
     let nb = w + h * 2 + 2;
     let mut scores = [0f64; STEPS];
     let mut bins = vec![0f32; nb * 2];
     for (k, sc) in scores.iter_mut().enumerate() {
-        let tan = (k as f32 / 4.0 - MAX_ANGLE).to_radians().tan();
+        let tan = (k as f32 / 4.0 - RANGE).to_radians().tan();
         bins.iter_mut().for_each(|b| *b = 0.0);
         for &(x, y, m, horiz) in &pts {
             if horiz {
@@ -851,7 +852,7 @@ pub fn suggest_angle(img: &RgbImage) -> Option<f32> {
     if median <= 0.0 || peak / median < 1.25 {
         return None;
     }
-    let tilt = best as f32 / 4.0 - MAX_ANGLE;
+    let tilt = best as f32 / 4.0 - RANGE;
     // gerade genug: kein Vorschlag
     (tilt.abs() >= 0.4).then_some(tilt)
 }

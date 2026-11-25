@@ -154,7 +154,7 @@ spiegelt Dreieck und Spirale.
 
 Der Pfeil an **Drehen** öffnet ein kleines Feld:
 
-- **Begradigen** um bis zu ±10°. Findet das Programm einen schiefen Horizont, steht dort ein
+- **Begradigen** um bis zu ±15°. Findet das Programm einen schiefen Horizont, steht dort ein
   **Vorschlag** (Taste **B**). Selbst festlegen: **Strg** gedrückt halten und mit der linken
   Maustaste eine Linie am Horizont (oder an einer Hauswand) entlang ziehen.
 - **Licht:** *Automatisch verbessern* (Taste **E**) sowie **Helligkeit** und **Kontrast**.
