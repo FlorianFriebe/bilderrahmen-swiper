@@ -566,6 +566,10 @@ fn tab_look(app: &mut SwiperApp, ui: &mut Ui) {
     ui.add_space(8.0);
 
     kit::section(ui, "Tasten");
+    if ui.button("Alle Tastenkürzel auf einen Blick (?)").clicked() {
+        app.dialog = Some(Dialog::Shortcuts);
+    }
+    ui.add_space(4.0);
     dialogs::keys_editor(app, ui);
 }
 

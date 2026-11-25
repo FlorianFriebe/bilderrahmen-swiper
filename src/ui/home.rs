@@ -719,35 +719,18 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let p = ui.painter().clone();
     let pad = sp::S;
     let h = size::CONTROL;
-    let sep = sp::M * 2.0 + 1.0;
-    let set_w = h;
-    let kept = (app.total_kept > 0).then(|| format!("{} behalten", fmt_int(app.total_kept)));
-    let kept_w = kept.as_ref().map(|k| kit::pill_width(ui, k)).unwrap_or(0.0);
-    let mut total = pad * 2.0 + set_w + sep + h;
-    if kept.is_some() {
-        total += sep + kept_w;
-    }
-    let bar = Rect::from_center_size(
-        pos2(ws.center().x, ws.top() + size::TOPBAR / 2.0),
-        vec2(total, size::TOPBAR),
-    );
-    kit::glass(&p, bar, radius::XL - 2);
-    app.spots.menu = Some(bar);
-    let cy = bar.center().y;
-    let row = |x: f32, w: f32| Rect::from_min_size(pos2(x, cy - h / 2.0), vec2(w, h));
-    let mut x = bar.left() + pad;
-
-    if kit::icon_button(ui, row(x, set_w), icons::GEAR, true)
-        .on_hover_text("Rahmen, Format, Text, Zielordner und Tasten (Strg+B)")
-        .clicked()
-    {
-        app.dialog = Some(Dialog::Settings);
-    }
-    x += set_w + sp::M;
-    if let Some(kept) = kept {
-        kit::vsep(&p, x, cy);
-        x += 1.0 + sp::M;
-        if kit::pill(ui, row(x, kept_w), icons::HEART, &kept, Tone::Keep)
+    let cy = ws.top() + size::TOPBAR / 2.0;
+    // oben steht nur der Behalten-Zähler; Einstellungen sitzen unten in der Leiste
+    let bar = if app.total_kept > 0 {
+        let kept = format!("{} behalten", fmt_int(app.total_kept));
+        let kept_w = kit::pill_width(ui, &kept);
+        let bar = Rect::from_center_size(
+            pos2(ws.center().x, cy),
+            vec2(pad * 2.0 + kept_w, size::TOPBAR),
+        );
+        kit::glass(&p, bar, radius::XL - 2);
+        let r = Rect::from_min_size(pos2(bar.left() + pad, cy - h / 2.0), vec2(kept_w, h));
+        if kit::pill(ui, r, icons::HEART, &kept, Tone::Keep)
             .on_hover_text(format!(
                 "Behaltene Bilder ansehen ({})",
                 app.key_label("gallery")
@@ -756,16 +739,11 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         {
             app.open_gallery();
         }
-        x += kept_w + sp::M;
-    }
-    kit::vsep(&p, x, cy);
-    x += 1.0 + sp::M;
-    if kit::icon_button(ui, row(x, h), icons::KEYBOARD, true)
-        .on_hover_text("Tastenkürzel (F1)")
-        .clicked()
-    {
-        app.dialog = Some(Dialog::Shortcuts);
-    }
+        bar
+    } else {
+        Rect::from_center_size(pos2(ws.center().x, cy), vec2(0.0, size::TOPBAR))
+    };
+    app.spots.menu = Some(bar);
 
     let update = app.update.lock().unwrap().clone();
     if let Some(v) = update {
@@ -886,18 +864,30 @@ fn session_card(app: &mut SwiperApp, ui: &mut Ui, r: Rect, s: &Session, prog: Se
         }
     }
 
-    // rechts: Weiter und Löschen
+    // Klick auf die Karte macht weiter; beim Drüberfahren ein Play-Zeichen aufs Bild
+    let hover = resp.hovered() || resp.contains_pointer();
+    if t > 0.0 {
+        p.circle_filled(
+            th.center(),
+            17.0,
+            Color32::from_black_alpha((150.0 * t) as u8),
+        );
+        kit::icon(
+            &p,
+            th.center() + vec2(1.5, 0.0),
+            icons::PLAY,
+            18.0,
+            Color32::WHITE.gamma_multiply(t),
+        );
+    }
+    // rechts: Löschen, nur beim Drüberfahren
     let trash = Rect::from_center_size(
         pos2(r.right() - sp::L - 18.0, r.center().y),
         vec2(36.0, 36.0),
     );
-    let go = Rect::from_min_size(
-        pos2(trash.left() - sp::S - 124.0, r.center().y - 22.0),
-        vec2(124.0, 44.0),
-    );
 
     let tx = th.right() + sp::L;
-    let text_w = go.left() - sp::M - tx;
+    let text_w = trash.left() - sp::M - tx;
     let title = app.session_title(s);
     let title_y = r.top() + 26.0;
     let rename_id = Id::unique("session_rename");
@@ -1007,23 +997,30 @@ fn session_card(app: &mut SwiperApp, ui: &mut Ui, r: Rect, s: &Session, prog: Se
         );
     }
 
-    if kit::cta(ui, go, icons::PLAY, "Weiter", true).clicked() {
-        action = Some(SessionAction::Resume);
-    }
     let del = ui
-        .interact(trash, ui.make_persistent_id("trash"), Sense::click())
+        .interact(
+            trash,
+            ui.make_persistent_id("trash"),
+            if hover {
+                Sense::click()
+            } else {
+                Sense::hover()
+            },
+        )
         .on_hover_cursor(egui::CursorIcon::PointingHand)
         .on_hover_text("Aus dem Verlauf entfernen (behaltene Bilder bleiben im Zielordner)");
-    if del.hovered() {
-        p.rect_filled(trash, radius::S, skip_soft());
+    if hover || del.hovered() {
+        if del.hovered() {
+            p.rect_filled(trash, radius::S, skip_soft());
+        }
+        kit::icon(
+            &p,
+            trash.center(),
+            icons::TRASH,
+            18.0,
+            if del.hovered() { skip() } else { muted() },
+        );
     }
-    kit::icon(
-        &p,
-        trash.center(),
-        icons::TRASH,
-        18.0,
-        if del.hovered() { skip() } else { muted() },
-    );
     if del.clicked() {
         action = Some(SessionAction::Delete);
     } else if resp.clicked() && action.is_none() {

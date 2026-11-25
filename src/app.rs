@@ -393,6 +393,9 @@ pub struct SwiperApp {
     pub bulk_undo: Option<BulkUndo>,
     /// Filter der Galerie: 0 alle, 1 quer, 2 hochkant
     pub gallery_filter: u8,
+    /// in der Galerie markierte Bilder (Ausgabedateien) und letzter Klick für Shift
+    pub gallery_sel: std::collections::HashSet<PathBuf>,
+    pub gallery_anchor: Option<usize>,
     pub custom_quer: bool,
     pub custom_hoch: bool,
     pub burst_sel: HashSet<PathBuf>,
@@ -491,6 +494,8 @@ impl SwiperApp {
             toast_undo: false,
             bulk_undo: None,
             gallery_filter: 0,
+            gallery_sel: Default::default(),
+            gallery_anchor: None,
             viewer: None,
             burst_sel: HashSet::new(),
             notes: HashMap::new(),
@@ -1634,16 +1639,19 @@ impl SwiperApp {
     /// Behaltene Bilder eines Ordners an einen frei gewählten Ort kopieren.
     pub fn export_folder(&mut self, folder: &Path) {
         let files = self.kept_of_folder(folder);
-        if files.is_empty() {
+        let title = format!(
+            "Behaltene Bilder aus „{}“ exportieren nach …",
+            folders::file_name(folder)
+        );
+        self.export_files(files, &title);
+    }
+
+    /// Fertige Bilder in einen frei gewählten Ordner kopieren (im Hintergrund).
+    pub fn export_files(&mut self, files: Vec<PathBuf>, title: &str) {
+        if files.is_empty() || self.export.is_some() {
             return;
         }
-        let Some(dest) = rfd::FileDialog::new()
-            .set_title(format!(
-                "Behaltene Bilder aus „{}“ exportieren nach …",
-                folders::file_name(folder)
-            ))
-            .pick_folder()
-        else {
+        let Some(dest) = rfd::FileDialog::new().set_title(title).pick_folder() else {
             return;
         };
         let res = Arc::new(Mutex::new(None));

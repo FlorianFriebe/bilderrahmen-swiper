@@ -15,7 +15,7 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 
 ## In 4 Schritten zum fertigen Rahmen
 
-1. **Rahmen einstellen:** Das **Zahnrad** (oben rechts oder unter dem Start-Knopf) öffnet die
+1. **Rahmen einstellen:** Das **Zahnrad** (rechts in der Leiste unter dem Start-Knopf) öffnet die
    Einstellungen. Sie haben drei Seiten: *Rahmen*, *Bild* und *App*. Unter *Rahmen* die Auflösung deines Rahmens wählen (z. B. *10 Zoll · 1280 × 800*)
    oder eigene eintippen. Format und Größe passen sich dann automatisch an.
 2. **Ordner wählen:** Ordner aus dem Explorer auf die Fläche **„Ordner hierher ziehen“**
@@ -23,7 +23,8 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    sagt dir, wenn es kein Ordner ist; Ordner ohne Fotos werden nicht übernommen. Klick = an-/abwählen,
    **Doppelklick = direkt diesen Ordner starten**. **Rechte Maustaste gedrückt halten** zeigt
    die Fotos eines Ordners groß, das Mausrad blättert. Ein **kurzer Rechtsklick** (oder **⋯**
-   an der Kachel) öffnet das Ordner-Menü: **Aussortierte nochmal zeigen**, **Ganz von vorn**
+   an der Kachel) öffnet das Ordner-Menü: **Exportieren …** (die behaltenen Bilder dieses Ordners
+   an einen Ort deiner Wahl kopieren), **Aussortierte nochmal zeigen**, **Ganz von vorn**
    (behaltene Bilder bleiben im Zielordner) und **Aus der Liste entfernen**.
    In der Leiste unter dem Start-Knopf öffnet **Zeitraum** (z. B. *Alle Fotos*) ein kleines Menü:
    nur Fotos aus einem Jahr oder einem eigenen Zeitraum, z. B. *Juni – August 2023*.
@@ -32,8 +33,8 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    sortiert. Ist ein Ordner durch, zeigt eine Abschlussseite, wie viele Fotos du behalten und
    aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit zum
    Startbildschirm; dein Stand steht dann unter **„Weitermachen“**.
-4. **Auf den Rahmen bringen:** Sind alle Ordner durch, kopiert
-   **„Auf USB-Stick / SD-Karte kopieren“** alles mit einem Klick. Dort wählst du auch die
+4. **Auf den Rahmen bringen:** In der Galerie (grünes ♥ oben) kopiert
+   **„Auf Stick / SD-Karte“** alles mit einem Klick. Dort wählst du auch die
    **Reihenfolge auf dem Rahmen**: *nach Datum*, *zufällig* oder *nach Ordner*. Bilder, die
    schon drauf sind, werden übersprungen.
 
@@ -43,14 +44,18 @@ Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** 
 ## Bedienung
 
 Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zum Startbildschirm, speichert
-deinen Stand), das Zahnrad für die **Einstellungen**, der Umschalter **Quer / Hochkant**
-(nicht beim schnellen Sortieren), ein kleiner Hinweis auf den Schritt (*Schnell sortieren*,
-*Feinschliff 3 / 12*), Ordner und Fortschritt, die Zahl der behaltenen Bilder und ganz rechts das kleine
-**Tastatur-Symbol** mit allen Kürzeln (oder **?** bzw. **F1**).
+deinen Stand), das Zahnrad für die **Einstellungen**, die beiden Symbole **Quer / Hochkant**
+(nicht beim schnellen Sortieren; das Format steht im Tooltip), ein kleiner Hinweis auf den Schritt
+(*Schnell sortieren*, *Feinschliff 3 / 12*), Ordner und Fortschritt und die Zahl der behaltenen
+Bilder. Alle Tastenkürzel zeigt **?** (oder **F1**).
+
+Auf dem Startbildschirm steht oben nur der grüne Zähler der behaltenen Bilder; ein Klick
+öffnet die Galerie. Die Einstellungen erreichst du dort über das Zahnrad unter dem Start-Knopf.
 
 Unten schwebt die Leiste fürs Bild, sortiert nach Wichtigkeit: in der Mitte die beiden großen
 Knöpfe **Weg** (rot, ✕) und **Behalten** (grün, ♥), links **Zurück**, rechts die Werkzeuge
-(**Drehen**, **Format**, **Text**). Der kleine **Pfeil** an jedem Werkzeug öffnet die
+(**Drehen**, **Format**, **Text**). Die Knöpfe zeigen nur Symbole; fährst du mit der Maus
+darüber, steht dort, was sie tun. Der kleine **Pfeil** an jedem Werkzeug öffnet die
 Feineinstellungen, bei **Format** sind das *Quer*, *Hochkant*, *Ganz* und der Rand.
 
 **Wischen:** Zieh das Foto auf der dunklen Fläche neben dem hellen Rahmen nach rechts
@@ -81,11 +86,13 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Serie vergleichen | gelber Hinweis „Serie“ | **S** |
 | Behaltene ansehen, Diashow | grünes ♥ in der oberen Leiste, dort **Diashow** | **G** |
 | Nur Quer / Hochkant zeigen, alle entfernen | in der Galerie oben | – |
-| Behaltenes Bild nachbearbeiten | in der Galerie **Bearbeiten** oder Doppelklick | – |
-| Einstellungen | Zahnrad oben | Strg+B |
+| Mehrere Bilder in der Galerie markieren | **Strg**+Klick, **Shift**+Klick für einen Bereich | Strg+A, Esc hebt auf |
+| Behaltenes Bild groß ansehen | in der Galerie Doppelklick, dann **← →** | – |
+| Behaltenes Bild nachbearbeiten | in der Galerie **Bearbeiten** | – |
+| Einstellungen | Zahnrad | Strg+B |
 | Schrift größer / kleiner | – | **Strg +** / **Strg −** (Strg 0 = normal) |
 | Vollbild | – | F11 |
-| Alle Tastenkürzel | Tastatur-Symbol oben | **?** oder F1 |
+| Alle Tastenkürzel | Einstellungen → *App* → *Tasten* | **?** oder F1 |
 
 **Tasten ändern:** Einstellungen → *App* → *Tasten*. Auf ein Feld klicken und die
 neue Taste drücken. Rechtsklick leert ein Feld.
@@ -126,6 +133,14 @@ Das grüne ♥ oben öffnet die Galerie der behaltenen Bilder. Darüber wählst 
 gezeigten Bilder aus dem Zielordner (nach einer Nachfrage, die Originale bleiben). Gleich danach
 holt **Rückgängig** in der Meldung (oder die **Rücktaste**) sie zurück.
 
+**Mehrere markieren:** **Strg**+Klick markiert einzelne Bilder, **Shift**+Klick einen ganzen
+Bereich, **Strg+A** alle gezeigten. Dann gelten **Entfernen** und **Exportieren** nur für die
+markierten Bilder. **Esc** hebt die Markierung auf. **Exportieren** kopiert die Bilder in einen
+Ordner deiner Wahl.
+
+**Doppelklick** auf ein Bild zeigt es groß, **← →** blättern, **Leertaste** spielt ab wie die
+Diashow. Ändern kannst du es nur über **Bearbeiten**.
+
 **Diashow** zeigt die behaltenen Bilder nacheinander so, wie der Rahmen sie zeigt. Das
 **Zahnrad** daneben stellt sie ein: *Dauer* pro Bild, *Übergang* (Überblenden, Schieben,
 keiner), *Reihenfolge* (der Reihe nach oder zufällig), welche *Bilder* (alle, quer, hochkant),
@@ -156,7 +171,9 @@ Der Pfeil an **Drehen** öffnet ein kleines Feld:
 
 - **Begradigen** um bis zu ±15°. Findet das Programm einen schiefen Horizont, steht dort ein
   **Vorschlag** (Taste **B**). Selbst festlegen: **Strg** gedrückt halten und mit der linken
-  Maustaste eine Linie am Horizont (oder an einer Hauswand) entlang ziehen.
+  Maustaste eine Linie am Horizont (oder an einer Hauswand) entlang ziehen. Die gezogene Linie
+  wird sofort waagrecht (bzw. senkrecht), das Foto dreht sich mit und füllt den Rahmen ohne
+  leere Ecken.
 - **Licht:** *Automatisch verbessern* (Taste **E**) sowie **Helligkeit** und **Kontrast**.
 
 ## Doppelte Fotos
@@ -221,8 +238,9 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
 
 - **Weitermachen:** Das **Haus** oben links merkt sich Ordner, Bild, Zeitraum und
   Einstellungen der laufenden Auswahl. Auf dem Startbildschirm steht sie unter
-  **„Weitermachen“**: **Weiter** macht genau dort weiter, der Stift benennt sie um, der
-  Papierkorb entfernt sie aus dem Verlauf (behaltene Bilder bleiben). Ist eine Auswahl ganz
+  **„Weitermachen“**: Ein Klick auf die Karte macht genau dort weiter, der Stift benennt sie
+  um, der Papierkorb (erscheint beim Drüberfahren) entfernt sie aus dem Verlauf (behaltene
+  Bilder bleiben). Ist eine Auswahl ganz
   durch, verschwindet sie von selbst. Einfach schließen geht auch, **Rückgängig**
   funktioniert nach einem Neustart weiterhin.
 - **Zeitraum:** Die Aufnahmedaten werden einmal im Hintergrund gelesen und gemerkt. Solange

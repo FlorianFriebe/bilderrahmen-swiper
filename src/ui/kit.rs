@@ -184,7 +184,7 @@ pub fn icon_button(ui: &Ui, r: Rect, glyph: &str, enabled: bool) -> Response {
     resp
 }
 
-/// Werkzeug mit Symbol und kleiner Beschriftung darunter.
+/// Werkzeug als Symbol; `label` dient nur als Kennung (der Name steht im Tooltip).
 pub struct Tool<'a> {
     pub glyph: &'a str,
     pub label: &'a str,
@@ -214,18 +214,8 @@ pub fn tool_button(ui: &Ui, r: Rect, t: Tool<'_>) -> Response {
     } else {
         mix(mix(text_soft(), text(), t), accent(), a)
     };
-    icon(p, r.center() - vec2(0.0, 8.0), glyph, 22.0, col);
-    p.text(
-        r.center() + vec2(0.0, 16.0),
-        Align2::CENTER_CENTER,
-        label,
-        font(ts::CAPTION, W::Medium),
-        if enabled {
-            mix(muted(), col, a.max(t))
-        } else {
-            disabled()
-        },
-    );
+    // nur das Symbol; der Name steht im Tooltip
+    icon(p, r.center(), glyph, 24.0, col);
     key_hint(p, r, key, if a > 0.5 { accent() } else { muted() });
     resp
 }
@@ -276,18 +266,7 @@ pub fn split_tool(ui: &Ui, r: Rect, caret_w: f32, t: Tool<'_>, open: bool) -> (R
     } else {
         mix(mix(text_soft(), text(), hm), accent(), a)
     };
-    icon(p, main.center() - vec2(0.0, 8.0), t.glyph, 22.0, col);
-    p.text(
-        main.center() + vec2(0.0, 16.0),
-        Align2::CENTER_CENTER,
-        t.label,
-        font(ts::CAPTION, W::Medium),
-        if enabled {
-            mix(muted(), col, a.max(hm))
-        } else {
-            disabled()
-        },
-    );
+    icon(p, main.center(), t.glyph, 24.0, col);
     key_hint(p, main, t.key, if a > 0.5 { accent() } else { muted() });
     let ccol = if !enabled {
         disabled()
@@ -962,4 +941,61 @@ pub fn rotated_image(p: &Painter, shape: RectShape, angle: f32, pivot: Pos2) {
     tess.tessellate_rect(&shape, &mut mesh);
     mesh.rotate(egui::emath::Rot2::from_angle(angle), pivot);
     p.add(egui::Shape::mesh(mesh));
+}
+
+/// Breite von [`orient_switch`].
+pub const ORIENT_SWITCH_W: f32 = 40.0 * 2.0 + sp::XS;
+
+/// Umschalter Quer/Hochkant nur mit Symbolen (kleines Rechteck quer bzw. hoch).
+pub fn orient_switch(
+    ui: &Ui,
+    inner: Rect,
+    tips: [&str; 2],
+    selected: Option<usize>,
+) -> Option<usize> {
+    let p = ui.painter();
+    let mut clicked = None;
+    for (i, tip) in tips.iter().enumerate() {
+        let rr = Rect::from_min_size(
+            pos2(inner.left() + i as f32 * (40.0 + sp::XS), inner.top()),
+            vec2(40.0, inner.height()),
+        );
+        let resp = clickable(ui, rr, ("orient_seg", i), true).on_hover_text(*tip);
+        let on = selected == Some(i);
+        let t = anim(ui, resp.id, resp.hovered() && !on);
+        if on {
+            shadow(p, rr, radius::M, 8, 2, Color32::from_black_alpha(50));
+            p.rect_filled(
+                rr,
+                radius::M,
+                if is_dark() {
+                    Color32::from_white_alpha(235)
+                } else {
+                    Color32::WHITE
+                },
+            );
+        } else if t > 0.0 {
+            p.rect_filled(rr, radius::M, glass_hover().gamma_multiply(t));
+        }
+        let col = if on {
+            Color32::from_rgb(0x11, 0x13, 0x18)
+        } else {
+            mix(text_soft(), text(), t)
+        };
+        let size = if i == 0 {
+            vec2(18.0, 12.0)
+        } else {
+            vec2(12.0, 18.0)
+        };
+        p.rect_stroke(
+            Rect::from_center_size(rr.center(), size),
+            2,
+            Stroke::new(1.8, col),
+            StrokeKind::Middle,
+        );
+        if resp.clicked() {
+            clicked = Some(i);
+        }
+    }
+    clicked
 }

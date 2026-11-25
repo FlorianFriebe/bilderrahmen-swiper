@@ -276,6 +276,8 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
             app.cancel_reedit();
         } else if app.view == View::Gallery && super::gallery::slide_settings_open(&ctx) {
             // schließt nur das Diashow-Feld
+        } else if app.view == View::Gallery && !app.gallery_sel.is_empty() {
+            app.gallery_sel.clear();
         } else if matches!(app.view, View::Gallery | View::Burst) {
             app.view = if app.view == View::Burst || app.folder.is_some() && app.current().is_some()
             {

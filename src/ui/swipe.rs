@@ -135,16 +135,12 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     let h = size::CONTROL;
 
     let pause_w = h;
-    let labels = vec![
+    let tips = [
         format!("Quer {}", app.ratio_label(Orient::Quer)),
         format!("Hochkant {}", app.ratio_label(Orient::Hochkant)),
     ];
     let quick = app.quick_sort();
-    let seg_w = if quick {
-        0.0
-    } else {
-        kit::segmented_width(ui, &labels) - sp::XS * 2.0
-    };
+    let seg_w = if quick { 0.0 } else { kit::ORIENT_SWITCH_W };
     // Dezente Anzeige des Schritts (Schnell sortieren / Feinschliff / Nachbearbeiten)
     let step: Option<(&str, String, &str)> = if quick {
         Some((
@@ -204,7 +200,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     let mut meta_w = sp::S + nw + sp::M + cw + sp::M + mini + sp::S;
     let seg_part = if quick { 0.0 } else { seg_w + sep };
     let step_part = if step.is_some() { step_w + sp::M } else { 0.0 };
-    let fixed = pad * 2.0 + pause_w + gap + h + sep + seg_part + step_part + gap + kept_w + gap + h;
+    let fixed = pad * 2.0 + pause_w + gap + h + sep + seg_part + step_part + gap + kept_w;
     let show_name = fixed + meta_w <= ws.width();
     if !show_name {
         meta_w = sp::S + cw + sp::S;
@@ -247,7 +243,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
             Some(Orient::Hochkant) => Some(1),
             None => None,
         };
-        if let Some(i) = kit::segmented_bare(ui, row(x, seg_w), &labels, sel) {
+        if let Some(i) = kit::orient_switch(ui, row(x, seg_w), [&tips[0], &tips[1]], sel) {
             app.set_orientation(if i == 0 {
                 Orient::Quer
             } else {
@@ -312,13 +308,6 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         app.finish_anim();
         app.open_gallery();
         return false;
-    }
-    x += kept_w + gap;
-    if kit::icon_button(ui, row(x, h).shrink(2.0), icons::KEYBOARD, true)
-        .on_hover_text("Alle Tastenkürzel (F1)")
-        .clicked()
-    {
-        app.dialog = Some(Dialog::Shortcuts);
     }
     true
 }

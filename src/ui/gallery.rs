@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use egui::epaint::RectShape;
-use egui::{pos2, vec2, Align2, Color32, Rect, Sense, Ui};
+use egui::{pos2, vec2, Align2, Color32, Rect, Sense, Stroke, StrokeKind, Ui};
 
 use super::dialogs::bold;
 use super::kit;
@@ -46,6 +46,12 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         })
         .cloned()
         .collect();
+    // Markierung nur für Bilder, die es noch gibt und die gerade zu sehen sind
+    let shown: HashSet<&PathBuf> = list.iter().map(|(_, o)| o).collect();
+    app.gallery_sel.retain(|o| shown.contains(o));
+    if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::A)) {
+        app.gallery_sel = list.iter().map(|(_, o)| o.clone()).collect();
+    }
     if !all.is_empty() {
         filter_row(app, ui, ws, &list, n_quer, n_hoch);
         app.spots.chips_bottom = Some(ws.top() + size::BAR + sp::L + FILTER_H + sp::S);
@@ -90,6 +96,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let mut edit = None;
     let mut peek = None;
     let mut view = None;
+    let mut select = None;
     let mut visible = vec![];
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(area));
     egui::ScrollArea::vertical()
@@ -106,11 +113,12 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                         row_rect.min + vec2(c as f32 * (tw + gap), 0.0),
                         vec2(tw, th),
                     );
-                    match tile(app, ui, r, i, src, out) {
+                    match tile(app, ui, r, i, src, out, app.gallery_sel.contains(out)) {
                         Some(TileAct::Discard) => discard = Some(src.clone()),
                         Some(TileAct::Peek) => peek = Some(i),
                         Some(TileAct::Edit) => edit = Some(src.clone()),
                         Some(TileAct::View) => view = Some(i),
+                        Some(TileAct::Select(m)) => select = Some((i, m)),
                         None => {}
                     }
                 }
@@ -119,6 +127,28 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let vis: HashSet<PathBuf> = visible.into_iter().collect();
     app.thumbs
         .retain_queue(|p| vis.contains(p) || !p.starts_with(&app.cfg.target));
+    if let Some((i, m)) = select {
+        let out = list[i].1.clone();
+        match m {
+            Sel::Toggle => {
+                if !app.gallery_sel.remove(&out) {
+                    app.gallery_sel.insert(out);
+                }
+                app.gallery_anchor = Some(i);
+            }
+            Sel::Range => {
+                let a = app.gallery_anchor.unwrap_or(i).min(list.len() - 1);
+                let (lo, hi) = (a.min(i), a.max(i));
+                for (_, o) in &list[lo..=hi] {
+                    app.gallery_sel.insert(o.clone());
+                }
+            }
+            Sel::Clear => {
+                app.gallery_sel.clear();
+                app.gallery_anchor = Some(i);
+            }
+        }
+    }
     if let Some(src) = discard {
         app.discard_kept(&src);
     }
@@ -243,21 +273,70 @@ fn filter_row(
     ) {
         app.gallery_filter = i as u8;
     }
-    let label = match app.gallery_filter {
-        1 => "Alle Quer entfernen",
-        2 => "Alle Hochkant entfernen",
-        _ => "Alle entfernen",
+    // markierte Bilder gehen vor: dann gelten Entfernen und Exportieren nur für sie
+    let picked: Vec<(PathBuf, PathBuf)> = shown
+        .iter()
+        .filter(|(_, o)| app.gallery_sel.contains(o))
+        .cloned()
+        .collect();
+    let sel = !picked.is_empty();
+    let target: &[(PathBuf, PathBuf)] = if sel { &picked } else { shown };
+    let label = if sel {
+        format!("{} entfernen", fmt_int(picked.len()))
+    } else {
+        match app.gallery_filter {
+            1 => "Alle Quer entfernen",
+            2 => "Alle Hochkant entfernen",
+            _ => "Alle entfernen",
+        }
+        .to_string()
     };
-    let bw = kit::secondary_width(ui, icons::TRASH, label);
+    let bw = kit::secondary_width(ui, icons::TRASH, &label);
     let br = Rect::from_min_size(pos2(ws.right() - bw, top), vec2(bw, FILTER_H));
     let ask_id = egui::Id::unique("bulk_ask");
     let mut ask: bool = ui.ctx().data(|d| d.get_temp(ask_id)).unwrap_or(false);
-    if kit::secondary(ui, br, icons::TRASH, label, !shown.is_empty())
-        .on_hover_text("Alle gezeigten Bilder aus dem Zielordner löschen (die Originale bleiben)")
+    if kit::secondary(ui, br, icons::TRASH, &label, !target.is_empty())
+        .on_hover_text(if sel {
+            "Markierte Bilder aus dem Zielordner löschen (die Originale bleiben)"
+        } else {
+            "Alle gezeigten Bilder aus dem Zielordner löschen (die Originale bleiben)"
+        })
         .clicked()
     {
         ask = true;
     }
+    // Exportieren: markierte oder alle gezeigten Bilder an einen frei gewählten Ort
+    let elabel = if sel {
+        format!("{} exportieren", fmt_int(picked.len()))
+    } else {
+        "Exportieren".to_string()
+    };
+    let ew = kit::secondary_width(ui, icons::DOWNLOAD, &elabel);
+    let er = Rect::from_min_size(pos2(br.left() - sp::S - ew, top), vec2(ew, FILTER_H));
+    if kit::secondary(
+        ui,
+        er,
+        icons::DOWNLOAD,
+        &elabel,
+        !target.is_empty() && app.export.is_none(),
+    )
+    .on_hover_text("In einen Ordner deiner Wahl kopieren")
+    .clicked()
+    {
+        let files = target.iter().map(|(_, o)| o.clone()).collect();
+        app.export_files(files, "Bilder exportieren nach …");
+    }
+    if sel {
+        let hint = "Strg+Klick: markieren  ·  Shift+Klick: Bereich  ·  Esc: aufheben";
+        ui.painter().text(
+            pos2(ws.left(), top + FILTER_H / 2.0),
+            Align2::LEFT_CENTER,
+            hint,
+            font(ts::SMALL, W::Regular),
+            muted(),
+        );
+    }
+    let shown = target;
     if ask {
         let n = shown.len();
         let mut confirm = false;
@@ -300,6 +379,7 @@ fn filter_row(
         }
         if confirm {
             app.discard_many(shown);
+            app.gallery_sel.clear();
             ask = false;
         } else if cancel {
             ask = false;
@@ -393,6 +473,14 @@ enum TileAct {
     Discard,
     Peek,
     Edit,
+    Select(Sel),
+}
+
+#[derive(Clone, Copy)]
+enum Sel {
+    Toggle,
+    Range,
+    Clear,
 }
 
 /// Eine Kachel: Doppelklick zeigt groß (Pfeile blättern), rauswerfen und bearbeiten nur über
@@ -404,6 +492,7 @@ fn tile(
     i: usize,
     src: &std::path::Path,
     out: &std::path::Path,
+    picked: bool,
 ) -> Option<TileAct> {
     let resp = ui.interact(r, ui.make_persistent_id(("g", i)), Sense::click());
     if kit::peek_pressed(ui, &resp) {
@@ -412,12 +501,37 @@ fn tile(
     if resp.double_clicked() {
         return Some(TileAct::View);
     }
+    let mods = ui.input(|i| i.modifiers);
+    let sel_click = resp.clicked().then_some({
+        if mods.shift {
+            Sel::Range
+        } else if mods.command {
+            Sel::Toggle
+        } else {
+            Sel::Clear
+        }
+    });
     let t = kit::anim(ui, resp.id, resp.contains_pointer());
     let p = ui.painter();
     kit::glass_with(p, r, radius::L, kit::mix(glass(), glass_hover(), t));
     if let Some((id, size)) = app.thumb(out) {
         let ir = contain(size, r.shrink(sp::S));
         p.add(RectShape::filled(ir, radius::S, Color32::WHITE).with_texture(id, FULL_UV));
+    }
+    if picked {
+        p.rect_stroke(r, radius::L, Stroke::new(3.0, accent()), StrokeKind::Inside);
+        let c = r.left_top() + vec2(sp::S + 13.0, sp::S + 13.0);
+        p.circle_filled(c, 13.0, accent());
+        kit::icon(p, c, icons::CHECK, 15.0, Color32::WHITE);
+    }
+    if let Some(s) = sel_click {
+        // Knöpfe auf der Kachel gehen vor
+        let on_button = ui
+            .input(|i| i.pointer.interact_pos())
+            .is_some_and(|pos| pos.y < r.top() + sp::S + 32.0 && pos.x > r.right() - 240.0);
+        if !on_button {
+            return Some(TileAct::Select(s));
+        }
     }
     if t <= 0.01 {
         return None;
