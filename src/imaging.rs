@@ -335,6 +335,30 @@ pub struct Decoded {
     pub icc: Option<Vec<u8>>,
 }
 
+/// Technische Fehlermeldung beim Öffnen in einen verständlichen deutschen Satz übersetzen.
+pub fn explain_error(e: &str) -> String {
+    let l = e.to_lowercase();
+    let msg = if l.contains("unsupported") || l.contains("not supported") || l.contains("unknown") {
+        "Dieses Dateiformat kann das Programm nicht lesen."
+    } else if l.contains("eof") || l.contains("truncated") || l.contains("unexpected end") {
+        "Die Datei ist unvollständig, vermutlich beim Kopieren abgebrochen."
+    } else if l.contains("permission") || l.contains("access is denied") || l.contains("zugriff") {
+        "Kein Zugriff auf die Datei."
+    } else if l.contains("not found") || l.contains("no such file") || l.contains("nicht gefunden")
+    {
+        "Die Datei ist nicht mehr da."
+    } else if l.contains("format")
+        || l.contains("invalid")
+        || l.contains("corrupt")
+        || l.contains("decod")
+    {
+        "Die Datei ist beschädigt."
+    } else {
+        return format!("Fehler: {e}");
+    };
+    msg.to_string()
+}
+
 fn decode_with_image_crate(path: &Path) -> Result<Decoded, String> {
     let reader = ImageReader::open(path)
         .map_err(|e| e.to_string())?
@@ -425,9 +449,11 @@ pub fn rotate(img: RgbImage, rot: u8) -> RgbImage {
     }
 }
 
-/// Verkleinertes Vorschaubild + Aufnahmezeit.
-pub fn load_preview(path: &Path, max_side: u32) -> Result<(RgbImage, NaiveDateTime), String> {
-    let when = capture_time(path);
+/// Verkleinertes Vorschaubild mit Aufnahmezeit, ob sie aus EXIF stammt, und Originalgröße.
+pub type PreviewData = (RgbImage, NaiveDateTime, bool, (u32, u32));
+
+pub fn load_preview(path: &Path, max_side: u32) -> Result<PreviewData, String> {
+    let (when, exif) = capture_info(path);
     let d = decode(path)?;
     let rgb = to_rgb(d.img);
     let (w, h) = rgb.dimensions();
@@ -442,7 +468,7 @@ pub fn load_preview(path: &Path, max_side: u32) -> Result<(RgbImage, NaiveDateTi
     } else {
         rgb
     };
-    Ok((rgb, when))
+    Ok((rgb, when, exif, (w, h)))
 }
 
 pub fn capture_time(path: &Path) -> NaiveDateTime {
@@ -1204,38 +1230,71 @@ pub fn output_name(path: &Path, when: NaiveDateTime) -> String {
     format!("{}_{}.jpg", when.format("%Y-%m-%d_%H%M%S"), stem)
 }
 
-pub fn unique_path(folder: &Path, name: &str) -> PathBuf {
+/// Dateinamen, die gerade von einem Speicher-Thread belegt werden
+/// (zwei Threads dürfen nicht denselben freien Namen wählen).
+static RESERVED: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+/// Freien Namen wählen und bis zum Ende des Schreibens für andere Threads sperren.
+fn reserve(folder: &Path, name: &str) -> PathBuf {
+    let mut r = RESERVED.lock().unwrap();
     let p = folder.join(name);
-    if !p.exists() {
-        return p;
-    }
-    let (stem, ext) = name.rsplit_once('.').unwrap_or((name, "jpg"));
-    (2..)
-        .map(|i| folder.join(format!("{stem}_{i}.{ext}")))
-        .find(|p| !p.exists())
-        .unwrap()
+    let free = |p: &PathBuf, r: &Vec<PathBuf>| !p.exists() && !r.contains(p);
+    let chosen = if free(&p, &r) {
+        p
+    } else {
+        let (stem, ext) = name.rsplit_once('.').unwrap_or((name, "jpg"));
+        (2..)
+            .map(|i| folder.join(format!("{stem}_{i}.{ext}")))
+            .find(|p| free(p, &r))
+            .unwrap()
+    };
+    r.push(chosen.clone());
+    chosen
 }
 
+fn release(p: &Path) {
+    RESERVED.lock().unwrap().retain(|q| q != p);
+}
+
+/// Speichert das fertige Bild. `replace`: frühere Ausgabe desselben Fotos; liegt sie im
+/// passenden Ordner (gleiche Ausrichtung), wird sie überschrieben und behält ihren Namen.
 pub fn save(
     path: &Path,
     edit: &Edit,
     cfg: &OutputSettings,
     overlay: Option<&Overlay>,
     out_root: &Path,
+    replace: Option<&Path>,
 ) -> Result<PathBuf, String> {
     let r = render(path, edit, cfg, overlay)?;
     let folder = out_root.join(r.orient.folder());
     fs::create_dir_all(&folder).map_err(|e| format!("Ordner {}: {e}", folder.display()))?;
-    let target = unique_path(&folder, &output_name(path, r.when));
+    let (target, reserved) = match replace.filter(|o| o.parent() == Some(folder.as_path())) {
+        Some(o) => (o.to_path_buf(), false),
+        None => (reserve(&folder, &output_name(path, r.when)), true),
+    };
     let tmp = target.with_extension("jpg.part");
-    fs::write(&tmp, &r.data).map_err(|e| e.to_string())?;
-    fs::rename(&tmp, &target).map_err(|e| e.to_string())?;
-    Ok(target)
+    let res = fs::write(&tmp, &r.data)
+        .and_then(|_| fs::rename(&tmp, &target))
+        .map_err(|e| e.to_string());
+    if reserved {
+        release(&target);
+    }
+    res.map(|_| target)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explains_errors_in_german() {
+        assert!(
+            explain_error("Format error decoding Jpeg: unexpected EOF").contains("unvollständig")
+        );
+        assert!(explain_error("The image format could not be determined").contains("beschädigt"));
+        assert!(explain_error("weird").starts_with("Fehler"));
+    }
 
     #[test]
     fn smart_center_finds_detail() {
@@ -1322,7 +1381,7 @@ mod render_tests {
             fill_bg: FillBg::default(),
         };
         let t = std::time::Instant::now();
-        let out = save(&src, &Edit::default(), &cfg, None, &dir.join("out")).unwrap();
+        let out = save(&src, &Edit::default(), &cfg, None, &dir.join("out"), None).unwrap();
         eprintln!("speichern: {:?}", t.elapsed());
         assert!(out.starts_with(dir.join("out").join("Quer")));
         let meta = fs::metadata(&out).unwrap();
@@ -1338,10 +1397,29 @@ mod render_tests {
             orient: Some(Orient::Hochkant),
             ..Default::default()
         };
-        let out2 = save(&src, &e, &cfg, None, &dir.join("out")).unwrap();
+        let out2 = save(&src, &e, &cfg, None, &dir.join("out"), None).unwrap();
         assert!(out2.starts_with(dir.join("out").join("Hochkant")));
         let img2 = image::open(&out2).unwrap();
         assert!(img2.height() > img2.width() && img2.height() <= 1920);
+        // neu speichern mit `replace`: gleicher Name; ohne: zweiter Name daneben
+        let again = save(&src, &e, &cfg, None, &dir.join("out"), Some(&out2)).unwrap();
+        assert_eq!(again, out2);
+        let other = save(&src, &e, &cfg, None, &dir.join("out"), None).unwrap();
+        assert_ne!(other, out2);
+        assert!(other.to_string_lossy().contains("_2"));
+        let _ = fs::remove_file(&other);
+        // `replace` in der anderen Ausrichtung wird nicht überschrieben
+        let q = save(
+            &src,
+            &Edit::default(),
+            &cfg,
+            None,
+            &dir.join("out"),
+            Some(&out2),
+        )
+        .unwrap();
+        assert!(q.starts_with(dir.join("out").join("Quer")));
+        assert!(out2.exists());
         // ganzes Foto auf unscharfem Hintergrund, Text unten links
         let e = Edit {
             fill: true,
@@ -1359,7 +1437,7 @@ mod render_tests {
             lines: vec!["15.07.2024 · Italien".into()],
             look: Default::default(),
         };
-        let out3 = save(&tall, &e, &cfg, Some(&ov), &dir.join("out")).unwrap();
+        let out3 = save(&tall, &e, &cfg, Some(&ov), &dir.join("out"), None).unwrap();
         assert!(out3.starts_with(dir.join("out").join("Quer")));
         let img3 = image::open(&out3).unwrap();
         assert!(img3.width() > img3.height());
@@ -1474,7 +1552,7 @@ mod straighten_samples {
         };
         for e in std::fs::read_dir(dir).unwrap().flatten() {
             let p = e.path();
-            if let Ok((img, _)) = super::load_preview(&p, 1200) {
+            if let Ok((img, ..)) = super::load_preview(&p, 1200) {
                 let t = std::time::Instant::now();
                 eprintln!(
                     "{:?}: {:?} ({:?})",

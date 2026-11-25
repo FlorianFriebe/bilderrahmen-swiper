@@ -11,7 +11,8 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 2. Beim ersten Start warnt Windows evtl. „Der Computer wurde durch Windows geschützt“.
    Das liegt nur daran, dass das Programm nicht signiert ist:
    **„Weitere Informationen“ → „Trotzdem ausführen“.**
-3. Beim ersten Durchgehen zeigt eine kurze Einführung die wichtigsten Handgriffe.
+3. Beim ersten Klick auf Start fragt das Programm, **welchen Bilderrahmen du hast**, und öffnet
+   dazu das Profil. Danach zeigt eine kurze Einführung die wichtigsten Handgriffe.
 
 ## In 4 Schritten zu fertigen Bildern
 
@@ -30,7 +31,9 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    die Fotos eines Ordners groß, das Mausrad blättert. Ein **kurzer Rechtsklick** (oder **⋯**
    an der Kachel) öffnet das Ordner-Menü: **Exportieren …** (die behaltenen Bilder dieses Ordners
    an einen Ort deiner Wahl kopieren), **Aussortierte nochmal zeigen**, **Ganz von vorn**
-   (behaltene Bilder bleiben im Zielordner) und **Aus der Liste entfernen**.
+   (behaltene Bilder bleiben im Zielordner, bis du neu entscheidest, und **Rückgängig** holt den
+   alten Stand zurück) und **Aus der Liste entfernen**. Ordner, die schon in einer offenen Auswahl
+   stecken, tragen den Hinweis *in Weitermachen*.
    In der Leiste unter dem Start-Knopf öffnet **Zeitraum** (z. B. *Alle Fotos*) ein kleines Menü:
    nur Fotos aus einem Jahr oder einem eigenen Zeitraum, z. B. *Juni – August 2023*.
 3. **Loslegen:** Daneben wählst du den **Ablauf**: **1 Durchgang** (alles auf einmal) oder
@@ -38,10 +41,13 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    sortiert. Ist ein Ordner durch, zeigt eine Abschlussseite, wie viele Fotos du behalten und
    aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit zum
    Startbildschirm; dein Stand steht dann unter **„Weitermachen“**.
-4. **Auf den Rahmen bringen:** In der Galerie (grünes ♥ oben) kopiert
-   **„Auf Stick / SD-Karte“** alles mit einem Klick. Dort wählst du auch die
-   **Reihenfolge auf dem Rahmen**: *nach Datum*, *zufällig* oder *nach Ordner*. Bilder, die
-   schon drauf sind, werden übersprungen.
+4. **Auf den Rahmen bringen:** In der Galerie (grünes ♥ oben) öffnet das **USB-Symbol** ein
+   kleines Popup. Ein Klick auf den Stick oder die SD-Karte gleicht ab: Neues wird kopiert,
+   was schon drauf ist, bleibt. Das Popup zeigt vorher, wie viel Platz nötig und frei ist, und
+   wartet, bis alle Bilder gespeichert sind. Ist **„Nicht mehr behaltene Bilder vom Stick nehmen“**
+   an, verschwinden auch Bilder, die du inzwischen entfernt oder neu gespeichert hast (nur solche,
+   die das Programm selbst dort abgelegt hat). Dort wählst du auch die
+   **Reihenfolge auf dem Rahmen**: *nach Datum*, *zufällig* oder *nach Ordner*.
 
 Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** und
 **`Hochkant`**, z. B. `2024-07-15_143012_IMG_1234.jpg`.
@@ -123,7 +129,8 @@ Ordner schnell durch. Ist der Ordner fertig, startet **„Feinschliff: … zusch
 zweiten Durchgang nur über die gerade behaltenen Fotos, mit allen Werkzeugen. Hier gibt es
 statt Weg und Behalten zwei weiße Knöpfe zum Blättern: **→ Vor** speichert und geht zum
 nächsten Foto, **← Zurück** geht ein Foto zurück (beides auch mit den Pfeiltasten). **Weg**
-(links, oder **Rücktaste** / **Entf**) nimmt ein Foto doch noch heraus, **Esc** beendet den
+(links, oder **Entf**) nimmt ein Foto doch noch heraus, **Rücktaste** / **Strg+Z** macht das
+wieder rückgängig, **Esc** beendet den
 Feinschliff (die übrigen Fotos bleiben dann im schnellen Zuschnitt). Mit **„Später“** kannst du
 ihn auch auslassen und erst den nächsten Ordner machen.
 
@@ -131,14 +138,18 @@ ihn auch auslassen und erst den nächsten Ordner machen.
 
 Unter dem Foto liegt das Bilderband mit allen Fotos des Ordners. Mit gedrückter Maus ziehen
 (oder Mausrad) blättert, ein Klick springt zu einem Foto. Ein **grüner Punkt** heißt behalten,
-ein **roter** weg.
+ein **roter** weg. Ein Klick auf ein schon entschiedenes Foto zeigt es nur an; ein Hinweis oben
+sagt, wie du entschieden hast, und erst eine neue Entscheidung ersetzt die alte.
 
 ## Galerie und Diashow
 
 Das grüne ♥ oben öffnet die Galerie der behaltenen Bilder. Darüber wählst du **Alle**,
-**Quer** oder **Hochkant**, um nur eine Sorte zu sehen. **Alle entfernen** löscht alle gerade
-gezeigten Bilder aus dem Zielordner (nach einer Nachfrage, die Originale bleiben). Gleich danach
-holt **Rückgängig** in der Meldung (oder die **Rücktaste**) sie zurück.
+**Quer** oder **Hochkant**, um nur eine Sorte zu sehen. **Alle entfernen** nimmt alle gerade
+gezeigten Bilder aus dem Zielordner (die Originale bleiben). **Rückgängig** in der Meldung (oder
+**Rücktaste** / **Strg+Z**) holt sie zurück. Entfernte Bilder liegen 14 Tage im Ordner
+`.papierkorb` im Zielordner, danach räumt das Programm sie weg.
+Oben rechts sitzen **Diashow**, **Auf Stick / SD-Karte** und **Zielordner öffnen** als Symbole;
+an jedem Bild erscheinen beim Drüberfahren **Bearbeiten** (Stift) und **Entfernen** (Papierkorb).
 
 **Mehrere markieren:** **Strg**+Klick markiert einzelne Bilder, **Shift**+Klick einen ganzen
 Bereich, **Strg+A** alle gezeigten. Dann gelten **Entfernen** und **Exportieren** nur für die
@@ -199,7 +210,8 @@ besten und bestätigst mit **Enter**. Erkannt wird an der Aufnahmezeit und am Bi
 
 In der Galerie (grünes ♥) hat jedes Bild **Bearbeiten**. Du landest in der gewohnten Ansicht
 mit allen Werkzeugen (Zuschnitt, Ganz, Text, Begradigen, Licht). **Behalten** speichert das
-Bild neu und ersetzt das alte, **Weg** nimmt es aus den Behaltenen, **Esc** bricht ab.
+Bild neu und ersetzt das alte (gleicher Dateiname), **Weg** nimmt es aus den Behaltenen, **Esc**
+bricht ab. **Rückgängig** wirkt hier nur auf das, was du beim Nachbearbeiten getan hast.
 Löschst du Bilder direkt im Zielordner, verschwinden sie auch hier und gelten als aussortiert.
 
 ## Mehrere Profile
@@ -251,6 +263,9 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
   Bilder bleiben). Ist eine Auswahl ganz
   durch, verschwindet sie von selbst. Einfach schließen geht auch, **Rückgängig**
   funktioniert nach einem Neustart weiterhin.
+- **Anderer Laufwerksbuchstabe:** Bekommt die Festplatte oder der Stick mit deinen Fotos einen
+  neuen Buchstaben (z. B. *F:* statt *E:*), füge den Ordner einfach neu hinzu. Der Fortschritt
+  wird erkannt und mitgenommen.
 - **Zeitraum:** Die Aufnahmedaten werden einmal im Hintergrund gelesen und gemerkt. Solange
   das läuft, zählen Fotos ohne bekanntes Datum vorerst mit.
 - **Farben:** Zahnrad → *Farben*: *wie Windows*, *Hell*, *Dunkel*, *Sand*, *Salbei*

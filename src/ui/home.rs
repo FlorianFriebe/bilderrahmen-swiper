@@ -7,7 +7,7 @@ use egui::{pos2, vec2, Align2, Color32, Id, Rect, Sense, Shape, Stroke, StrokeKi
 use super::kit::{self, Tone};
 use super::style::*;
 use super::{bilder, ellipsize, icons, image_cover};
-use crate::app::{Dialog, SwiperApp, View};
+use crate::app::{SwiperApp, View};
 use crate::folders;
 use crate::session::{Session, SessionProgress};
 use crate::system;
@@ -27,6 +27,11 @@ fn fotos(n: usize) -> String {
 /// Bild für den Hintergrund: erster ausgewählter Ordner mit Vorschau.
 /// Enter / Start-Knopf
 pub fn start(app: &mut SwiperApp) {
+    if !app.cfg.profile_asked && app.selected_open() > 0 {
+        // beim allerersten Start erst fragen, welcher Rahmen es ist
+        app.ask_profile = true;
+        return;
+    }
     if app.finished.is_some() {
         if let Some(f) = app.suggestion().map(|f| f.path.clone()) {
             app.start_folder(f, None);
@@ -178,13 +183,13 @@ fn bar_menu(app: &mut SwiperApp, ui: &mut Ui, which: u8, anchor: Rect, item: Rec
         rows.push((label, "", custom.is_some() || draft, 9));
     } else {
         rows.push((
-            "Ein Durchgang".into(),
+            "1 Durchgang".into(),
             "Sortieren und zuschneiden in einem",
             !app.cfg.two_pass,
             0,
         ));
         rows.push((
-            "Zwei Durchgänge".into(),
+            "2 Durchgänge".into(),
             "Erst schnell sortieren, dann Feinschliff",
             app.cfg.two_pass,
             1,
@@ -414,7 +419,15 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     } else {
         1
     };
-    let s_rows_max = if ws.height() > 900.0 { 2 } else { 1 };
+    let all_id = egui::Id::unique("sessions_all");
+    let all: bool = ui.ctx().data(|d| d.get_temp(all_id)).unwrap_or(false);
+    let s_rows_max = if all {
+        sessions.len().div_ceil(s_cols)
+    } else if ws.height() > 900.0 {
+        2
+    } else {
+        1
+    };
     let shown = sessions.len().min(s_cols * s_rows_max);
     let s_rows = shown.div_ceil(s_cols);
     let sessions_h = if shown > 0 {
@@ -457,6 +470,38 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         let w = used * SESSION.x + (used - 1.0) * sp::L;
         let x0 = ws.center().x - w / 2.0;
         section_label(ui, pos2(x0 + sp::XS, y), "WEITERMACHEN");
+        if sessions.len() > s_cols || all {
+            // mehr offene Durchgänge als Platz: aufklappen statt verstecken
+            let more = sessions.len() - shown;
+            let t = if all {
+                "Weniger zeigen".to_string()
+            } else if more > 0 {
+                format!("Alle {} zeigen", sessions.len())
+            } else {
+                String::new()
+            };
+            if !t.is_empty() {
+                let f = font(ts::SMALL, W::Semibold);
+                let tw = kit::text_size(ui, &t, f.clone()).x;
+                let lr = Rect::from_min_size(
+                    pos2(x0 + w - tw - sp::XS, y - 2.0),
+                    vec2(tw, LABEL_H + 4.0),
+                );
+                let resp = ui
+                    .interact(lr, ui.make_persistent_id("sessions_more"), Sense::click())
+                    .on_hover_cursor(egui::CursorIcon::PointingHand);
+                ui.painter().text(
+                    lr.right_center(),
+                    Align2::RIGHT_CENTER,
+                    &t,
+                    f,
+                    if resp.hovered() { text() } else { accent() },
+                );
+                if resp.clicked() {
+                    ui.ctx().data_mut(|d| d.insert_temp(all_id, !all));
+                }
+            }
+        }
         y += LABEL_H + sp::M;
         for (i, (s, prog)) in sessions.iter().take(shown).enumerate() {
             let r = Rect::from_min_size(
@@ -535,7 +580,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             .on_hover_text(tip)
             .clicked()
         {
-            app.start_session();
+            start(app);
         }
         settings_summary(app, ui, pos2(ws.center().x, r.bottom() + sp::L));
     }
@@ -566,6 +611,8 @@ fn folder_menu(app: &mut SwiperApp, ui: &mut Ui) {
             "Aussortierte nochmal zeigen".into(),
             if skipped == 0 {
                 "Noch nichts aussortiert".into()
+            } else if skipped == 1 {
+                "1 Foto kommt wieder dran".into()
             } else {
                 format!("{} kommen wieder dran", fotos(skipped))
             },
@@ -1046,6 +1093,14 @@ enum SessionAction {
 
 // ------------------------------------------------------------------ Einstellungen im Überblick
 
+/// Kurzname des aktiven Profils für die Leiste: bei mehreren Profilen der Name, sonst das Format.
+fn profile_label(app: &SwiperApp) -> String {
+    match app.cfg.profiles.get(app.cfg.profile) {
+        Some(p) if app.cfg.profiles.len() > 1 => p.name.clone(),
+        _ => app.ratio_label(crate::imaging::Orient::Quer),
+    }
+}
+
 /// Einstellungsleiste unter dem Start-Knopf: Zeitraum, Ablauf, Rahmen, Text, Zielordner.
 /// Immer so breit wie der Start-Knopf.
 fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
@@ -1072,7 +1127,12 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
         (icons::CALENDAR, range, 0, "Zeitraum"),
         (mode_glyph, mode.to_string(), 1, "Ablauf"),
         (icons::TEXT, text_lbl, 2, "Text aufs Bild"),
-        (icons::FRAME, String::new(), 3, "Profil: Format und Größe"),
+        (
+            icons::FRAME,
+            profile_label(app),
+            3,
+            "Profil: Format und Größe",
+        ),
     ];
     let f = font(ts::SMALL, W::Medium);
     let h = 44.0;
@@ -1131,6 +1191,10 @@ fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egui::Pos2) {
     kit::glass(&p, bar, radius::L);
     let menu_id = egui::Id::unique("home_bar_menu");
     let mut menu: Option<u8> = ui.ctx().data(|d| d.get_temp(menu_id)).flatten();
+    if app.ask_profile {
+        app.ask_profile = false;
+        menu = Some(3);
+    }
     if app.gear_popup {
         // Strg+B
         app.gear_popup = false;
@@ -1386,8 +1450,8 @@ impl Header {
             *y += 44.0;
         } else {
             let r = Rect::from_center_size(pos2(cx, *y + 28.0), vec2(440.0, 56.0));
-            if kit::cta(ui, r, icons::USB, "Auf USB-Stick / SD-Karte kopieren", true).clicked() {
-                app.dialog = Some(Dialog::Copy);
+            if kit::cta(ui, r, icons::USB, "Auf USB-Stick / SD-Karte", true).clicked() {
+                app.copy_anchor = Some((r, false));
             }
             *y += 56.0 + sp::L;
             let st = app.stats(now);
@@ -1511,6 +1575,10 @@ fn tiles(app: &mut SwiperApp, ui: &mut Ui, grid: Rect, cols: usize) {
             if let Some(v) = app.viewer.as_mut() {
                 v.menu_for = Some(p);
             }
+        }
+        Some(TileAction::Start(p)) if !app.cfg.profile_asked => {
+            app.cfg.unchecked.remove(&p);
+            app.ask_profile = true;
         }
         Some(TileAction::Start(p)) => {
             app.cfg.unchecked.remove(&p);
@@ -1685,6 +1753,14 @@ fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction
             fmt_int(f.open()),
             fmt_int(f.kept)
         )
+    };
+    // schon Teil eines offenen Durchgangs unter „Weitermachen“?
+    let in_session =
+        !finished && f.done > 0 && app.cfg.sessions.iter().any(|s| s.folders.contains(&f.path));
+    let info = if in_session {
+        format!("{} offen  ·  in Weitermachen", fmt_int(f.open()))
+    } else {
+        info
     };
     let inf = font(ts::SMALL, W::Regular);
     p.text(

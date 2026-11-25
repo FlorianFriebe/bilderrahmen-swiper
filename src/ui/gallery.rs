@@ -10,7 +10,7 @@ use super::dialogs::bold;
 use super::kit;
 use super::style::*;
 use super::{contain, ellipsize, icons, FULL_UV};
-use crate::app::{Dialog, SwiperApp, View};
+use crate::app::{SwiperApp, View};
 use crate::folders;
 use crate::util::{fmt_int, open_folder};
 
@@ -222,27 +222,24 @@ fn header(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, n: usize) -> bool {
     }
     ui.ctx().data_mut(|d| d.insert_temp(open_id, open));
     right = gear.left() - sp::XS;
-    for (glyph, label, act) in [
-        (icons::PLAY, "Diashow", 2),
-        (icons::USB, "Auf Stick / SD-Karte", 1),
+    // gleich große Symbol-Knöpfe ohne Beschriftung, bündig nebeneinander
+    for (glyph, tip, act) in [
+        (icons::PLAY, "Diashow: behaltene Bilder nacheinander ansehen (Leertaste: Pause, Pfeile: blättern, Esc: beenden)", 2),
+        (icons::USB, "Auf USB-Stick / SD-Karte übertragen", 1),
         (icons::FOLDER_OPEN, "Zielordner öffnen", 0),
     ] {
-        let w = kit::secondary_width(ui, glyph, label);
-        let r = Rect::from_min_size(pos2(right - w, ws.top()), vec2(w, size::BAR));
-        let resp = kit::secondary(ui, r, glyph, label, n > 0);
-        let resp = if act == 2 {
-            resp.on_hover_text("Behaltene Bilder nacheinander ansehen, so wie sie gespeichert sind (Leertaste: Pause, Pfeile: blättern, Esc: beenden)")
-        } else {
-            resp
-        };
-        if resp.clicked() {
+        let r = Rect::from_min_size(pos2(right - size::BAR, ws.top()), vec2(size::BAR, size::BAR));
+        if kit::secondary(ui, r, glyph, "", n > 0)
+            .on_hover_text(tip)
+            .clicked()
+        {
             match act {
                 0 => open_folder(&app.cfg.target),
-                1 => app.dialog = Some(Dialog::Copy),
+                1 => app.copy_anchor = Some((r, false)),
                 _ => app.start_slideshow(),
             }
         }
-        right = r.left() - sp::S;
+        right = r.left() - sp::XS;
     }
     true
 }
@@ -293,17 +290,18 @@ fn filter_row(
     };
     let bw = kit::secondary_width(ui, icons::TRASH, &label);
     let br = Rect::from_min_size(pos2(ws.right() - bw, top), vec2(bw, FILTER_H));
-    let ask_id = egui::Id::unique("bulk_ask");
-    let mut ask: bool = ui.ctx().data(|d| d.get_temp(ask_id)).unwrap_or(false);
     if kit::secondary(ui, br, icons::TRASH, &label, !target.is_empty())
         .on_hover_text(if sel {
-            "Markierte Bilder aus dem Zielordner löschen (die Originale bleiben)"
+            "Markierte Bilder aus dem Zielordner nehmen (Originale bleiben, rückgängig mit Strg+Z)"
         } else {
-            "Alle gezeigten Bilder aus dem Zielordner löschen (die Originale bleiben)"
+            "Alle gezeigten Bilder aus dem Zielordner nehmen (Originale bleiben, rückgängig mit Strg+Z)"
         })
         .clicked()
     {
-        ask = true;
+        // kein Nachfragen: Entfernen landet im Papierkorb und lässt sich rückgängig machen
+        app.discard_many(target);
+        app.gallery_sel.clear();
+        return;
     }
     // Exportieren: markierte oder alle gezeigten Bilder an einen frei gewählten Ort
     let elabel = if sel {
@@ -336,56 +334,6 @@ fn filter_row(
             muted(),
         );
     }
-    let shown = target;
-    if ask {
-        let n = shown.len();
-        let mut confirm = false;
-        let mut cancel = false;
-        let m = egui::Modal::new(egui::Id::unique("bulk_modal")).show(ui.ctx(), |ui| {
-            ui.set_width(380.0);
-            ui.label(
-                egui::RichText::new(if n == 1 {
-                    "Dieses Bild entfernen?".to_string()
-                } else {
-                    format!("{} Bilder entfernen?", fmt_int(n))
-                })
-                .font(bold(18.0)),
-            );
-            ui.add_space(sp::S);
-            ui.label(
-                egui::RichText::new(
-                    "Sie werden aus dem Zielordner gelöscht und gelten als aussortiert. Deine Originale bleiben unverändert, und gleich danach kannst du es noch rückgängig machen.",
-                )
-                .color(text_soft()),
-            );
-            ui.add_space(sp::L);
-            ui.horizontal(|ui| {
-                if ui.button("Abbrechen").clicked() {
-                    cancel = true;
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let b = egui::Button::new(
-                        egui::RichText::new("Entfernen").color(Color32::WHITE),
-                    )
-                    .fill(RED);
-                    if ui.add(b).clicked() {
-                        confirm = true;
-                    }
-                });
-            });
-        });
-        if m.should_close() {
-            cancel = true;
-        }
-        if confirm {
-            app.discard_many(shown);
-            app.gallery_sel.clear();
-            ask = false;
-        } else if cancel {
-            ask = false;
-        }
-    }
-    ui.ctx().data_mut(|d| d.insert_temp(ask_id, ask));
 }
 
 /// Kleines Feld mit den Diashow-Einstellungen. Gibt `false` zurück, wenn es zugehen soll.
@@ -526,9 +474,9 @@ fn tile(
     }
     if let Some(s) = sel_click {
         // Knöpfe auf der Kachel gehen vor
-        let on_button = ui
-            .input(|i| i.pointer.interact_pos())
-            .is_some_and(|pos| pos.y < r.top() + sp::S + 32.0 && pos.x > r.right() - 240.0);
+        let on_button = ui.input(|i| i.pointer.interact_pos()).is_some_and(|pos| {
+            pos.y < r.top() + sp::S + 32.0 && pos.x > r.right() - sp::S * 2.0 - 68.0
+        });
         if !on_button {
             return Some(TileAct::Select(s));
         }
@@ -558,39 +506,31 @@ fn tile(
         font(ts::SMALL, W::Medium),
         Color32::WHITE.gamma_multiply(t),
     );
-    let lf = font(ts::SMALL, W::Semibold);
-    let bw = sp::M + 14.0 + sp::S + kit::text_size(ui, "Rauswerfen", lf.clone()).x + sp::M;
+    // zwei gleich große Symbol-Knöpfe oben rechts in der Kachel
     let xr = Rect::from_min_size(
-        pos2(r.right() - sp::S - bw, r.top() + sp::S),
-        vec2(bw, 32.0),
+        pos2(r.right() - sp::S - 32.0, r.top() + sp::S),
+        vec2(32.0, 32.0),
     );
     let x = ui
         .interact(xr, ui.make_persistent_id(("discard", i)), Sense::click())
         .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Aus dem Zielordner löschen (das Original bleibt)");
+        .on_hover_text(
+            "Entfernen: aus dem Zielordner nehmen (Original bleibt, rückgängig mit Strg+Z)",
+        );
     let h = kit::anim(ui, x.id, x.hovered());
     p.rect_filled(xr, radius::S + 2, RED.gamma_multiply((0.75 + 0.25 * h) * t));
     kit::icon(
         p,
-        pos2(xr.left() + sp::M + 7.0, xr.center().y),
+        xr.center(),
         icons::TRASH,
-        14.0,
+        15.0,
         Color32::WHITE.gamma_multiply(t),
     );
-    p.text(
-        pos2(xr.left() + sp::M + 14.0 + sp::S, xr.center().y),
-        Align2::LEFT_CENTER,
-        "Rauswerfen",
-        lf.clone(),
-        Color32::WHITE.gamma_multiply(t),
-    );
-    // Bearbeiten links daneben
-    let ew = sp::M + 14.0 + sp::S + kit::text_size(ui, "Bearbeiten", lf.clone()).x + sp::M;
-    let er = Rect::from_min_size(pos2(xr.left() - sp::S - ew, xr.top()), vec2(ew, 32.0));
+    let er = Rect::from_min_size(pos2(xr.left() - 4.0 - 32.0, xr.top()), vec2(32.0, 32.0));
     let ed = ui
         .interact(er, ui.make_persistent_id(("reedit", i)), Sense::click())
         .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Zuschnitt, Ganz, Text, Begradigen und Licht ändern und neu speichern");
+        .on_hover_text("Bearbeiten: Zuschnitt, Ganz, Text, Begradigen und Licht ändern");
     let eh = kit::anim(ui, ed.id, ed.hovered());
     p.rect_filled(
         er,
@@ -599,16 +539,9 @@ fn tile(
     );
     kit::icon(
         p,
-        pos2(er.left() + sp::M + 7.0, er.center().y),
+        er.center(),
         icons::PENCIL,
-        14.0,
-        Color32::WHITE.gamma_multiply(t),
-    );
-    p.text(
-        pos2(er.left() + sp::M + 14.0 + sp::S, er.center().y),
-        Align2::LEFT_CENTER,
-        "Bearbeiten",
-        font(ts::SMALL, W::Semibold),
+        15.0,
         Color32::WHITE.gamma_multiply(t),
     );
     if ed.clicked() {

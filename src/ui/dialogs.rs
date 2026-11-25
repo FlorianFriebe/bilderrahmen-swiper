@@ -8,8 +8,6 @@ use super::kit;
 use super::style::*;
 use crate::app::{key_name, Dialog, SwiperApp, View, ACTIONS, DATE_FORMATS};
 use crate::imaging;
-use crate::system;
-use crate::util::{fmt_int, open_folder};
 
 pub fn bold(size: f32) -> egui::FontId {
     font(size, W::Semibold)
@@ -53,7 +51,7 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
             kicker: "LEISTE UNTEN",
             title: "Alles für das aktuelle Foto",
             bullets: vec![
-                b(icons::ROTATE, "Drehen, falls das Foto schief liegt", k("rot_r")),
+                b(icons::ROTATE, "Um 90° drehen, falls das Foto auf der Seite liegt", k("rot_r")),
                 b(
                     icons::SWAP,
                     "Format: Klick wechselt quer und hochkant, der Pfeil bietet „Ganz“ und den Rand",
@@ -89,7 +87,7 @@ fn steps(app: &SwiperApp) -> Vec<Step> {
                     "Zahnrad: Zielordner, Farben, Tasten und Hilfe",
                     String::new(),
                 ),
-                b(icons::KEYBOARD, "Alle Tastenkürzel auf einen Blick", "?".into()),
+                b(icons::KEYBOARD, "Alle Tastenkürzel: Taste ? drücken oder im Zahnrad unter Hilfe", "?".into()),
             ],
             spot: app.spots.menu,
         },
@@ -369,166 +367,6 @@ pub fn keys_editor(app: &mut SwiperApp, ui: &mut Ui) {
     {
         app.cfg.keys.clear();
         app.capture = None;
-    }
-}
-
-// ------------------------------------------------------------------ Kopieren auf Stick / Karte
-
-pub fn copy(app: &mut SwiperApp, ui: &mut Ui, now: f64) {
-    let stats = app.stats(now);
-    let busy = app
-        .copy
-        .as_ref()
-        .map(|c| !c.lock().unwrap().finished)
-        .unwrap_or(false);
-    let resp = egui::Modal::new(ui.make_persistent_id("copy_modal")).show(ui.ctx(), |ui| {
-        ui.set_width(440.0);
-        ui.label(egui::RichText::new("Auf USB-Stick oder SD-Karte kopieren").font(bold(19.0)));
-        ui.add_space(4.0);
-        ui.colored_label(
-            muted(),
-            format!(
-                "{} Bilder ({} quer, {} hochkant), zusammen {}",
-                fmt_int(stats.quer + stats.hoch),
-                fmt_int(stats.quer),
-                fmt_int(stats.hoch),
-                system::fmt_bytes(stats.bytes)
-            ),
-        );
-        ui.add_space(10.0);
-        let mut close = false;
-        if let Some(c) = app.copy.clone() {
-            let p = c.lock().unwrap();
-            let dest = app.copy_dest.clone().unwrap_or_default();
-            if !p.finished {
-                ui.label(format!("Kopiere nach {} …", dest.display()));
-                let f = if p.total > 0 { p.done as f32 / p.total as f32 } else { 0.0 };
-                ui.add(egui::ProgressBar::new(f).text(format!("{} / {}", p.done, p.total)));
-                ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
-            } else if let Some(e) = &p.error {
-                ui.colored_label(skip(), format!("Das hat nicht geklappt:\n{e}"));
-                ui.colored_label(muted(), "Ist der Stick voll oder schreibgeschützt?");
-            } else {
-                let new = p.done - p.skipped;
-                ui.colored_label(
-                    keep(),
-                    egui::RichText::new(format!(
-                        "Fertig: {} Bilder kopiert{}.",
-                        fmt_int(new),
-                        if p.skipped > 0 {
-                            format!(", {} waren schon drauf", fmt_int(p.skipped))
-                        } else {
-                            String::new()
-                        }
-                    ))
-                    .font(bold(15.0)),
-                );
-                ui.colored_label(
-                    muted(),
-                    "Wirf den Stick bzw. die Karte in Windows über „Hardware sicher entfernen“ aus, bevor du ihn abziehst.",
-                );
-                ui.add_space(6.0);
-                ui.horizontal(|ui| {
-                    if ui.button("Ordner auf dem Stick öffnen").clicked() {
-                        open_folder(&dest);
-                    }
-                    if ui.button("Nochmal kopieren").clicked() {
-                        drop(p);
-                        app.copy = None;
-                    }
-                });
-            }
-        } else {
-            let drives = system::removable_drives();
-            if drives.is_empty() {
-                ui.colored_label(
-                    muted(),
-                    "Kein USB-Stick und keine SD-Karte gefunden. Steck sie ein, dann erscheint sie hier.",
-                );
-            }
-            for d in drives {
-                let full = d.free != u64::MAX && d.free < stats.bytes;
-                let free = if d.free == u64::MAX {
-                    String::new()
-                } else {
-                    format!("  ·  {} frei", system::fmt_bytes(d.free))
-                };
-                let label = format!("{}  ({}){free}", d.label, d.root.display());
-                let b = ui.add_enabled(
-                    !full,
-                    egui::Button::new(label).min_size(vec2(ui.available_width(), 38.0)),
-                );
-                if full {
-                    ui.colored_label(skip(), "Zu wenig Platz frei.");
-                }
-                if b.clicked() {
-                    app.start_copy(d.root.join("Bilderrahmen"));
-                }
-            }
-            ui.add_space(4.0);
-            if ui.button("Anderen Ordner wählen …").clicked() {
-                if let Some(dir) = rfd::FileDialog::new()
-                    .set_title("Wohin sollen die Bilder kopiert werden?")
-                    .pick_folder()
-                {
-                    app.start_copy(dir);
-                }
-            }
-            ui.add_space(sp::M);
-            ui.label(
-                egui::RichText::new(format!("{}  Reihenfolge auf dem Gerät", icons::SHUFFLE))
-                    .font(bold(14.0)),
-            );
-            ui.horizontal(|ui| {
-                for (i, (label, _)) in system::COPY_ORDERS.iter().enumerate() {
-                    ui.selectable_value(&mut app.cfg.copy_order, i as u8, *label);
-                }
-            });
-            let (_, hint) = system::COPY_ORDERS[(app.cfg.copy_order as usize).min(2)];
-            ui.colored_label(muted(), egui::RichText::new(hint).size(11.5));
-            if app.cfg.copy_order > 0 {
-                ui.colored_label(
-                    muted(),
-                    egui::RichText::new(
-                        "Dafür bekommen die Dateien eine Nummer vorne, z. B. 0001_2024-07-15_…jpg. \
-                         Die meisten Rahmen zeigen Bilder nach Dateinamen sortiert.",
-                    )
-                    .size(11.5),
-                );
-            }
-            ui.add_space(8.0);
-            ui.checkbox(
-                &mut app.cfg.copy_keep_folders,
-                "Unterordner „Quer“ und „Hochkant“ beibehalten",
-            )
-            .on_hover_text(
-                "Aus: alle Bilder landen direkt in einem Ordner. Manche Rahmen zeigen nur Bilder \
-                 aus dem obersten Ordner an.",
-            );
-            ui.colored_label(
-                muted(),
-                egui::RichText::new(
-                    "Auf dem Stick entsteht der Ordner „Bilderrahmen“. Bilder, die schon drauf sind, werden übersprungen.",
-                )
-                .size(11.5),
-            );
-        }
-        ui.add_space(10.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui
-                .add_enabled(!busy, egui::Button::new("Schließen").min_size(vec2(100.0, 30.0)))
-                .clicked()
-            {
-                close = true;
-            }
-        });
-        close
-    });
-    if resp.inner || (resp.should_close() && !busy) {
-        app.dialog = None;
-        if !busy {
-            app.copy = None;
-        }
     }
 }
 
