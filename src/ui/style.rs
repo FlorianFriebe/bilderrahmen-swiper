@@ -165,6 +165,8 @@ palette! {
     /// Eingabefelder, Listen
     field = hexa(0xffffff, 16), hexa(0x0f172a, 10);
     divider = hexa(0xffffff, 36), hexa(0x0f172a, 26);
+    /// Schiene von Reglern und Kästchen (im hellen Design kräftiger als `glass`)
+    control = hexa(0xffffff, 28), hex(0xcfd4dd);
     text = hex(0xf4f5f8), hex(0x14161c);
     text_soft = hex(0xc9ccd6), hex(0x3a3f4b);
     muted = hex(0x9aa0ad), hex(0x5e6472);
@@ -386,9 +388,11 @@ fn style_for(style: &mut egui::Style, dark: bool) {
     v.selection.bg_fill = if dark {
         hexa(0x60a5fa, 90)
     } else {
-        hexa(0x2563eb, 60)
+        hexa(0x2563eb, 110)
     };
     v.selection.stroke = Stroke::new(1.0, accent());
+    // Regler: gefüllter Teil in Akzentfarbe, damit er auch im hellen Design gut zu sehen ist
+    v.slider_trailing_fill = true;
     v.hyperlink_color = accent();
     v.window_corner_radius = radius::XL.into();
     v.menu_corner_radius = radius::M.into();
@@ -419,6 +423,8 @@ fn style_for(style: &mut egui::Style, dark: bool) {
         w.fg_stroke.color = text();
         w.expansion = 0.0;
     }
+    // Reglerschiene und Kästchen (bg_fill); Knöpfe nutzen weiter weak_bg_fill = glass
+    v.widgets.inactive.bg_fill = control();
     v.widgets.hovered.bg_stroke = Stroke::new(1.0, divider());
     v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, divider());
     v.widgets.noninteractive.fg_stroke.color = text();

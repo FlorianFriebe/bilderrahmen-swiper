@@ -29,15 +29,6 @@ mod textures;
 
 pub const QUER_FORMATS: &[&str] = &["16:9", "16:10", "4:3", "3:2", "5:4", "1:1"];
 pub const HOCH_FORMATS: &[&str] = &["9:16", "10:16", "3:4", "2:3", "4:5", "1:1"];
-pub const RESOLUTIONS: &[(&str, Option<(u32, u32)>)] = &[
-    ("Keine Begrenzung", None),
-    ("HD (1280 × 720)", Some((1280, 720))),
-    ("WXGA (1280 × 800)", Some((1280, 800))),
-    ("Full HD (1920 × 1080)", Some((1920, 1080))),
-    ("WUXGA (1920 × 1200)", Some((1920, 1200))),
-    ("QHD (2560 × 1440)", Some((2560, 1440))),
-    ("4K (3840 × 2160)", Some((3840, 2160))),
-];
 /// Gängige Bilderrahmen-Auflösungen für das Rahmen-Profil.
 pub const FRAMES: &[(&str, &str)] = &[
     ("7 Zoll · 1024 × 600", "1024x600"),
@@ -137,6 +128,7 @@ pub struct Config {
     pub target: PathBuf,
     pub ratio_quer: String,
     pub ratio_hoch: String,
+    /// früher: Größenbegrenzung ohne Rahmen (nicht mehr benutzt, bleibt für alte Einstellungen)
     pub res_idx: usize,
     pub max_mb: f32,
     /// 0 = kein Ziel
@@ -433,7 +425,7 @@ pub struct SwiperApp {
     /// Notiz pro Bild (für den Text aufs Bild)
     pub notes: HashMap<PathBuf, String>,
     pub text_panel: bool,
-    /// Feld für den Rand bei „Ganz“ offen
+    /// Feld „Ränder füllen“ bei „Ganz“ offen
     pub fill_panel: bool,
     /// Nachbearbeiten eines behaltenen Bildes: vorheriger Stand zum Zurückkehren
     pub reedit: Option<Reedit>,

@@ -3,6 +3,21 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.13.0
+
+- Profil-Popup aufgeräumt: „Vorlage“ ist weg. Unter **Auflösung** wählst du dein Gerät oder
+  *Eigene Auflösung …*; Quer und Hochkant passen sich dann von selbst an.
+- Beim ersten Start zeigt das Popup nur die Auflösung, alles andere liegt unter *Mehr Einstellungen*.
+- Unten steht jetzt, dass Änderungen automatisch gespeichert werden; nach einer Änderung leuchtet
+  kurz „Gespeichert“.
+- „Rand bei Ganz“ heißt jetzt **Ränder füllen mit** und ist eine Auswahlliste.
+- Zahnrad: Beim **Bilder-Ziel** kannst du eine eigene Menge eintippen. *Tasten ändern* und
+  *Alle Tastenkürzel* sind zu **Tastenbelegung** zusammengelegt. Einführung, Problem melden und
+  Verknüpfung stehen klein in einer Zeile.
+- Verknüpfung im Startmenü und auf dem Desktop lassen sich getrennt anlegen.
+- Regler sind im hellen Design gut zu erkennen.
+- Ohne Rahmen-Auflösung („Keine Vorgabe“) behalten Fotos ihre volle Größe.
+
 ## 3.12.0
 
 - Updates werden vor dem Einsetzen geprüft: Stimmt die Prüfsumme nicht mit der Angabe von GitHub

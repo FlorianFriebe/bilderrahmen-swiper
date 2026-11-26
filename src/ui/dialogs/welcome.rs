@@ -64,19 +64,21 @@ fn crash_note(app: &mut SwiperApp, ui: &mut Ui) {
 
 fn install_prompt(app: &mut SwiperApp, ui: &mut Ui) {
     let id = egui::Id::unique("install_desktop");
-    let mut desktop: bool = ui.ctx().data(|d| d.get_temp(id)).unwrap_or(true);
+    let (mut start, mut desktop): (bool, bool) =
+        ui.ctx().data(|d| d.get_temp(id)).unwrap_or((true, true));
     let mut answer: Option<bool> = None;
     let resp = egui::Modal::new(egui::Id::unique("install_prompt")).show(ui.ctx(), |ui| {
         ui.set_width(420.0);
         title(ui, icons::FOLDER_OPEN, "Programm griffbereit ablegen?");
         body(
             ui,
-            "Dann findest du den Bilderrahmen-Swiper im Startmenü und musst ihn nicht \
+            "Dann findest du den Bilderrahmen-Swiper im Startmenü oder auf dem Desktop und musst ihn nicht \
              im Download-Ordner suchen. Eine Installation ist das nicht, es wird nur die \
              Programmdatei an einen festen Ort kopiert.",
         );
         ui.add_space(sp::M);
-        ui.checkbox(&mut desktop, "Auch eine Verknüpfung auf dem Desktop");
+        ui.checkbox(&mut start, "Verknüpfung im Startmenü");
+        ui.checkbox(&mut desktop, "Verknüpfung auf dem Desktop");
         ui.add_space(sp::L);
         ui.horizontal(|ui| {
             if ui.button("Nein, danke").clicked() {
@@ -85,13 +87,13 @@ fn install_prompt(app: &mut SwiperApp, ui: &mut Ui) {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let b = egui::Button::new(egui::RichText::new("Ja, ablegen").color(Color32::WHITE))
                     .fill(BLUE);
-                if ui.add(b).clicked() {
+                if ui.add_enabled(start || desktop, b).clicked() {
                     answer = Some(true);
                 }
             });
         });
     });
-    ui.ctx().data_mut(|d| d.insert_temp(id, desktop));
+    ui.ctx().data_mut(|d| d.insert_temp(id, (start, desktop)));
     if resp.should_close() && answer.is_none() {
         answer = Some(false);
     }
@@ -102,19 +104,22 @@ fn install_prompt(app: &mut SwiperApp, ui: &mut Ui) {
         app.toast("Kein Problem. Das geht später auch über das Zahnrad.".into());
         return;
     }
-    install_now(app, desktop);
+    install_now(app, start, desktop);
 }
 
 /// Ablegen und das Ergebnis melden (auch aus dem Zahnrad-Popup aufgerufen).
-pub fn install_now(app: &mut SwiperApp, desktop: bool) {
-    match crate::install::install(desktop) {
+pub fn install_now(app: &mut SwiperApp, start: bool, desktop: bool) {
+    match crate::install::install(start, desktop) {
         Ok(exe) => {
             crate::system::log(&format!("Abgelegt in {}", exe.display()));
-            app.toast(if desktop {
-                "Liegt jetzt im Startmenü und auf dem Desktop. Die Datei im Download-Ordner brauchst du nicht mehr.".into()
-            } else {
-                "Liegt jetzt im Startmenü. Die Datei im Download-Ordner brauchst du nicht mehr.".into()
-            });
+            let wo = match (start, desktop) {
+                (true, true) => "im Startmenü und auf dem Desktop",
+                (false, true) => "auf dem Desktop",
+                _ => "im Startmenü",
+            };
+            app.toast(format!(
+                "Liegt jetzt {wo}. Die Datei im Download-Ordner brauchst du nicht mehr."
+            ));
         }
         Err(e) => {
             crate::system::log(&format!("Ablegen fehlgeschlagen: {e}"));

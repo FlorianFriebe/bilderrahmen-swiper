@@ -12,9 +12,9 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    geschützt“**. Das kommt, weil das Programm von einer Privatperson stammt und nicht
    kostenpflichtig signiert ist, es ist kein Virus. Klicke auf den unscheinbaren Link
    **„Weitere Informationen“** und dann auf **„Trotzdem ausführen“**. Danach fragt Windows nicht mehr.
-3. Das Programm fragt, ob es sich **ins Startmenü und auf den Desktop** legen soll. Mit „Ja“ wird
+3. Das Programm fragt, ob es sich **ins Startmenü und/oder auf den Desktop** legen soll. Mit „Ja“ wird
    die Datei an einen festen Ort kopiert (`%LOCALAPPDATA%\Programs\Bilderrahmen-Swiper`), die Datei
-   im Download-Ordner brauchst du danach nicht mehr. Später geht das auch über das **Zahnrad**.
+   im Download-Ordner brauchst du danach nicht mehr. Später geht das auch über das **Zahnrad** → *Verknüpfung …* (Startmenü, Desktop oder beides).
 4. Beim ersten Klick auf Start fragt das Programm, **welchen Bilderrahmen du hast**, und öffnet
    dazu das Profil. Danach zeigt eine kurze Einführung die wichtigsten Handgriffe.
 
@@ -22,9 +22,10 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 
 1. **Profil einstellen:** In der Leiste unter dem Start-Knopf öffnet das **Format-Symbol** ein
    kleines Popup mit deinen **Profilen**. Zu jedem Profil gehören Format und Größe: Unter
-   *Vorlage* wählst du dein Gerät (z. B. *10 Zoll · 1280 × 800*) oder tippst eine eigene
-   Auflösung ein, dann passen Format und Größe automatisch. Ohne Vorlage stellst du *Quer*,
-   *Hochkant* und *Auflösung* selbst ein. Die Leiste hat außerdem **Zeitraum**, **Ablauf** und
+   *Auflösung* wählst du dein Gerät (z. B. *10 Zoll · 1280 × 800*) oder *Eigene Auflösung …*,
+   dann passen Format und Größe automatisch. Mit *Keine Vorgabe* stellst du *Quer* und
+   *Hochkant* selbst ein. Beim ersten Öffnen steht nur die Auflösung da, alles andere liegt unter
+   *Mehr Einstellungen*. Jede Änderung wird sofort gespeichert. Die Leiste hat außerdem **Zeitraum**, **Ablauf** und
    **Text** (Aus, Datum oder Datum + Ort, darunter Stil, Datumsformat und Notiz als Auswahl), jeweils als kleines Popup.
    Das **Zahnrad** ganz rechts enthält, was man einmal einstellt: Zielordner, Farben,
    Schriftgröße, Tasten und Hilfe.
@@ -109,9 +110,9 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Zielordner, Farben, Tasten, Hilfe | Zahnrad | Strg+B |
 | Schrift größer / kleiner | – | **Strg +** / **Strg −** (Strg 0 = normal) |
 | Vollbild | – | F11 |
-| Alle Tastenkürzel | Zahnrad → *Alle Tastenkürzel* | **?** oder F1 |
+| Tastenbelegung | Zahnrad → *Tastenbelegung …* | **?** oder F1 |
 
-**Tasten ändern:** Zahnrad → *Tasten ändern …*. Auf ein Feld klicken und die
+**Tasten ändern:** Zahnrad → *Tastenbelegung …* → *Tasten ändern …*. Auf ein Feld klicken und die
 neue Taste drücken. Rechtsklick leert ein Feld.
 
 ## Zuschneiden
@@ -177,7 +178,7 @@ gestellt und landet im Ordner `Quer`. Mit **H** kannst du das wie gewohnt umstel
 
 - **Größe und Lage:** Das Foto mit der Maus verschieben, an den Ecken größer oder kleiner
   ziehen, Mausrad zoomt. Kleiner lässt mehr Rand, größer schneidet an. Doppelklick setzt zurück.
-- **Rand:** Der Pfeil an **Format** wählt unter *Rand bei „Ganz“* *Unscharf* (mit Regler für die Stärke), *Fotofarbe*,
+- **Rand:** Der Pfeil an **Format** wählt unter *Ränder füllen mit* *Unscharfes Foto* (mit Regler für die Stärke), *Fotofarbe*,
   *Schwarz* oder *Weiß*. **Als Standard** übernimmt die Wahl für alle neuen Bilder (auch im
   Format-Popup unter der Leiste).
 

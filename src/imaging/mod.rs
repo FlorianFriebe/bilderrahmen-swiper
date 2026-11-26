@@ -105,7 +105,7 @@ impl Default for FillBg {
     }
 }
 
-pub const FILL_KINDS: [&str; 4] = ["Unscharf", "Fotofarbe", "Schwarz", "Weiß"];
+pub const FILL_KINDS: [&str; 4] = ["Unscharfes Foto", "Fotofarbe", "Schwarz", "Weiß"];
 
 impl FillBg {
     pub fn label(&self) -> String {

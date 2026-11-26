@@ -5,9 +5,7 @@ use egui::{pos2, vec2, Align2, Color32, Rect, Sense, Stroke, Ui};
 
 use super::style::*;
 use super::{dialogs, icons, kit};
-use crate::app::{
-    Dialog, SwiperApp, View, DATE_FORMATS, FRAMES, HOCH_FORMATS, QUER_FORMATS, RESOLUTIONS,
-};
+use crate::app::{Dialog, SwiperApp, View, DATE_FORMATS, FRAMES, HOCH_FORMATS, QUER_FORMATS};
 use crate::imaging::{self, Orient};
 use crate::system;
 use crate::util::open_folder;

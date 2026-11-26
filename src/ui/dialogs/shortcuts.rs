@@ -11,7 +11,7 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
         ui.set_width(440.0);
         ui.horizontal(|ui| {
             ui.label(egui::RichText::new(icons::KEYBOARD).font(icon_font(22.0)));
-            ui.label(egui::RichText::new("Tastenkürzel").font(bold(19.0)));
+            ui.label(egui::RichText::new("Tastenbelegung").font(bold(19.0)));
         });
         ui.add_space(sp::M);
         let mouse: [(&str, &str); 7] = [

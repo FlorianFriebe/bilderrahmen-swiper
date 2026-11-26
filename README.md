@@ -54,7 +54,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Alternativ das ganze Foto statt Zuschnitt, frei zoom- und verschiebbar; Rand unscharf (Stärke einstellbar), in Fotofarbe, schwarz oder weiß
 - Geräte-Vorlagen (z. B. 1280 × 800) setzen Seitenverhältnis und Auflösung automatisch
 - Mehrere Profile mit eigenem Format, eigener Größe und eigenem Zielordner; dasselbe Foto kann für jedes Profil behalten werden
-- Optionale Begrenzung von Auflösung und Dateigröße (die JPEG-Qualität wird angepasst)
+- Optionale Begrenzung der Dateigröße (die JPEG-Qualität wird angepasst)
 - Optional Text aufs Bild: Datum, Ort (pro Ordner), Notiz (pro Bild)
 - Stil-Editor mit Vorschau am echten Foto: vier Schriften, Größe, Farbe, Deckkraft, Hintergrund (Schatten, Band, Glas), neun Positionen und Randabstand; sieben mitgelieferte Stile, eigene Stile speichern, pro Ordner festlegen, als Datei exportieren und importieren
 - Wischen: Foto neben dem Zuschnitt-Rahmen nach rechts (behalten) oder links (weg) ziehen

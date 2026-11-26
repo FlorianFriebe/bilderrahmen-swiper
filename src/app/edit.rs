@@ -50,7 +50,7 @@ impl SwiperApp {
         OutputSettings {
             ratio_quer: imaging::parse_ratio(&self.cfg.ratio_quer).unwrap_or(16.0 / 9.0),
             ratio_hoch: imaging::parse_ratio(&self.cfg.ratio_hoch).unwrap_or(9.0 / 16.0),
-            max_res: RESOLUTIONS.get(self.cfg.res_idx).and_then(|r| r.1),
+            max_res: None,
             max_mb: self.cfg.max_mb,
             quality: 92,
             fill_bg: self.cfg.fill_bg,
