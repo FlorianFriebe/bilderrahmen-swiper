@@ -31,13 +31,20 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
             ("F11", "Vollbild"),
             ("Esc", "Zurück / schließen"),
         ];
-        let wall: [(&str, &str); 7] = [
+        let wall: [(&str, &str); 11] = [
             ("Pfeiltasten", "Foto um 1 cm schieben (Umschalt: 10 cm)"),
             ("P", "Foto festpinnen oder lösen"),
             ("Entf", "Foto von der Wand nehmen"),
+            ("Umschalt + Klick", "Mehrere Fotos wählen"),
+            ("Auf freier Wand ziehen", "Fotos im Rechteck wählen"),
+            ("Strg + A", "Alle Fotos wählen"),
+            ("Doppelklick", "Bildausschnitt verschieben (Enter: fertig)"),
             ("Strg + / −", "Wand zoomen"),
             ("Strg + 0", "Ganze Wand zeigen"),
-            ("Leertaste + ziehen", "Ansicht verschieben"),
+            (
+                "Leertaste + ziehen",
+                "Ansicht verschieben (auch mittlere Maustaste)",
+            ),
             ("Strg + Mausrad", "Zoomen (auch mit zwei Fingern)"),
         ];
         let key_chip = |ui: &mut Ui, k: &str| {

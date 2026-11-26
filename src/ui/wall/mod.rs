@@ -15,8 +15,11 @@ use crate::wall::{self as wl, fmt_cm};
 
 mod canvas;
 mod drag;
+mod guides;
 mod menus;
+mod piece;
 mod side;
+mod side_fine;
 mod strip;
 pub mod zoom;
 
@@ -54,6 +57,10 @@ pub enum Drag {
     NewObstacle((f32, f32)),
     /// Ansicht verschieben (Leertaste oder mittlere Maustaste)
     Pan,
+    /// Auswahl-Rechteck auf freier Fläche, Startpunkt in cm; `true` = zur Auswahl hinzu
+    Band((f32, f32), bool),
+    /// Bildausschnitt im Platz verschieben
+    Focus(usize),
 }
 
 /// Reiter der Seitenleiste.
@@ -71,8 +78,12 @@ pub struct WallUi {
     pub drag: Option<Drag>,
     /// Modus „Hindernis zeichnen“
     pub draw: bool,
-    /// ausgewählter Platz
+    /// ausgewählter Platz (bei Mehrfachauswahl der zuletzt gewählte)
     pub sel: Option<usize>,
+    /// Mehrfachauswahl (Umschalt-Klick oder Rechteck aufziehen), sonst leer
+    pub multi: Vec<usize>,
+    /// Bildausschnitt wird gerade an diesem Platz verschoben (Doppelklick)
+    pub focus: Option<usize>,
     /// ausgewähltes Hindernis
     pub sel_obstacle: Option<usize>,
     /// Rechtsklick-Menü: worauf und wo
@@ -108,7 +119,11 @@ impl WallUi {
             self.draw = false;
             return true;
         }
+        if self.focus.take().is_some() {
+            return true;
+        }
         self.sel_obstacle = None;
+        self.multi.clear();
         self.sel.take().is_some()
     }
 
@@ -385,10 +400,11 @@ fn calc_bar(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
     }
 }
 
-/// Tasten der Fotowand: Entf nimmt ab, P pinnt, Pfeile schieben (Umschalt: 10 cm).
+/// Tasten der Fotowand: Entf nimmt ab, P pinnt, Pfeile schieben (Umschalt: 10 cm),
+/// Strg+A wählt alle Fotos. Gilt bei Mehrfachauswahl für alle ausgewählten.
 pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
     use egui::Key;
-    let (k, shift) = ctx.input(|i| {
+    let (k, shift, all) = ctx.input(|i| {
         let pressed: Vec<Key> = [
             Key::Delete,
             Key::Backspace,
@@ -397,13 +413,29 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
             Key::ArrowRight,
             Key::ArrowUp,
             Key::ArrowDown,
+            Key::Enter,
         ]
         .into_iter()
         .filter(|k| i.key_pressed(*k))
         .collect();
-        (pressed, i.modifiers.shift)
+        (
+            pressed,
+            i.modifiers.shift,
+            i.modifiers.command && i.key_pressed(Key::A),
+        )
     });
-    let Some(i) = app.wall_ui.sel.filter(|i| *i < app.wall().pieces.len()) else {
+    if all {
+        let n = app.wall().pieces.len();
+        app.wall_ui.sel_obstacle = None;
+        app.wall_ui.sel = n.checked_sub(1);
+        app.wall_ui.multi = if n >= 2 { (0..n).collect() } else { vec![] };
+        return;
+    }
+    if k.contains(&Key::Enter) {
+        app.wall_ui.focus = None;
+    }
+    let many = app.wall_selected();
+    if many.is_empty() {
         if let Some(o) = app.wall_ui.sel_obstacle {
             if k.contains(&Key::Delete) && o < app.wall().obstacles.len() {
                 app.wall_checkpoint();
@@ -413,8 +445,27 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
             }
         }
         return;
-    };
+    }
     let step = if shift { 10.0 } else { 1.0 };
+    if many.len() >= 2 {
+        let mv = |app: &mut SwiperApp, dx, dy| app.wall_move_many(&many, dx, dy);
+        for key in k {
+            match key {
+                Key::Delete | Key::Backspace => return app.wall_take_off_many(),
+                Key::P => {
+                    let on = !many.iter().all(|i| app.wall().pieces[*i].pinned);
+                    app.wall_pin_many(on);
+                }
+                Key::ArrowLeft => mv(app, -step, 0.0),
+                Key::ArrowRight => mv(app, step, 0.0),
+                Key::ArrowUp => mv(app, 0.0, -step),
+                Key::ArrowDown => mv(app, 0.0, step),
+                _ => {}
+            }
+        }
+        return;
+    }
+    let i = many[0];
     for key in k {
         match key {
             Key::Delete | Key::Backspace => {

@@ -74,8 +74,10 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Reihenfolge wie gewählt, nach Datum oder gemischt (Fotos vom selben Tag nicht nebeneinander)
 - Hindernisse (Lichtschalter, Möbel) mit eigenem Rand oder „Fotos dürfen dahinter“
 - Von Hand gelegte Fotos werden festgepinnt, der Rest ordnet sich drumherum; Zoom mit Strg + Mausrad, zwei Fingern oder Strg + / −
+- Feinjustieren: mehrere Fotos wählen (Umschalt-Klick, Rechteck, Strg+A), ausrichten und gleichmäßig verteilen, Hilfslinien mit Abständen in cm beim Ziehen
+- Hauptbild groß in der Mitte, Größen-Mix in der Collage, Bildausschnitt direkt an der Wand verschieben, weißer Rand für alle oder einzelne Fotos, Warnung bei zu geringer Auflösung (unter 200 dpi)
 - Rechner unten: Plätze, vorhandene Fotos, was fehlt oder übrig ist, was zu drucken ist
-- Für die Wand sortieren: eigenes Profil mit Ordner, Zuschnitt im Format des Abzugs, Ziel = Plätze an der Wand; neue Bilder füllen freie Plätze, Doppelklick öffnet den Zuschnitt
+- Für die Wand sortieren: eigenes Profil mit Ordner, Zuschnitt im Format des Abzugs, Ziel = Plätze an der Wand; neue Bilder füllen freie Plätze
 - Fotos aus den behaltenen Bildern oder einem Ordner; verschieben mit Einrasten, tauschen, Größe und Ausrichtung pro Foto, Pfeiltasten, mehrere Wände, Rückgängig
 
 **Bedienung**
@@ -134,7 +136,7 @@ src/
                  Nachbearbeiten, Serien, Stick, Tasten, Profile, Fotowand)
   history.rs     Rückgängig: Schritte, Papierkorb, Ganz von vorn
   wall/          Fotowand: Druckgrößen, Anordnen (Raster, Reihen, Collage), Reihenfolge,
-                 Hindernisse, Pins, Verdeckung, Einrasten
+                 Ausrichten, Hilfslinien, Auflösung, Hindernisse, Pins, Verdeckung, Einrasten
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import

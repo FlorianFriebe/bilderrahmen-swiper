@@ -24,7 +24,7 @@ pub(super) fn follow_selection(app: &mut SwiperApp) {
 }
 
 /// Was die Knöpfe der Seitenleiste auslösen (nach dem Zeichnen ausgeführt).
-enum Act {
+pub(super) enum Act {
     Shuffle,
     UnpinAll,
     ResetSizes,
@@ -37,6 +37,13 @@ enum Act {
     SelectObstacle(usize),
     RemoveObstacle(usize),
     Draw,
+    Align(wl::Align),
+    Distribute(bool),
+    PinMany(bool),
+    TakeOffMany,
+    Hero(Option<PathBuf>),
+    Focus(usize),
+    FocusReset(PathBuf),
 }
 
 pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
@@ -135,13 +142,26 @@ fn run(app: &mut SwiperApp, a: Act) {
             app.wall_relayout();
         }
         Act::Draw => app.wall_ui.draw = true,
+        Act::Align(a) => app.wall_align(a),
+        Act::Distribute(across) => app.wall_distribute(across),
+        Act::PinMany(on) => app.wall_pin_many(on),
+        Act::TakeOffMany => app.wall_take_off_many(),
+        Act::Hero(f) => app.wall_set_hero(f.as_deref()),
+        Act::Focus(i) => {
+            app.wall_ui.focus = if app.wall_ui.focus == Some(i) {
+                None
+            } else {
+                Some(i)
+            }
+        }
+        Act::FocusReset(f) => app.wall_set_focus(&f, (0.0, 0.0), true),
     }
 }
 
 // ------------------------------------------------------------------ Bausteine
 
 /// Umschalter über die ganze Breite (mit Fläche dahinter).
-fn seg(ui: &mut Ui, labels: &[&str], sel: usize) -> Option<usize> {
+pub(super) fn seg(ui: &mut Ui, labels: &[&str], sel: usize) -> Option<usize> {
     let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::hover());
     let r = r.shrink2(vec2(sp::M, 0.0));
     ui.painter().rect_filled(r, radius::M, control());
@@ -150,7 +170,7 @@ fn seg(ui: &mut Ui, labels: &[&str], sel: usize) -> Option<usize> {
 }
 
 /// Kleiner grauer Hinweis, eingerückt.
-fn hint(ui: &mut Ui, s: &str, indent: f32) {
+pub(super) fn hint(ui: &mut Ui, s: &str, indent: f32) {
     ui.horizontal(|ui| {
         ui.add_space(indent);
         ui.add(
@@ -184,7 +204,7 @@ pub(super) fn cm(
         })
 }
 
-fn size_combo(ui: &mut Ui, id: &str, sizes: &[PrintSize], cur: &mut String) -> bool {
+pub(super) fn size_combo(ui: &mut Ui, id: &str, sizes: &[PrintSize], cur: &mut String) -> bool {
     let mut changed = false;
     egui::ComboBox::from_id_salt(id)
         .width(150.0)
@@ -365,6 +385,7 @@ fn arrange_tab(ui: &mut Ui, w: &mut Wall, sizes: &[PrintSize], acts: &mut Vec<Ac
             acts.push(Act::UnpinAll);
         }
     }
+    super::side_fine::arrange_extras(ui, w, sizes, acts);
 }
 
 fn selection_tab(
@@ -374,6 +395,11 @@ fn selection_tab(
     sizes: &[PrintSize],
     acts: &mut Vec<Act>,
 ) {
+    let many = app.wall_selected();
+    if many.len() >= 2 {
+        let pinned = many.iter().filter(|i| w.pieces[**i].pinned).count();
+        return super::side_fine::multi_tab(ui, many.len(), pinned, acts);
+    }
     if let Some(i) = app.wall_ui.sel.filter(|i| *i < w.pieces.len()) {
         return piece_tab(app, ui, w, i, sizes, acts);
     }
@@ -455,12 +481,9 @@ fn piece_tab(
             acts.push(Act::Restack(i, false));
         }
     }
-    if let Some(f) = &pc.photo {
-        if app.original_of(f).is_some()
-            && menu_row(ui, "Zuschnitt ändern", "Doppelklick aufs Foto", false).clicked()
-        {
-            acts.push(Act::Reedit(f.clone()));
-        }
+    super::side_fine::piece_extras(app, ui, w, i, &pc, acts);
+    divider_line(ui);
+    if pc.photo.is_some() {
         if menu_row(
             ui,
             "Von der Wand nehmen",

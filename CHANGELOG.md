@@ -3,6 +3,21 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.17.0
+
+- **Mehrere Fotos** an der Fotowand wählen: Umschalt-Klick, Rechteck auf einer freien Stelle
+  aufziehen oder Strg+A. Zieh eins davon, dann wandern alle mit.
+- **Ausrichten** (links, mittig, rechts, oben, mittig, unten) und **Verteilen** mit gleichen
+  Abständen, rechts unter Auswahl.
+- **Hilfslinien** beim Ziehen: Was bündig liegt, zeigt eine blaue Linie; die Abstände zu den
+  Nachbarn und zur Wandkante stehen in cm daneben.
+- **Bildausschnitt** direkt an der Wand: Doppelklick aufs Foto und das Bild im Rahmen verschieben.
+- **Hauptbild**: ein Lieblingsfoto groß in der Mitte, alles andere drumherum.
+- **Größen mischen** in der Collage: etwa jedes dritte Foto in einer anderen Größe.
+- **Weißer Rand** für alle Fotos oder einzelne, wie bei einem Sofortbild.
+- Ein gelbes **Warnzeichen** zeigt Fotos, die für ihre Größe zu wenige Pixel haben und im Druck
+  unscharf würden.
+
 ## 3.16.0
 
 - Die **Fotowand** ist neu aufgebaut: Rechts sitzt eine Seitenleiste mit den Reitern Wand,

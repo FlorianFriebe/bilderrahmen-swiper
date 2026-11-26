@@ -5,11 +5,14 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+mod align;
+mod collage;
 mod layout;
 mod order;
 #[cfg(test)]
 mod tests;
 
+pub use align::{align, distribute, dpi, guides, Align, Line, Measure, DPI_WARN};
 #[cfg(test)]
 pub use layout::capacity;
 pub use layout::{arrange, Arrange, Facing, Pattern};
@@ -176,6 +179,12 @@ pub struct WallPhoto {
     pub off: bool,
     /// Aufnahmezeit in Sekunden (0 = unbekannt), für „nach Datum“ und „gemischt“
     pub taken: i64,
+    /// Breite und Höhe in Pixeln (aufrecht), für die Auflösungs-Warnung; 0 = unbekannt
+    pub px: (u32, u32),
+    /// Bildausschnitt im Abzug: Verschiebung -1..1 waagerecht und senkrecht (0 = Mitte)
+    pub focus: (f32, f32),
+    /// eigener weißer Rand in cm (`None` = wie die Wand)
+    pub border: Option<f32>,
 }
 
 impl WallPhoto {
@@ -216,6 +225,14 @@ pub struct Wall {
     pub order: Vec<PathBuf>,
     /// Zufallszahl für „Mischen“ und die Collage
     pub seed: u32,
+    /// Hauptbild: groß in der Mitte, alles andere drumherum
+    pub hero: Option<PathBuf>,
+    /// Druckgröße des Hauptbilds
+    pub hero_size: String,
+    /// weitere Druckgrößen, die die Collage untermischt
+    pub mix: Vec<String>,
+    /// weißer Rand um jedes Foto im Abzug (cm), einzelne Fotos können abweichen
+    pub border: f32,
     /// Zielordner, in den für diese Wand sortiert wird (eigenes Profil, leer = noch nie)
     pub target: Option<PathBuf>,
 }
@@ -239,6 +256,10 @@ impl Default for Wall {
             sequence: Sequence::Gewaehlt,
             order: vec![],
             seed: 0,
+            hero: None,
+            hero_size: "20x30".into(),
+            mix: vec![],
+            border: 0.0,
             target: None,
         }
     }
@@ -272,6 +293,32 @@ pub fn covered(pieces: &[Piece], sizes: &[PrintSize], i: usize) -> f32 {
         }
     }
     hit as f32 / (N * N) as f32
+}
+
+impl Wall {
+    /// Eintrag eines Fotos in der Fotoliste.
+    pub fn photo(&self, path: &Path) -> Option<&WallPhoto> {
+        self.photos.iter().find(|p| p.path == path)
+    }
+    /// Weißer Rand eines Platzes in cm (eigener Rand des Fotos oder der der Wand), höchstens
+    /// so groß, dass noch ein Drittel der kurzen Seite Bild bleibt.
+    pub fn border_of(&self, sizes: &[PrintSize], p: &Piece) -> f32 {
+        let b = p
+            .photo
+            .as_deref()
+            .and_then(|f| self.photo(f))
+            .and_then(|w| w.border)
+            .unwrap_or(self.border);
+        let (w, h) = p.dims(sizes);
+        b.clamp(0.0, w.min(h) / 3.0)
+    }
+    /// Auflösung des Fotos auf diesem Platz (Punkte pro Zoll), wenn bekannt.
+    pub fn dpi_of(&self, sizes: &[PrintSize], p: &Piece) -> Option<f32> {
+        let ph = self.photo(p.photo.as_deref()?)?;
+        let (w, h) = p.dims(sizes);
+        let b = 2.0 * self.border_of(sizes, p);
+        dpi(ph.px, w - b, h - b)
+    }
 }
 
 /// Liegt der Platz auf einem Hindernis oder ragt über die Wand hinaus?
@@ -324,12 +371,19 @@ pub fn snap(wall: &Wall, sizes: &[PrintSize], idx: usize, x: f32, y: f32, tol: f
             continue;
         }
         let a = o.area(sizes);
-        xs.extend([a.x, a.right() - w, a.right() + wall.gap, a.x - wall.gap - w]);
+        xs.extend([
+            a.x,
+            a.right() - w,
+            a.right() + wall.gap,
+            a.x - wall.gap - w,
+            a.x + (a.w - w) / 2.0,
+        ]);
         ys.extend([
             a.y,
             a.bottom() - h,
             a.bottom() + wall.gap,
             a.y - wall.gap - h,
+            a.y + (a.h - h) / 2.0,
         ]);
     }
     let pick = |v: f32, c: &[f32]| {

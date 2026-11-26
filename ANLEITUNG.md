@@ -255,13 +255,31 @@ Rechts sitzt eine **Seitenleiste** mit drei Reitern (oben rechts ein- und ausble
    unten ziehen nimmt es ab (Doppelklick im Band hängt es wieder auf). Ein angeklicktes Foto
    stellst du unter **Auswahl** ein: Größe, quer oder hochkant, genaue Lage in cm, Pin lösen.
    „Alle lösen“ unter Anordnung gibt alle Fotos wieder frei.
-6. **Zoom**: Strg + Mausrad, zwei Finger auf dem Touchpad, Strg + / − oder die Knöpfe unten
+6. **Feinjustieren**:
+   - **Mehrere Fotos**: Umschalt-Klick nimmt Fotos dazu, Ziehen auf einer freien Stelle zieht
+     ein Rechteck auf, Strg+A wählt alle. Zieh eins davon, dann wandern alle mit. Unter
+     **Auswahl** richtest du sie aus (links, mittig, rechts, oben, mittig, unten) oder
+     **verteilst** sie mit gleichen Abständen (ab drei Fotos).
+   - **Hilfslinien**: Beim Ziehen zeigen blaue Linien, was bündig liegt, und Maße in cm den
+     Abstand zu den Nachbarn und zur Wandkante.
+   - **Bildausschnitt**: Doppelklick auf ein Foto, dann verschiebst du das Bild im Rahmen. Der
+     Rest vom Foto erscheint blass drumherum. Klick daneben oder Enter: fertig. „Wieder
+     mittig“ unter Auswahl setzt ihn zurück; „Zuschnitt ändern“ öffnet das Foto zum Zuschneiden.
+   - **Hauptbild**: Rechtsklick auf ein Foto, „Als Hauptbild“. Es hängt groß in der Mitte
+     (Größe unter Anordnung, z. B. 20x30), alles andere ordnet sich drumherum.
+   - **Größen mischen**: Bei der Collage wählst du weitere Größen. Etwa jedes dritte Foto
+     bekommt eine davon.
+   - **Weißer Rand**: unter Anordnung für alle Fotos, unter Auswahl für ein einzelnes Foto
+     („Eigener“). Das Bild wird um den Rand kleiner, wie bei einem Sofortbild.
+   - **Auflösung**: Ein gelbes Warnzeichen unten rechts heißt, das Foto hat für diese Größe zu
+     wenige Pixel (unter 200 dpi) und wird im Druck unscharf. Unter Auswahl steht der Wert.
+7. **Zoom**: Strg + Mausrad, zwei Finger auf dem Touchpad, Strg + / − oder die Knöpfe unten
    rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Wand. Verschieben
-   mit gedrückter Leertaste, mittlerer Maustaste oder durch Ziehen auf einer freien Stelle.
-7. Unten steht, wie viele **Plätze** die Wand hat, wie viele Fotos **fehlen** oder **übrig**
+   mit gedrückter Leertaste oder mittlerer Maustaste.
+8. Unten steht, wie viele **Plätze** die Wand hat, wie viele Fotos **fehlen** oder **übrig**
    sind und was zu drucken ist.
-8. **Tasten**: Pfeile schieben das gewählte Foto um 1 cm (mit Umschalt 10 cm), **P** pinnt oder
-   löst, **Entf** nimmt es ab, **Strg+Z** nimmt jeden Schritt zurück. Alles wird automatisch
+9. **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **P** pinnt oder
+   löst, **Entf** nimmt sie ab, **Strg+A** wählt alle, **Strg+Z** nimmt jeden Schritt zurück. Alles wird automatisch
    gespeichert, auch mehrere Wände (Klick auf den Namen der Wand).
 
 ### Für die Wand sortieren
@@ -273,8 +291,8 @@ Hast du die Fotos noch nicht ausgesucht, plane erst die Wand und wähle dann im 
 - Behaltene Fotos werden gleich im Format des Abzugs zugeschnitten (z. B. 10x15).
 - Oben steht, wie viele du schon hast: *Für die Wand „Flur“: 12 von 28 Bildern, noch 16*.
   Ein Klick auf diese Zeile bringt dich zur Wand.
-- An der Wand füllen neue Bilder von selbst die freien Plätze. Ein **Doppelklick** auf ein Foto
-  öffnet den Zuschnitt, danach bist du wieder an der Wand.
+- An der Wand füllen neue Bilder von selbst die freien Plätze. **Zuschnitt ändern** (Rechtsklick
+  aufs Foto) öffnet den Zuschnitt, danach bist du wieder an der Wand.
 - Änderst du die Wand, passen sich Ziel und Zuschnitt an. Zurück zu deinem Bilderrahmen geht es
   über das Profil in der Leiste.
 

@@ -3,7 +3,9 @@
 
 use egui::Painter;
 
-use super::canvas::{draw_piece, drawn_obstacle, hit_test, view_of, View2};
+use super::canvas::{drawn_obstacle, hit_test, view_of, View2};
+use super::guides;
+use super::piece::draw_piece;
 use super::*;
 use crate::wall::{Area, Obstacle, Piece};
 
@@ -20,8 +22,21 @@ fn piece_target(app: &SwiperApp, v: View2, idx: usize, grab: (f32, f32), at: Pos
     wl::snap(w, app.sizes(), idx, x, y, SNAP_PX / v.s)
 }
 
+/// Plätze, die gerade mitgezogen werden (bei Mehrfachauswahl alle ausgewählten).
+pub(super) fn moving(app: &SwiperApp) -> Vec<usize> {
+    match &app.wall_ui.drag {
+        Some(Drag::Piece { idx, .. }) if app.wall_ui.multi.contains(idx) => app.wall_selected(),
+        Some(Drag::Piece { idx, .. }) => vec![*idx],
+        _ => vec![],
+    }
+}
+
 /// Platz, mit dem beim Loslassen getauscht würde (Zeiger im inneren Bereich eines anderen).
+/// Bei Mehrfachauswahl wird nie getauscht.
 fn swap_target(app: &SwiperApp, v: View2, idx: usize, at: Pos2) -> Option<usize> {
+    if app.wall_ui.multi.contains(&idx) {
+        return None;
+    }
     let (x, y) = v.cm(at);
     match hit_test(app, x, y, Some(idx))? {
         Hit::Piece(j) => {
@@ -79,7 +94,6 @@ fn new_piece(app: &SwiperApp, v: View2, photo: &std::path::Path, at: Pos2) -> Pi
 /// Was beim Loslassen passieren würde, schon beim Ziehen zeigen.
 pub(super) fn preview(
     app: &SwiperApp,
-    ui: &Ui,
     p: &Painter,
     v: View2,
     pointer: Option<Pos2>,
@@ -93,19 +107,38 @@ pub(super) fn preview(
     match drag {
         Drag::Piece { idx, grab } if swap.is_none() && !over_strip(app, at) => {
             let (x, y) = piece_target(app, v, idx, grab, at);
-            let pc = Piece {
+            let w = app.wall();
+            let (dx, dy) = (x - w.pieces[idx].x, y - w.pieces[idx].y);
+            let all = moving(app);
+            for &i in &all {
+                let pc = Piece {
+                    x: w.pieces[i].x + dx,
+                    y: w.pieces[i].y + dy,
+                    ..w.pieces[i].clone()
+                };
+                let r = v.px(pc.area(sizes));
+                draw_piece(app, p, r, &pc, false, true);
+                p.rect_stroke(r, 2, Stroke::new(2.0, accent()), StrokeKind::Outside);
+            }
+            // Hilfslinien und Abstände in cm (am gezogenen Foto)
+            let a = Piece {
                 x,
                 y,
-                ..app.wall().pieces[idx].clone()
-            };
-            let r = v.px(pc.area(sizes));
-            draw_piece(app, ui, p, r, &pc, false, true);
-            p.rect_stroke(r, 2, Stroke::new(2.0, accent()), StrokeKind::Outside);
+                ..w.pieces[idx].clone()
+            }
+            .area(sizes);
+            let (lines, dists) = wl::guides(w, sizes, a, &all);
+            guides::draw(p, v, &lines, &dists);
+        }
+        Drag::Band(start, _) => {
+            let r = v.px(drawn_area(start, v.cm(at), ww, wh));
+            p.rect_filled(r, 2, accent_soft());
+            p.rect_stroke(r, 2, Stroke::new(1.0, accent()), StrokeKind::Inside);
         }
         Drag::Photo(path) if swap.is_none() && v.wr.contains(at) => {
             let pc = new_piece(app, v, &path, at);
             let r = v.px(pc.area(sizes));
-            draw_piece(app, ui, p, r, &pc, false, true);
+            draw_piece(app, p, r, &pc, false, true);
             p.rect_stroke(r, 2, Stroke::new(2.0, accent()), StrokeKind::Outside);
         }
         Drag::Obstacle { idx, grab } => {
@@ -172,13 +205,30 @@ pub(super) fn finish(app: &mut SwiperApp, ui: &Ui) {
     };
     let (ww, wh) = (app.wall().w, app.wall().h);
     match drag {
-        Drag::Pan => {}
+        Drag::Pan | Drag::Focus(_) => {}
+        Drag::Band(start, add) => {
+            let a = drawn_area(start, v.cm(at), ww, wh);
+            if a.w > 0.5 || a.h > 0.5 {
+                app.wall_select_area(a, add);
+            }
+        }
         Drag::Piece { idx, grab } => {
             if idx >= app.wall().pieces.len() {
                 return;
             }
+            let many = app.wall_ui.multi.contains(&idx);
             if over_strip(app, at) {
-                app.wall_take_off(idx);
+                if many {
+                    app.wall_take_off_many();
+                } else {
+                    app.wall_take_off(idx);
+                }
+            } else if many {
+                let (x, y) = piece_target(app, v, idx, grab, at);
+                let pc = &app.wall().pieces[idx];
+                let (dx, dy) = (x - pc.x, y - pc.y);
+                let all = app.wall_selected();
+                app.wall_move_many(&all, dx, dy);
             } else if let Some(j) = swap_target(app, v, idx, at) {
                 app.wall_swap(idx, j);
             } else {

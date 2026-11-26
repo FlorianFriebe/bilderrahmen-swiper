@@ -167,7 +167,8 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
     let mut size: Option<String> = None;
     // nur Bilder aus dem aktiven Zielordner lassen sich neu zuschneiden
     let own = pc.photo.as_deref().and_then(|f| app.original_of(f));
-    // 1 drehen, 2 pinnen/lösen, 4 abnehmen, 5 entfernen, 6 Zuschnitt
+    let hero = app.wall_is_hero(&pc);
+    // 1 drehen, 2 pinnen/lösen, 3 Hauptbild, 4 abnehmen, 5 entfernen, 6 Zuschnitt, 7 Ausschnitt
     let mut act = 0;
     let keep = form_popup(ui, "wall_ctx", anchor, 260.0, false, |ui| {
         caption(ui, "Größe");
@@ -192,9 +193,20 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
         if menu_row(ui, pin, "P", pc.pinned).clicked() {
             act = 2;
         }
-        if own.is_some()
-            && menu_row(ui, "Zuschnitt ändern", "Doppelklick aufs Foto", false).clicked()
-        {
+        if pc.photo.is_some() {
+            let label = if hero {
+                "Kein Hauptbild mehr"
+            } else {
+                "Als Hauptbild"
+            };
+            if menu_row(ui, label, "Groß in der Mitte", hero).clicked() {
+                act = 3;
+            }
+            if menu_row(ui, "Ausschnitt verschieben", "Doppelklick aufs Foto", false).clicked() {
+                act = 7;
+            }
+        }
+        if own.is_some() && menu_row(ui, "Zuschnitt ändern", "", false).clicked() {
             act = 6;
         }
         if pc.photo.is_some() && menu_row(ui, "Von der Wand nehmen", "Entf", false).clicked() {
@@ -213,6 +225,14 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
         0 => return keep,
         1 => app.wall_reshape(i, None, Some(!pc.hoch)),
         2 => app.wall_pin(i, !pc.pinned),
+        3 => {
+            let f = pc.photo.clone().filter(|_| !hero);
+            app.wall_set_hero(f.as_deref());
+        }
+        7 => {
+            app.wall_select(Some(i));
+            app.wall_ui.focus = Some(i);
+        }
         4 => app.wall_take_off(i),
         5 => app.wall_remove_piece(i),
         6 => {

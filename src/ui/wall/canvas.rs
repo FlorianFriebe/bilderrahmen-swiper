@@ -3,10 +3,10 @@
 
 use egui::{Color32, CursorIcon, Painter, Shape};
 
+use super::piece::{badges, draw_focus, draw_piece, glide, piece_tip};
 use super::*;
-use super::{drag, zoom};
-use crate::ui::image_cover;
-use crate::wall::{Area, Piece};
+use super::{drag, piece, zoom};
+use crate::wall::Area;
 
 /// Platz für das Lineal oben und links.
 const RULER: f32 = 22.0;
@@ -103,6 +103,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
 
     // Ziehen beginnen
     let middle = ui.input(|i| i.pointer.middle_down());
+    let shift = ui.input(|i| i.modifiers.shift);
     if (resp.drag_started() || (middle && resp.hovered())) && app.wall_ui.drag.is_none() {
         if let Some(o) = ui.input(|i| i.pointer.press_origin()) {
             let (x, y) = v.cm(o);
@@ -112,32 +113,17 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
             } else if app.wall_ui.draw {
                 Some(Drag::NewObstacle((x.clamp(0.0, ww), y.clamp(0.0, wh))))
             } else {
-                match hit_test(app, x, y, None) {
-                    Some(Hit::Piece(i)) => {
-                        let (px, py) = (app.wall().pieces[i].x, app.wall().pieces[i].y);
-                        app.wall_ui.sel = Some(i);
-                        app.wall_ui.sel_obstacle = None;
-                        Some(Drag::Piece {
-                            idx: i,
-                            grab: (x - px, y - py),
-                        })
-                    }
-                    Some(Hit::Obstacle(i)) => {
-                        let a = app.wall().obstacles[i].area;
-                        app.wall_ui.sel = None;
-                        app.wall_ui.sel_obstacle = Some(i);
-                        Some(Drag::Obstacle {
-                            idx: i,
-                            grab: (x - a.x, y - a.y),
-                        })
-                    }
-                    _ => Some(Drag::Pan),
-                }
+                start_drag(app, x, y, shift)
             };
         }
     }
-    if app.wall_ui.drag == Some(Drag::Pan) {
-        app.wall_ui.pan += ui.input(|i| i.pointer.delta());
+    match app.wall_ui.drag {
+        Some(Drag::Pan) => app.wall_ui.pan += ui.input(|i| i.pointer.delta()),
+        Some(Drag::Focus(i)) => {
+            let d = ui.input(|i| i.pointer.delta());
+            piece::focus_drag(app, v, i, d);
+        }
+        _ => {}
     }
 
     // Hindernisse mit ihrem Rand
@@ -163,10 +149,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     // Plätze (gleiten beim Neuordnen sanft an ihre neue Stelle)
     let sizes = app.sizes().to_vec();
     let n = app.wall().pieces.len();
-    let dragging = match &app.wall_ui.drag {
-        Some(Drag::Piece { idx, .. }) => Some(*idx),
-        _ => None,
-    };
+    let moving = drag::moving(app);
     let pointer = ui.input(|i| i.pointer.latest_pos());
     let swap = drag::swap_hint(app, v, pointer);
     let behind: Vec<Area> = app
@@ -184,23 +167,22 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         let r = v.px(a);
         let cov = wl::covered(&w.pieces, &sizes, i);
         let blocked = wl::blocked(w, &sizes, &pc);
-        let faded = dragging == Some(i);
-        draw_piece(app, ui, &p, r, &pc, faded, cov < 0.2);
+        let faded = moving.contains(&i);
+        draw_piece(app, &p, r, &pc, faded, cov < 0.2);
         let mut ring: Option<Color32> = None;
         if blocked {
             ring = Some(skip());
         } else if cov >= wl::COVER_WARN && pc.photo.is_some() {
             ring = Some(warn());
         }
-        if app.wall_ui.sel == Some(i) || swap == Some(i) || hit == Some(Hit::Piece(i)) {
+        let picked = app.wall_ui.sel == Some(i) || app.wall_ui.multi.contains(&i);
+        if picked || swap == Some(i) || hit == Some(Hit::Piece(i)) {
             ring = Some(accent());
         }
         if let Some(c) = ring {
             p.rect_stroke(r, 2, Stroke::new(2.0, c), StrokeKind::Outside);
         }
-        if pc.pinned && r.width() > 22.0 {
-            pin_badge(&p, r);
-        }
+        badges(app, &p, r, &pc);
         if cov >= wl::COVER_WARN && pc.photo.is_some() && r.width() > 44.0 {
             let label = format!("{} %", (cov * 100.0).round() as u32);
             let cr = Rect::from_min_size(r.min + vec2(3.0, 3.0), vec2(38.0, 16.0));
@@ -225,12 +207,25 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         dashed_rect(&p, r, muted());
     }
 
-    drag::preview(app, ui, &p, v, pointer, swap);
+    // Bildausschnitt verschieben: ganzes Foto blass über allem, der Abzug selbst obenauf
+    if let Some(i) = app.wall_ui.focus.filter(|i| *i < n) {
+        let pc = app.wall().pieces[i].clone();
+        let r = v.px(pc.area(&sizes));
+        // Rest der Wand abdunkeln, damit nur dieses Foto zählt
+        p.rect_filled(v.wr.expand(sp::S), 0, SCRIM);
+        draw_focus(app, &p, r, &pc);
+        draw_piece(app, &p, r, &pc, false, true);
+        p.rect_stroke(r, 2, Stroke::new(2.0, accent()), StrokeKind::Outside);
+    }
+
+    drag::preview(app, &p, v, pointer, swap);
 
     // Klicks, Menü, Mauszeiger
     if app.wall_ui.drag.is_none() {
         if space && resp.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::Grab);
+        } else if hit.is_some() && hit == app.wall_ui.focus.map(Hit::Piece) {
+            ui.ctx().set_cursor_icon(CursorIcon::Move);
         } else if app.wall_ui.draw && resp.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::Crosshair);
         } else if matches!(hit, Some(Hit::Piece(_) | Hit::Obstacle(_))) {
@@ -248,23 +243,28 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     }
     if resp.clicked() && !app.wall_ui.draw {
         app.wall_ui.menu = None;
-        app.wall_ui.sel = None;
         app.wall_ui.sel_obstacle = None;
+        if app.wall_ui.focus.is_some() && hit != app.wall_ui.focus.map(Hit::Piece) {
+            app.wall_ui.focus = None;
+        }
         match hit {
-            Some(Hit::Piece(i)) => app.wall_ui.sel = Some(i),
-            Some(Hit::Obstacle(i)) => app.wall_ui.sel_obstacle = Some(i),
-            _ => {}
+            Some(Hit::Piece(i)) if shift => app.wall_select_toggle(i),
+            Some(Hit::Piece(i)) => app.wall_select(Some(i)),
+            Some(Hit::Obstacle(i)) => {
+                app.wall_select(None);
+                app.wall_ui.sel_obstacle = Some(i);
+            }
+            _ => app.wall_select(None),
         }
     }
     if resp.double_clicked() {
         if let Some(Hit::Piece(i)) = hit {
-            match app.wall().pieces[i].photo.clone() {
-                Some(f) => {
-                    if app.original_of(&f).is_some() {
-                        app.wall_reedit(&f);
-                    }
-                }
-                None => drag::fill_empty(app, i),
+            if app.wall().pieces[i].photo.is_some() {
+                // Bildausschnitt direkt an der Wand verschieben
+                app.wall_select(Some(i));
+                app.wall_ui.focus = Some(i);
+            } else {
+                drag::fill_empty(app, i);
             }
         }
     }
@@ -272,123 +272,10 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         if let (Some(h), Some(at)) = (hit, hover) {
             app.wall_ui.menu = Some((h, at));
             match h {
-                Hit::Piece(i) => app.wall_ui.sel = Some(i),
+                Hit::Piece(i) if app.wall_ui.multi.contains(&i) => {}
+                Hit::Piece(i) => app.wall_select(Some(i)),
                 Hit::Obstacle(i) => app.wall_ui.sel_obstacle = Some(i),
                 _ => {}
-            }
-        }
-    }
-}
-
-/// Lage eines Platzes mit kurzem Gleiten zur neuen Stelle (gleiches Foto = gleiche Kennung).
-fn glide(ui: &Ui, pc: &Piece, i: usize, a: Area) -> Area {
-    let id = match &pc.photo {
-        Some(f) => ui.make_persistent_id(("wall_glide", f)),
-        None => ui.make_persistent_id(("wall_glide_empty", i)),
-    };
-    let ctx = ui.ctx();
-    let t = motion::FAST + 0.08;
-    Area {
-        x: ctx.animate_value_with_time(id.with("x"), a.x, t),
-        y: ctx.animate_value_with_time(id.with("y"), a.y, t),
-        ..a
-    }
-}
-
-/// Kleiner Pin oben rechts an festgepinnten Fotos.
-fn pin_badge(p: &Painter, r: Rect) {
-    let c = pos2(r.right() - 9.0, r.top() + 9.0);
-    p.circle_filled(c, 8.0, accent());
-    kit::icon_filled(p, c, icons::PIN, 11.0, Color32::WHITE);
-}
-
-fn piece_tip(app: &SwiperApp, i: usize) -> String {
-    let w = app.wall();
-    let sizes = app.sizes();
-    let pc = &w.pieces[i];
-    let name = pc
-        .photo
-        .as_deref()
-        .map(crate::folders::file_name)
-        .unwrap_or_else(|| "Leerer Platz".into());
-    let cov = wl::covered(&w.pieces, sizes, i);
-    let mut tip = format!(
-        "{name}\n{} {}",
-        pc.size,
-        if pc.hoch { "hochkant" } else { "quer" }
-    );
-    if pc.pinned {
-        tip.push_str(" · festgepinnt (P löst)");
-    }
-    if cov > 0.01 {
-        tip.push_str(&format!(" · {} % verdeckt", (cov * 100.0).round()));
-    }
-    if wl::blocked(w, sizes, pc) {
-        tip.push_str("\nLiegt auf einem Hindernis oder ragt über die Wand.");
-    }
-    tip.push_str("\nZiehen: festpinnen und verschieben · auf ein anderes Foto: tauschen");
-    tip.push_str("\nIns Band unten ziehen: abnehmen · Rechtsklick: mehr");
-    if pc
-        .photo
-        .as_deref()
-        .is_some_and(|f| app.original_of(f).is_some())
-    {
-        tip.push_str("\nDoppelklick: Zuschnitt ändern");
-    }
-    tip
-}
-
-/// `label`: Größe auf leere Plätze schreiben (nicht, wenn sie großteils verdeckt sind).
-pub(super) fn draw_piece(
-    app: &SwiperApp,
-    ui: &Ui,
-    p: &Painter,
-    r: Rect,
-    pc: &Piece,
-    faded: bool,
-    label: bool,
-) {
-    let tint = if faded {
-        Color32::WHITE.gamma_multiply(0.3)
-    } else {
-        Color32::WHITE
-    };
-    if !faded {
-        kit::shadow(p, r, 2, 10, 2, shadow());
-    }
-    let thumb = pc.photo.as_deref().and_then(|f| app.thumb(f));
-    match (&pc.photo, thumb) {
-        (Some(_), Some((tex, size))) => image_cover(ui, r, 2, tex, size, tint),
-        (Some(_), None) => {
-            p.rect_filled(r, 2, control());
-        }
-        (None, _) => {
-            // deckend, damit überlappende leere Plätze wie gestapeltes Papier wirken
-            let fill = kit::mix(bg(), text(), 0.07);
-            p.rect_filled(
-                r,
-                2,
-                if faded {
-                    fill.gamma_multiply(0.3)
-                } else {
-                    fill
-                },
-            );
-            let col = muted().gamma_multiply(if faded { 0.3 } else { 0.8 });
-            if label {
-                dashed_rect(p, r, col);
-            } else {
-                // überlappt: ruhiger Rand statt vieler Striche, wie gestapeltes Papier
-                p.rect_stroke(r, 2, Stroke::new(1.0, divider()), StrokeKind::Inside);
-            }
-            if r.width() > 34.0 && r.height() > 20.0 && label {
-                p.text(
-                    r.center(),
-                    Align2::CENTER_CENTER,
-                    &pc.size,
-                    font(ts::CAPTION, W::Medium),
-                    muted(),
-                );
             }
         }
     }
@@ -479,4 +366,45 @@ fn ruler(p: &Painter, wr: Rect, s: f32, ww: f32, wh: f32) {
 pub(super) fn drawn_obstacle(p: &Painter, v: View2, a: Area) {
     obstacle(p, v.px(a), "", accent(), true);
     size_badge(p, v.px(a), &format!("{} × {} cm", fmt_cm(a.w), fmt_cm(a.h)));
+}
+
+/// Was ein Ziehen auf der Wand bei (x, y) cm beginnt: Foto (oder alle ausgewählten),
+/// Bildausschnitt, Hindernis oder ein Auswahl-Rechteck auf freier Fläche.
+fn start_drag(app: &mut SwiperApp, x: f32, y: f32, shift: bool) -> Option<Drag> {
+    match hit_test(app, x, y, None) {
+        Some(Hit::Piece(i)) if app.wall_ui.focus == Some(i) => {
+            app.wall_checkpoint();
+            Some(Drag::Focus(i))
+        }
+        Some(Hit::Piece(i)) => {
+            app.wall_ui.focus = None;
+            let (px, py) = (app.wall().pieces[i].x, app.wall().pieces[i].y);
+            if !app.wall_ui.multi.contains(&i) {
+                if shift {
+                    app.wall_select_toggle(i);
+                } else {
+                    app.wall_select(Some(i));
+                }
+            }
+            app.wall_ui.sel = Some(i);
+            app.wall_ui.sel_obstacle = None;
+            Some(Drag::Piece {
+                idx: i,
+                grab: (x - px, y - py),
+            })
+        }
+        Some(Hit::Obstacle(i)) => {
+            let a = app.wall().obstacles[i].area;
+            app.wall_select(None);
+            app.wall_ui.sel_obstacle = Some(i);
+            Some(Drag::Obstacle {
+                idx: i,
+                grab: (x - a.x, y - a.y),
+            })
+        }
+        _ => {
+            app.wall_ui.focus = None;
+            Some(Drag::Band((x, y), shift))
+        }
+    }
 }

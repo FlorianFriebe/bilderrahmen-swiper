@@ -26,6 +26,12 @@ impl SwiperApp {
         self.view = View::Wall;
         self.wall_relayout();
         self.wall_refresh();
+        // Wände aus älteren Versionen kennen die Pixelmaße noch nicht (für die Auflösung)
+        let photos = &self.wall().photos;
+        if self.wall_scan.is_none() && photos.iter().any(|p| p.px == (0, 0)) {
+            let files: Vec<PathBuf> = photos.iter().map(|p| p.path.clone()).collect();
+            self.wall_read(files);
+        }
     }
 
     pub fn sizes(&self) -> &[PrintSize] {
@@ -66,13 +72,18 @@ impl SwiperApp {
     /// Sofort neu anordnen nach den Einstellungen der Wand. Festgepinnte Fotos bleiben,
     /// die Auswahl bleibt am selben Foto. Vorher `wall_checkpoint()` aufrufen.
     pub fn wall_relayout(&mut self) {
-        let sel = self
-            .wall_ui
-            .sel
-            .and_then(|i| self.wall().pieces.get(i).cloned());
+        let get = |i: &usize| self.wall().pieces.get(*i).cloned();
+        let sel = self.wall_ui.sel.as_ref().and_then(get);
+        let multi: Vec<wl::Piece> = self.wall_ui.multi.iter().filter_map(get).collect();
+        let focus = self.wall_ui.focus.as_ref().and_then(get);
         let pieces = wl::arrange(self.wall(), self.sizes());
         self.wall_mut().pieces = pieces;
         self.wall_ui.sel = sel.and_then(|s| self.find_piece(&s));
+        self.wall_ui.multi = multi.iter().filter_map(|p| self.find_piece(p)).collect();
+        if self.wall_ui.multi.len() < 2 {
+            self.wall_ui.multi.clear();
+        }
+        self.wall_ui.focus = focus.and_then(|p| self.find_piece(&p));
     }
 
     /// Platz wiederfinden (nach dem Neuordnen): gleiches Foto, sonst gleiche Stelle.
@@ -181,9 +192,14 @@ impl SwiperApp {
             let mut out = Vec::with_capacity(files.len());
             for (i, f) in files.into_iter().enumerate() {
                 let old = known.get(&f);
-                let ratio = old.map(|p| p.ratio).or_else(|| {
-                    imaging::oriented_size(&f).map(|(w, h)| w as f32 / h.max(1) as f32)
-                });
+                // Pixelmaße für die Auflösung; ältere Wände kennen sie noch nicht
+                let px = match old {
+                    Some(p) if p.px != (0, 0) => Some(p.px),
+                    _ => imaging::oriented_size(&f),
+                };
+                let ratio = old
+                    .map(|p| p.ratio)
+                    .or_else(|| px.map(|(w, h)| w as f32 / h.max(1) as f32));
                 if let Some(ratio) = ratio {
                     let taken = match old {
                         Some(p) if p.taken != 0 => p.taken,
@@ -193,6 +209,9 @@ impl SwiperApp {
                         ratio,
                         taken,
                         off: old.is_some_and(|p| p.off),
+                        px: px.unwrap_or_default(),
+                        focus: old.map(|p| p.focus).unwrap_or_default(),
+                        border: old.and_then(|p| p.border),
                         path: f,
                     });
                 }
@@ -228,6 +247,18 @@ impl SwiperApp {
         self.wall_scan = None;
         if photos.is_empty() {
             self.toast("Diese Fotos ließen sich nicht lesen.".into());
+            return;
+        }
+        // gleiche Fotos wie vorher: nur die Pixelmaße nachtragen, leise und ohne Rückgängig
+        let same = photos.len() == self.wall().photos.len()
+            && photos
+                .iter()
+                .zip(&self.wall().photos)
+                .all(|(a, b)| a.path == b.path);
+        if same {
+            for (old, new) in self.wall_mut().photos.iter_mut().zip(photos) {
+                old.px = new.px;
+            }
             return;
         }
         self.wall_checkpoint();

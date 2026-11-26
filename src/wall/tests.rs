@@ -323,3 +323,70 @@ fn folder_names_are_safe() {
     assert_eq!(safe_name("  "), "Fotowand");
     assert_eq!(safe_name("Wand."), "Wand");
 }
+
+#[test]
+fn hero_sits_big_in_the_middle() {
+    let s = default_sizes();
+    let mut w = wall(200.0, 120.0, 3.0);
+    w.photos = (0..30).map(|i| photo(&format!("f{i}.jpg"), 1.5)).collect();
+    w.hero = Some(PathBuf::from("f7.jpg"));
+    for arr in [Arrange::Raster, Arrange::Reihen, Arrange::Collage] {
+        w.arrange = arr;
+        let p = arrange(&w, &s);
+        let h = p
+            .iter()
+            .find(|p| p.photo.as_deref() == Some(Path::new("f7.jpg")))
+            .expect("Hauptbild hängt");
+        assert_eq!(h.size, "20x30", "{arr:?}");
+        let a = h.area(&s);
+        assert!((a.x + a.w / 2.0 - 100.0).abs() < 0.01, "{arr:?}");
+        // nichts anderes liegt darauf
+        for q in p.iter().filter(|q| *q != h) {
+            assert!(q.area(&s).overlap(&a) <= 0.0, "{arr:?}");
+            assert!(inside(&w, &s, q));
+        }
+    }
+    // zu groß für die Wand: hängt ganz normal
+    let mut small = wall(40.0, 30.0, 2.0);
+    small.photos = w.photos.clone();
+    small.hero = w.hero.clone();
+    let p = arrange(&small, &s);
+    assert!(p.iter().all(|p| p.size == "10x15"));
+}
+
+#[test]
+fn collage_mixes_sizes_and_stays_inside() {
+    let s = default_sizes();
+    let mut w = wall(200.0, 120.0, 2.0);
+    w.arrange = Arrange::Collage;
+    w.mix = vec!["13x18".into(), "15x20".into()];
+    w.photos = (0..20).map(|i| photo(&format!("f{i}.jpg"), 1.5)).collect();
+    let p = arrange(&w, &s);
+    let with: Vec<&Piece> = p.iter().filter(|p| p.photo.is_some()).collect();
+    assert_eq!(with.len(), 20);
+    assert!(with.iter().any(|p| p.size != "10x15"));
+    for (i, a) in p.iter().enumerate() {
+        assert!(inside(&w, &s, a));
+        for b in &p[i + 1..] {
+            assert!(a.area(&s).overlap(&b.area(&s)) <= 0.01);
+        }
+    }
+}
+
+#[test]
+fn border_and_dpi_per_piece() {
+    let s = default_sizes();
+    let mut w = wall(100.0, 60.0, 2.0);
+    w.border = 1.0;
+    let mut ph = photo("a.jpg", 1.5);
+    ph.px = (3000, 2000);
+    w.photos = vec![ph];
+    let p = arrange(&w, &s);
+    let pc = p.iter().find(|p| p.photo.is_some()).unwrap();
+    assert_eq!(w.border_of(&s, pc), 1.0);
+    // Rand macht die Bildfläche kleiner, die Auflösung steigt
+    let with = w.dpi_of(&s, pc).unwrap();
+    w.photos[0].border = Some(0.0);
+    assert_eq!(w.border_of(&s, pc), 0.0);
+    assert!(w.dpi_of(&s, pc).unwrap() < with);
+}

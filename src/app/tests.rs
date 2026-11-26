@@ -264,3 +264,76 @@ fn wall_pins_swaps_and_takes_off() {
     assert!(app.wall().pieces.iter().all(|p| !p.pinned));
     let _ = fs::remove_dir_all(&base);
 }
+
+#[test]
+fn wall_multi_select_aligns_and_hero() {
+    use crate::wall::{Align, Area, WallPhoto};
+    let (mut app, base, _) = setup("wall_fine");
+    app.open_wall();
+    app.wall_mut().photos = (0..6)
+        .map(|i| WallPhoto {
+            path: PathBuf::from(format!("m{i}.jpg")),
+            ratio: 1.5,
+            ..Default::default()
+        })
+        .collect();
+    app.wall_relayout();
+    let at = |app: &SwiperApp, n: &str| {
+        app.wall()
+            .pieces
+            .iter()
+            .position(|p| p.photo.as_deref() == Some(Path::new(n)))
+            .unwrap()
+    };
+    // Umschalt-Klick auf drei Fotos
+    for n in ["m0.jpg", "m2.jpg", "m4.jpg"] {
+        let i = at(&app, n);
+        app.wall_select_toggle(i);
+    }
+    assert_eq!(app.wall_selected().len(), 3);
+    // gemeinsam verschieben: alle festgepinnt, Auswahl bleibt
+    let before = app.wall().pieces[at(&app, "m2.jpg")].clone();
+    let sel = app.wall_selected();
+    app.wall_move_many(&sel, 3.0, 2.0);
+    let after = &app.wall().pieces[at(&app, "m2.jpg")];
+    assert!(after.pinned);
+    assert!((after.x - before.x - 3.0).abs() < 0.01);
+    assert_eq!(app.wall_selected().len(), 3);
+    // oben bündig
+    app.wall_align(Align::Oben);
+    let ys: Vec<f32> = ["m0.jpg", "m2.jpg", "m4.jpg"]
+        .iter()
+        .map(|n| app.wall().pieces[at(&app, n)].y)
+        .collect();
+    assert!(ys.iter().all(|y| (y - ys[0]).abs() < 0.01), "{ys:?}");
+    // Rückgängig: wieder wie vorher
+    app.wall_undo();
+    // Rechteck über die ganze Wand wählt alle
+    let (w, h) = (app.wall().w, app.wall().h);
+    app.wall_select_area(
+        Area {
+            x: 0.0,
+            y: 0.0,
+            w,
+            h,
+        },
+        false,
+    );
+    assert_eq!(app.wall_selected().len(), app.wall().pieces.len());
+    app.wall_select_none();
+
+    // Hauptbild: hängt groß in der Mitte, Lösen macht es wieder normal
+    app.wall_set_hero(Some(Path::new("m5.jpg")));
+    let hero = &app.wall().pieces[at(&app, "m5.jpg")];
+    assert_eq!(hero.size, app.wall().hero_size);
+    app.wall_set_hero(None);
+    let p = &app.wall().pieces[at(&app, "m5.jpg")];
+    assert_eq!(p.size, app.wall().size);
+
+    // Bildausschnitt wird gemerkt und bleibt beim Neuordnen
+    app.wall_set_focus(Path::new("m1.jpg"), (0.5, -2.0), true);
+    app.wall_relayout();
+    let f = app.wall().photo(Path::new("m1.jpg")).unwrap().focus;
+    assert_eq!(f, (0.5, -1.0));
+    let _ = fs::remove_dir_all(&base);
+}

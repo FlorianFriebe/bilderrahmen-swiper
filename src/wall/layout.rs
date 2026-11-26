@@ -103,9 +103,11 @@ impl Facing {
 
 /// Ein Foto oder ein leerer Platz, mit Ausrichtung.
 #[derive(Clone)]
-struct Item {
-    photo: Option<PathBuf>,
-    hoch: bool,
+pub(super) struct Item {
+    pub photo: Option<PathBuf>,
+    pub hoch: bool,
+    /// eigene Druckgröße (Größen-Mix, Hauptbild); `None` = Größe der Wand
+    pub size: Option<String>,
 }
 
 /// Fotos in der Reihenfolge fürs Anordnen: erst die gespeicherte Reihenfolge, dann neue Fotos.
@@ -145,7 +147,7 @@ pub fn capacity(wall: &Wall, sizes: &[PrintSize], size: &str) -> usize {
 
 /// Neue Plätze nach den Einstellungen der Wand. Festgepinnte Plätze bleiben und liegen oben.
 pub fn arrange(wall: &Wall, sizes: &[PrintSize]) -> Vec<Piece> {
-    let g = Geo::new(wall, sizes);
+    let mut g = Geo::new(wall, sizes);
     let ratios: HashMap<&Path, bool> = wall
         .photos
         .iter()
@@ -157,26 +159,58 @@ pub fn arrange(wall: &Wall, sizes: &[PrintSize]) -> Vec<Piece> {
         .map(|p| Item {
             hoch: fixed.unwrap_or_else(|| ratios.get(p.as_path()).copied().unwrap_or(false)),
             photo: Some(p),
+            size: None,
         })
         .collect();
+    let (hero, photos) = hero(wall, &mut g, photos);
     let mut out = match wall.arrange {
         Arrange::Raster => raster(wall, &g, photos),
         Arrange::Reihen => rows(wall, &g, photos),
-        Arrange::Collage => collage(wall, &g, photos),
+        Arrange::Collage => super::collage::collage(wall, &g, photos),
     };
+    out.extend(hero);
     out.extend(wall.pieces.iter().filter(|p| p.pinned).cloned());
     out
 }
 
+/// Hauptbild: groß in die Mitte der freien Fläche, alles andere ordnet sich drumherum.
+fn hero(wall: &Wall, g: &mut Geo, mut photos: Vec<Item>) -> (Option<Piece>, Vec<Item>) {
+    let Some(i) = wall
+        .hero
+        .as_ref()
+        .and_then(|h| photos.iter().position(|p| p.photo.as_ref() == Some(h)))
+    else {
+        return (None, photos);
+    };
+    let mut it = photos.remove(i);
+    it.size = Some(wall.hero_size.clone());
+    let (w, h) = g.dims_of(&it);
+    let a = Area {
+        x: g.inner.x + (g.inner.w - w) / 2.0,
+        y: g.inner.y + (g.inner.h - h) / 2.0,
+        w,
+        h,
+    };
+    if w > g.inner.w + 0.01 || h > g.inner.h + 0.01 || !g.free(&a) {
+        // passt nicht in die Mitte: wie ein normales Foto behandeln
+        it.size = None;
+        photos.insert(i, it);
+        return (None, photos);
+    }
+    g.blockers.push(a.grow(g.gap.max(0.0)));
+    (Some(g.piece(&it, a.x, a.y)), photos)
+}
+
 /// Gemeinsame Maße: Fotogröße, Abstand, Innenfläche, Sperrflächen.
-struct Geo {
-    size: String,
-    short: f32,
-    long: f32,
-    gap: f32,
-    inner: Area,
-    blockers: Vec<Area>,
-    facing: Option<bool>,
+pub(super) struct Geo {
+    pub size: String,
+    pub short: f32,
+    pub long: f32,
+    pub gap: f32,
+    pub inner: Area,
+    pub blockers: Vec<Area>,
+    pub facing: Option<bool>,
+    pub sizes: Vec<PrintSize>,
 }
 
 impl Geo {
@@ -205,22 +239,37 @@ impl Geo {
             inner,
             blockers,
             facing: wall.facing.fixed(),
+            sizes: sizes.to_vec(),
         }
     }
-    fn dims(&self, hoch: bool) -> (f32, f32) {
+    /// Maße eines Fotos mit seiner eigenen Größe.
+    pub fn dims_of(&self, it: &Item) -> (f32, f32) {
+        self.dims_sized(it.hoch, it.size.as_deref())
+    }
+    pub fn dims_sized(&self, hoch: bool, size: Option<&str>) -> (f32, f32) {
+        let Some(s) = size.and_then(|n| self.sizes.iter().find(|s| s.name == n)) else {
+            return self.dims(hoch);
+        };
+        if hoch {
+            (s.short, s.long)
+        } else {
+            (s.long, s.short)
+        }
+    }
+    pub fn dims(&self, hoch: bool) -> (f32, f32) {
         if hoch {
             (self.short, self.long)
         } else {
             (self.long, self.short)
         }
     }
-    fn free(&self, a: &Area) -> bool {
+    pub fn free(&self, a: &Area) -> bool {
         self.blockers.iter().all(|b| b.overlap(a) <= 0.0)
     }
-    fn piece(&self, it: &Item, x: f32, y: f32) -> Piece {
+    pub fn piece(&self, it: &Item, x: f32, y: f32) -> Piece {
         Piece {
             photo: it.photo.clone(),
-            size: self.size.clone(),
+            size: it.size.clone().unwrap_or_else(|| self.size.clone()),
             hoch: it.hoch,
             x,
             y,
@@ -228,7 +277,7 @@ impl Geo {
         }
     }
     /// Leere Plätze: wie die meisten Fotos, ohne Fotos die Ausrichtung mit mehr Platz.
-    fn default_hoch(&self, photos: &[Item]) -> bool {
+    pub fn default_hoch(&self, photos: &[Item]) -> bool {
         if let Some(h) = self.facing {
             return h;
         }
@@ -317,6 +366,7 @@ fn raster(wall: &Wall, g: &Geo, photos: Vec<Item>) -> Vec<Piece> {
             let it = items.next().unwrap_or(Item {
                 photo: None,
                 hoch: empty_hoch,
+                size: None,
             });
             let (pw, ph) = g.dims(it.hoch);
             (
@@ -340,6 +390,7 @@ fn rows(wall: &Wall, g: &Geo, photos: Vec<Item>) -> Vec<Piece> {
     let empty = Item {
         photo: None,
         hoch: dh,
+        size: None,
     };
     let brick = wall.pattern == Pattern::Mauerwerk;
     // (Plätze, Höhe der Reihe, an Hindernissen vorbei gesprungen)
@@ -447,168 +498,4 @@ fn rows(wall: &Wall, g: &Geo, photos: Vec<Item>) -> Vec<Piece> {
         }));
     }
     stack(wall.pattern, out)
-}
-
-/// Belegte Fläche in Zellen, mit Summen für schnelle Prüfung ganzer Rechtecke.
-struct Occ {
-    res: f32,
-    nx: usize,
-    ny: usize,
-    cells: Vec<u8>,
-    sum: Vec<u32>,
-}
-
-impl Occ {
-    fn new(w: f32, h: f32) -> Self {
-        let res = (w * h / 40_000.0).sqrt().max(0.5);
-        let nx = (w / res).ceil().max(1.0) as usize;
-        let ny = (h / res).ceil().max(1.0) as usize;
-        let mut o = Self {
-            res,
-            nx,
-            ny,
-            cells: vec![0; nx * ny],
-            sum: vec![],
-        };
-        o.rebuild();
-        o
-    }
-    fn range(&self, a: &Area) -> Option<(usize, usize, usize, usize)> {
-        let e = 0.001;
-        let x0 = ((a.x + e) / self.res).floor().max(0.0) as usize;
-        let y0 = ((a.y + e) / self.res).floor().max(0.0) as usize;
-        let x1 = (((a.right() - e) / self.res).ceil().max(0.0) as usize).min(self.nx);
-        let y1 = (((a.bottom() - e) / self.res).ceil().max(0.0) as usize).min(self.ny);
-        (x0 < x1 && y0 < y1).then_some((x0, y0, x1, y1))
-    }
-    fn mark(&mut self, a: &Area) {
-        if let Some((x0, y0, x1, y1)) = self.range(a) {
-            for y in y0..y1 {
-                for x in x0..x1 {
-                    self.cells[y * self.nx + x] = 1;
-                }
-            }
-            self.rebuild();
-        }
-    }
-    fn rebuild(&mut self) {
-        let w = self.nx + 1;
-        self.sum = vec![0; w * (self.ny + 1)];
-        for y in 0..self.ny {
-            for x in 0..self.nx {
-                self.sum[(y + 1) * w + x + 1] = self.cells[y * self.nx + x] as u32
-                    + self.sum[y * w + x + 1]
-                    + self.sum[(y + 1) * w + x]
-                    - self.sum[y * w + x];
-            }
-        }
-    }
-    fn free(&self, a: &Area) -> bool {
-        let Some((x0, y0, x1, y1)) = self.range(a) else {
-            return true;
-        };
-        let w = self.nx + 1;
-        let s = self.sum[y1 * w + x1] + self.sum[y0 * w + x0]
-            - self.sum[y0 * w + x1]
-            - self.sum[y1 * w + x0];
-        s == 0
-    }
-}
-
-/// Kleine, feste Zufallszahl (gleiche Wand = gleiche Collage).
-fn hash(i: usize, seed: u32) -> u32 {
-    let mut x = (i as u32).wrapping_mul(0x9E37_79B9) ^ seed.wrapping_mul(0x85EB_CA6B);
-    x ^= x >> 15;
-    x = x.wrapping_mul(0x2C1B_3C6D);
-    x ^ (x >> 12)
-}
-
-fn collage(wall: &Wall, g: &Geo, photos: Vec<Item>) -> Vec<Piece> {
-    let mut occ = Occ::new(wall.w.max(1.0), wall.h.max(1.0));
-    for b in &g.blockers {
-        occ.mark(b);
-    }
-    let half = g.gap / 2.0;
-    let dh = g.default_hoch(&photos);
-    // Platz für ein Foto suchen: von oben links zeilenweise, erste freie Stelle
-    let place = |occ: &Occ, hoch: bool| -> Option<Area> {
-        let (pw, ph) = g.dims(hoch);
-        let step = occ.res;
-        let mut y = g.inner.y;
-        while y + ph <= g.inner.bottom() + 0.01 {
-            let mut x = g.inner.x;
-            while x + pw <= g.inner.right() + 0.01 {
-                let a = Area { x, y, w: pw, h: ph };
-                if occ.free(&a.grow(half)) {
-                    return Some(a);
-                }
-                x += step;
-            }
-            y += step;
-        }
-        None
-    };
-    let mut out: Vec<Piece> = vec![];
-    for it in &photos {
-        if let Some(a) = place(&occ, it.hoch) {
-            occ.mark(&a.grow(half));
-            out.push(g.piece(it, a.x, a.y));
-        }
-    }
-    // leere Plätze, bunt gemischt quer und hochkant, bis nichts mehr passt
-    for i in 0..400 {
-        let first = if hash(i, wall.seed).is_multiple_of(3) {
-            !dh
-        } else {
-            dh
-        };
-        let found = match g.facing {
-            Some(h) => place(&occ, h).map(|a| (h, a)),
-            None => [first, !first]
-                .into_iter()
-                .find_map(|h| place(&occ, h).map(|a| (h, a))),
-        };
-        let Some((hoch, a)) = found else { break };
-        occ.mark(&a.grow(half));
-        out.push(g.piece(&Item { photo: None, hoch }, a.x, a.y));
-    }
-    center(g, &mut out);
-    out
-}
-
-/// Den ganzen Block in die Mitte schieben, wenn dabei nichts auf ein Hindernis rutscht.
-fn center(g: &Geo, pieces: &mut [Piece]) {
-    let areas: Vec<Area> = pieces
-        .iter()
-        .map(|p| {
-            let (w, h) = g.dims(p.hoch);
-            Area {
-                x: p.x,
-                y: p.y,
-                w,
-                h,
-            }
-        })
-        .collect();
-    let Some(r) = areas.iter().map(|a| a.right()).reduce(f32::max) else {
-        return;
-    };
-    let b = areas.iter().map(|a| a.bottom()).fold(0.0, f32::max);
-    let l = areas.iter().map(|a| a.x).fold(f32::MAX, f32::min);
-    let t = areas.iter().map(|a| a.y).fold(f32::MAX, f32::min);
-    let dx = ((g.inner.right() - r) - (l - g.inner.x)) / 2.0;
-    let dy = ((g.inner.bottom() - b) - (t - g.inner.y)) / 2.0;
-    let ok = areas.iter().all(|a| {
-        g.free(&Area {
-            x: a.x + dx,
-            y: a.y + dy,
-            ..*a
-        })
-    });
-    if ok {
-        for p in pieces {
-            p.x += dx;
-            p.y += dy;
-        }
-    }
 }
