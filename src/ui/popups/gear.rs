@@ -54,54 +54,64 @@ pub fn app_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool 
         divider_line(ui);
         if menu_row(
             ui,
-            "Tasten ändern …",
-            "Jede Aktion auf eine eigene Taste legen",
+            "Tastenbelegung …",
+            "Kürzel ansehen und ändern (? oder F1)",
             false,
         )
         .clicked()
         {
-            app.dialog = Some(Dialog::Keys);
-            close = true;
-        }
-        if menu_row(ui, "Alle Tastenkürzel", "Auch mit ? oder F1", false).clicked() {
             app.dialog = Some(Dialog::Shortcuts);
-            close = true;
-        }
-        if crate::install::offer()
-            && menu_row(
-                ui,
-                "Im Startmenü ablegen",
-                "Mit Verknüpfung auf dem Desktop",
-                false,
-            )
-            .clicked()
-        {
-            crate::ui::dialogs::install_now(app, true);
-            app.cfg.install_asked = true;
-            close = true;
-        }
-        if menu_row(
-            ui,
-            "Problem melden …",
-            "Bericht zum Weiterschicken erstellen",
-            false,
-        )
-        .clicked()
-        {
-            crate::ui::dialogs::report_now(app, ui.ctx());
-            close = true;
-        }
-        if menu_row(ui, "Einführung zeigen", "", false).clicked() {
-            app.cfg.intro_done = false;
-            app.cfg.intro_version = 0;
-            app.intro_step = None;
-            if app.view != View::Swipe {
-                app.toast("Die Einführung startet, sobald du Fotos durchgehst.".into());
-            }
             close = true;
         }
 
         divider_line(ui);
+        // Selten gebraucht: klein in einer Zeile
+        ui.horizontal(|ui| {
+            ui.add_space(sp::M);
+            ui.spacing_mut().item_spacing.x = sp::XS;
+            if small_link(ui, "Einführung")
+                .on_hover_text("Die kurze Einführung noch einmal zeigen")
+                .clicked()
+            {
+                app.cfg.intro_done = false;
+                app.cfg.intro_version = 0;
+                app.intro_step = None;
+                if app.view != View::Swipe {
+                    app.toast("Die Einführung startet, sobald du Fotos durchgehst.".into());
+                }
+                close = true;
+            }
+            dot(ui);
+            if small_link(ui, "Problem melden")
+                .on_hover_text("Bericht zum Weiterschicken erstellen")
+                .clicked()
+            {
+                crate::ui::dialogs::report_now(app, ui.ctx());
+                close = true;
+            }
+            if crate::install::available() {
+                dot(ui);
+                let mut pick = None;
+                let r = small_link(ui, "Verknüpfung …")
+                    .on_hover_text("Programm im Startmenü oder auf dem Desktop ablegen");
+                egui::Popup::menu(&r).show(|ui| {
+                    if ui.button("Im Startmenü").clicked() {
+                        pick = Some((true, false));
+                    }
+                    if ui.button("Auf dem Desktop").clicked() {
+                        pick = Some((false, true));
+                    }
+                    if ui.button("Beides").clicked() {
+                        pick = Some((true, true));
+                    }
+                });
+                if let Some((start, desktop)) = pick {
+                    crate::ui::dialogs::install_now(app, start, desktop);
+                    app.cfg.install_asked = true;
+                    close = true;
+                }
+            }
+        });
         ui.horizontal(|ui| {
             ui.add_space(sp::M);
             ui.label(
@@ -109,11 +119,7 @@ pub fn app_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool 
                     .size(11.5)
                     .color(dim()),
             );
-            if ui
-                .add(
-                    egui::Button::new(egui::RichText::new("Fehlerprotokoll").size(11.5))
-                        .frame(false),
-                )
+            if small_link(ui, "Fehlerprotokoll")
                 .on_hover_text(system::log_path().display().to_string())
                 .clicked()
             {
@@ -143,6 +149,15 @@ pub fn app_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool 
     })
 }
 
+/// Kleiner Textknopf ohne Rahmen für selten gebrauchte Dinge.
+fn small_link(ui: &mut Ui, label: &str) -> egui::Response {
+    ui.add(egui::Button::new(egui::RichText::new(label).size(11.5).color(text_soft())).frame(false))
+}
+
+fn dot(ui: &mut Ui) {
+    ui.label(egui::RichText::new("·").size(11.5).color(dim()));
+}
+
 /// Fenster zum Ändern der Tasten.
 pub fn keys_dialog(app: &mut SwiperApp, ui: &mut Ui) {
     let resp = egui::Modal::new(egui::Id::unique("keys_modal")).show(ui.ctx(), |ui| {
@@ -161,8 +176,13 @@ pub fn keys_dialog(app: &mut SwiperApp, ui: &mut Ui) {
         });
         done
     });
-    if (resp.inner || resp.should_close()) && app.capture.is_none() {
-        app.dialog = None;
+    if app.capture.is_none() {
+        if resp.inner {
+            // zurück zur Übersicht „Tastenbelegung“
+            app.dialog = Some(Dialog::Shortcuts);
+        } else if resp.should_close() {
+            app.dialog = None;
+        }
     }
 }
 
@@ -176,7 +196,12 @@ pub fn flush_slider(
     let val_w = 56.0;
     let gap = ui.spacing().item_spacing.x;
     ui.spacing_mut().slider_width = (ui.available_width() - sp::M - val_w - gap).max(60.0);
-    let r = ui.add(egui::Slider::new(v, range).step_by(step).show_value(false));
+    let r = ui.add(
+        egui::Slider::new(v, range)
+            .step_by(step)
+            .show_value(false)
+            .trailing_fill(true),
+    );
     let (vr, _) = ui.allocate_exact_size(vec2(val_w, 26.0), Sense::hover());
     ui.painter().rect_filled(vr, radius::S, field());
     ui.painter().text(

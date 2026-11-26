@@ -134,27 +134,40 @@ pub fn text_panel(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
 /// Auswahl des Randes für „Ganz“: Art und Stärke der Unschärfe. Gibt `true` bei Änderung.
 pub fn fill_bg_ui(ui: &mut Ui, bg: &mut imaging::FillBg) -> bool {
     let before = *bg;
-    ui.horizontal(|ui| {
-        for (i, name) in imaging::FILL_KINDS.iter().enumerate() {
-            let on = bg.kind == i as u8;
-            if ui
-                .add(egui::Button::selectable(on, *name).min_size(egui::vec2(0.0, 26.0)))
-                .clicked()
-            {
-                bg.kind = i as u8;
-            }
-        }
-    });
+    fill_kind_combo(ui, bg, ui.available_width().min(220.0) - sp::M);
     if bg.kind == 0 {
         ui.horizontal(|ui| {
             ui.label("Unschärfe");
-            let mut v = bg.blur as f32;
-            crate::ui::popups::flush_slider(ui, &mut v, 0.0..=100.0, 1.0)
-                .on_hover_text("Weniger = Umgebung bleibt erkennbar, mehr = ruhige Farbfläche");
-            bg.blur = v.round() as u8;
+            fill_blur_slider(ui, bg);
         });
     }
     *bg != before
+}
+
+/// Auswahlliste „Ränder füllen mit“ (Unscharfes Foto, Fotofarbe, Schwarz, Weiß).
+pub fn fill_kind_combo(ui: &mut Ui, bg: &mut imaging::FillBg, width: f32) {
+    let shown = imaging::FILL_KINDS
+        .get(bg.kind as usize)
+        .copied()
+        .unwrap_or(imaging::FILL_KINDS[0]);
+    egui::ComboBox::from_id_salt(ui.scope_id().with("fill_bg"))
+        .width(width)
+        .selected_text(shown)
+        .show_ui(ui, |ui| {
+            for (i, name) in imaging::FILL_KINDS.iter().enumerate() {
+                ui.selectable_value(&mut bg.kind, i as u8, *name);
+            }
+        })
+        .response
+        .on_hover_text("Bei „Ganz“ passt das ganze Foto in den Rahmen. Die freien Streifen daneben werden damit gefüllt.");
+}
+
+/// Regler für die Stärke der Unschärfe am Rand.
+pub fn fill_blur_slider(ui: &mut Ui, bg: &mut imaging::FillBg) {
+    let mut v = bg.blur as f32;
+    crate::ui::popups::flush_slider(ui, &mut v, 0.0..=100.0, 1.0)
+        .on_hover_text("Weniger = Umgebung bleibt erkennbar, mehr = ruhige Farbfläche");
+    bg.blur = v.round() as u8;
 }
 
 /// Kleines Feld über dem „Drehen“-Knopf: Begradigen und Licht für dieses Bild.
@@ -329,7 +342,7 @@ pub fn fill_panel(app: &mut SwiperApp, ui: &mut Ui, anchor: Rect) {
                         }
                     });
                     ui.add_space(sp::M);
-                    ui.label(egui::RichText::new("Rand bei „Ganz“").font(bold(13.5)));
+                    ui.label(egui::RichText::new("Ränder füllen mit").font(bold(13.5)));
                     ui.add_space(2.0);
                     changed = fill_bg_ui(ui, &mut bg);
                     ui.add_space(4.0);

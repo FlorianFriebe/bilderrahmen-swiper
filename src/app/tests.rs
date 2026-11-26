@@ -140,3 +140,19 @@ fn undo_while_reediting_deletes_nothing() {
     drop(app);
     let _ = fs::remove_dir_all(base);
 }
+
+#[test]
+fn frame_resolution_sets_format_and_size() {
+    let (mut app, _dir, _) = setup("frame_res");
+    // „Keine Vorgabe“: Format frei, keine Größenbegrenzung (auch mit altem res_idx)
+    app.cfg.frame.clear();
+    app.cfg.res_idx = 3;
+    let o = app.output_settings();
+    assert_eq!(o.max_res, None);
+    // Gerät gewählt: Format und Größe kommen aus der Auflösung
+    app.cfg.frame = "1280x800".into();
+    let o = app.output_settings();
+    assert_eq!(o.max_res, Some((1280, 800)));
+    assert!((o.ratio_quer - 1.6).abs() < 1e-3);
+    assert!((o.ratio_hoch - 0.625).abs() < 1e-3);
+}

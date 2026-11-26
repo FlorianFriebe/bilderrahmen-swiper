@@ -35,9 +35,14 @@ pub fn offer() -> bool {
     std::env::var_os("BRS_SHOW_INSTALL").is_some() || (cfg!(windows) && !runs_installed())
 }
 
-/// Programmdatei an den festen Ort kopieren und Verknüpfungen anlegen.
-/// Gibt den Ort der Programmdatei zurück.
-pub fn install(desktop: bool) -> Result<PathBuf, String> {
+/// Kann das Programm Verknüpfungen anlegen? Nur unter Windows (zum Testen: BRS_SHOW_INSTALL=1).
+pub fn available() -> bool {
+    std::env::var_os("BRS_SHOW_INSTALL").is_some() || cfg!(windows)
+}
+
+/// Programmdatei an den festen Ort kopieren und Verknüpfungen im Startmenü und/oder auf dem
+/// Desktop anlegen. Gibt den Ort der Programmdatei zurück.
+pub fn install(start: bool, desktop: bool) -> Result<PathBuf, String> {
     let exe = installed_exe().ok_or("Kein Ordner für Programme gefunden.")?;
     let cur = std::env::current_exe().map_err(|e| e.to_string())?;
     if let Some(d) = exe.parent() {
@@ -46,12 +51,12 @@ pub fn install(desktop: bool) -> Result<PathBuf, String> {
     if !runs_installed() {
         fs::copy(&cur, &exe).map_err(|e| format!("Kopieren: {e}"))?;
     }
-    shortcuts(&exe, desktop)?;
+    shortcuts(&exe, start, desktop)?;
     Ok(exe)
 }
 
 #[cfg(windows)]
-fn shortcuts(exe: &std::path::Path, desktop: bool) -> Result<(), String> {
+fn shortcuts(exe: &std::path::Path, start: bool, desktop: bool) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
     // PowerShell kennt die richtigen Ordner (auch einen Desktop in OneDrive)
     let q = |s: &str| s.replace('\'', "''");
@@ -64,9 +69,13 @@ fn shortcuts(exe: &std::path::Path, desktop: bool) -> Result<(), String> {
         "$ws = New-Object -ComObject WScript.Shell; \
          function L($p) {{ $s = $ws.CreateShortcut($p); $s.TargetPath = '{target}'; \
          $s.WorkingDirectory = '{dir}'; $s.IconLocation = '{target},0'; \
-         $s.Description = 'Fotos für den Bilderrahmen auswählen'; $s.Save() }}; \
-         L (Join-Path ([Environment]::GetFolderPath('Programs')) 'Bilderrahmen-Swiper.lnk');"
+         $s.Description = 'Fotos für den Bilderrahmen auswählen'; $s.Save() }};"
     );
+    if start {
+        script.push_str(
+            " L (Join-Path ([Environment]::GetFolderPath('Programs')) 'Bilderrahmen-Swiper.lnk');",
+        );
+    }
     if desktop {
         script.push_str(
             " L (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Bilderrahmen-Swiper.lnk');",
@@ -85,7 +94,7 @@ fn shortcuts(exe: &std::path::Path, desktop: bool) -> Result<(), String> {
 }
 
 #[cfg(not(windows))]
-fn shortcuts(_exe: &std::path::Path, _desktop: bool) -> Result<(), String> {
+fn shortcuts(_exe: &std::path::Path, _start: bool, _desktop: bool) -> Result<(), String> {
     Err("Verknüpfungen gibt es nur unter Windows.".into())
 }
 
