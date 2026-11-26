@@ -6,7 +6,7 @@ use egui::{pos2, vec2, Align2, Color32, Id, Key, Rect, Stroke, StrokeKind, Ui};
 
 use super::kit;
 use super::style::{self, *};
-use super::{burst, dialogs, gallery, home, swipe};
+use super::{burst, dialogs, gallery, home, swipe, wall};
 use crate::app::{Dialog, SwiperApp, View};
 
 /// Wie lange eine Meldung stehen bleibt (Sekunden).
@@ -45,6 +45,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         View::Swipe => swipe::show(app, &mut view_ui, full, ws, now),
         View::Gallery => gallery::show(app, &mut view_ui, ws),
         View::Burst => burst::show(app, &mut view_ui, ws),
+        View::Wall => wall::show(app, &mut view_ui, ws),
     }
 
     if app.view == View::Swipe {
@@ -114,7 +115,11 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         };
         let action = action.as_ref().map(|(l, k)| (*l, k.as_str()));
         if kit::toast(ui, anchor, &msg, alpha, glyph, action) {
-            app.undo();
+            if app.view == View::Wall {
+                app.wall_undo();
+            } else {
+                app.undo();
+            }
         }
     }
     if app.view != View::Home {
@@ -290,6 +295,11 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
             // schließt nur das Diashow-Feld
         } else if app.view == View::Gallery && !app.gallery_sel.is_empty() {
             app.gallery_sel.clear();
+        } else if app.view == View::Wall {
+            if !app.wall_ui.close_one() {
+                app.wall_ui = Default::default();
+                app.view = View::Home;
+            }
         } else if matches!(app.view, View::Gallery | View::Burst) {
             app.view = if app.view == View::Burst || app.folder.is_some() && app.current().is_some()
             {
@@ -335,6 +345,21 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         View::Gallery => {
             if undo {
                 app.undo();
+            }
+        }
+        View::Wall => {
+            if undo {
+                app.wall_undo();
+            }
+            if k(Key::Delete) {
+                if let Some(i) = app.wall_ui.sel.take() {
+                    if i < app.wall().pieces.len() {
+                        app.wall_checkpoint();
+                        let w = app.wall_mut();
+                        w.pieces.remove(i);
+                        w.manual = true;
+                    }
+                }
             }
         }
     }

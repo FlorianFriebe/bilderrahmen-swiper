@@ -18,6 +18,7 @@ mod textstyle;
 mod ui;
 mod update;
 mod util;
+mod wall;
 #[cfg(windows)]
 mod wic;
 mod workers;

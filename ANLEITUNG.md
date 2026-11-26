@@ -226,6 +226,28 @@ Großeltern. Jedes Profil hat sein eigenes Format, seine eigene Größe und sein
 Zielordner (`Bilderrahmen <Name>`), und dasselbe Foto kann für jedes Profil behalten werden.
 Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Profil.
 
+## Fotowand planen
+
+Der **Wand-Knopf** oben auf der Startseite öffnet die Fotowand. Dort planst du eine Wand voller
+gedruckter Fotos:
+
+1. **Wand einstellen** (Lineal-Knopf oder Klick auf die Maße): Breite und Höhe in cm,
+   Druckgröße und **Abstand**. Ganz nach links geschoben überlappen sich die Fotos.
+2. **Fotos wählen** (Bilder-Knopf): deine behaltenen Bilder oder ein Ordner mit fertigen Fotos.
+3. Oben steht, wie viele **Plätze** die Wand hat und wie viele Fotos **fehlen** oder **übrig** sind.
+   Daneben siehst du, wie viele es mit der nächstkleineren oder -größeren Druckgröße wären.
+4. **Hindernisse** (gestrichelter Knopf): Fläche aufziehen, die frei bleiben soll, z. B.
+   Lichtschalter oder Sofa. Rechtsklick darauf benennt oder entfernt sie.
+5. **Anordnen**: Fotos ziehen verschiebt sie, auf ein anderes Foto ziehen tauscht die beiden,
+   ins Band unten ziehen nimmt es ab. Fotos aus dem Band ziehst du auf die Wand. Rechtsklick auf
+   ein Foto: Größe, quer/hochkant, nach vorn/hinten, entfernen. Der Zauberstab ordnet alles neu.
+6. **Strg+Z** nimmt jeden Schritt zurück. Alles wird automatisch gespeichert, auch mehrere Wände
+   (Klick auf den Namen der Wand).
+
+Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über die Wand. Gelbe Umrandung mit
+Prozentzahl: so viel vom Foto ist verdeckt. Die App rechnet mit den echten Maßen der Abzüge
+(10x15 ist meist 10,2 × 15,2 cm); weichen deine ab, änderst du sie unter *Echte Druckmaße*.
+
 ## Text aufs Bild
 
 **T** (oder ein Klick auf **Text**) schaltet den Text an und aus. Der kleine **Pfeil** an

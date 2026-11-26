@@ -138,7 +138,7 @@ pub fn menu_row(ui: &mut Ui, label: &str, sub: &str, sel: bool) -> egui::Respons
 }
 
 /// Kleine Überschrift in einem Popup.
-fn caption(ui: &mut Ui, title: &str) {
+pub(crate) fn caption(ui: &mut Ui, title: &str) {
     ui.add_space(sp::S);
     ui.horizontal(|ui| {
         ui.add_space(sp::M);
@@ -152,7 +152,7 @@ fn caption(ui: &mut Ui, title: &str) {
     ui.add_space(sp::XS);
 }
 
-fn divider_line(ui: &mut Ui) {
+pub(crate) fn divider_line(ui: &mut Ui) {
     ui.add_space(sp::XS);
     let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
     ui.painter().line_segment(
@@ -163,7 +163,7 @@ fn divider_line(ui: &mut Ui) {
 }
 
 /// Eingerückte Zeile mit Beschriftung links und Inhalt rechts.
-fn field_row(ui: &mut Ui, label: &str, add: impl FnOnce(&mut Ui)) {
+pub(crate) fn field_row(ui: &mut Ui, label: &str, add: impl FnOnce(&mut Ui)) {
     ui.horizontal(|ui| {
         ui.add_space(sp::M);
         ui.allocate_ui_with_layout(

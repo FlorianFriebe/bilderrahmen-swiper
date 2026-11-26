@@ -3,6 +3,20 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.14.0
+
+- Neu: **Fotowand planen**. Der Wand-Knopf oben auf der Startseite öffnet eine eigene Ansicht.
+  Du gibst die Größe deiner Wand und die Druckgröße an (9x13 bis 20x30, auch quadratisch), und
+  die App zeigt sofort, wie viele Fotos draufpassen und wie viele noch fehlen.
+- Abstand oder Überlappung stellst du mit einem Regler ein. Überlappende Fotos bleiben gerade;
+  ist eins zu mehr als einem Drittel verdeckt, wird es markiert.
+- Hindernisse wie Lichtschalter, Steckdosen oder ein Sofa zeichnest du einfach ein, sie bleiben frei.
+- Fotos kommen aus deinen behaltenen Bildern oder aus einem Ordner. Du kannst sie auf der Wand
+  verschieben, tauschen, größer oder kleiner machen und zurück ins Band legen. Strg+Z nimmt
+  jeden Schritt zurück.
+- Gerechnet wird mit den echten Maßen der Abzüge (z. B. 10,2 × 15,2 cm); weichen deine ab,
+  passt du sie im Wand-Popup an.
+
 ## 3.13.0
 
 - Profil-Popup aufgeräumt: „Vorlage“ ist weg. Unter **Auflösung** wählst du dein Gerät oder

@@ -239,3 +239,22 @@ pub(super) fn shrink(rgb: RgbImage, side: u32) -> RgbImage {
         rgb
     }
 }
+
+/// Größe des Fotos so, wie es aufrecht aussieht (EXIF-Drehung beachtet), ohne es ganz zu laden.
+pub fn oriented_size(path: &Path) -> Option<(u32, u32)> {
+    let header = ImageReader::open(path)
+        .ok()
+        .and_then(|r| r.with_guessed_format().ok())
+        .and_then(|r| r.into_dimensions().ok());
+    let Some((w, h)) = header else {
+        // z. B. HEIC: das Vorschaubild ist schon aufrecht gedreht
+        return load_thumb(path, 64).ok().map(|t| t.dimensions());
+    };
+    let turned = read_exif(path)
+        .and_then(|ex| {
+            ex.get_field(exif::Tag::Orientation, exif::In::PRIMARY)
+                .and_then(|f| f.value.get_uint(0))
+        })
+        .is_some_and(|o| (5..=8).contains(&o));
+    Some(if turned { (h, w) } else { (w, h) })
+}
