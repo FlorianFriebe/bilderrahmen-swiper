@@ -66,6 +66,12 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Rückgängig für alles, was Bilder entfernt (Entscheidungen, Entfernen in der Galerie, Ganz von vorn); entfernte Bilder liegen 14 Tage im Ordner `.papierkorb` im Zielordner
 - Reihenfolge auf dem Rahmen: nach Datum, zufällig oder nach Ordner (über eine vierstellige Nummer vor dem Dateinamen; beim erneuten Kopieren werden vorhandene Dateien nur umbenannt)
 
+**Fotowand planen**
+- Eigene Ansicht ab der Startseite: Wandmaße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
+- Rechner: Plätze an der Wand, vorhandene Fotos, was fehlt oder übrig ist, Vergleich mit der nächsten Druckgröße
+- Abstand oder Überlappung per Regler, verdeckter Anteil pro Foto, Hindernisse (Lichtschalter, Möbel) bleiben frei
+- Fotos aus den behaltenen Bildern oder einem Ordner; verschieben mit Einrasten, tauschen, Größe und Ausrichtung pro Foto, mehrere Wände, Rückgängig
+
 **Bedienung**
 - Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit ? oder F1
 - Farbthemen wie Windows, Hell, Dunkel, Sand, Salbei und Nachtblau mit vollflächigem Hintergrund
@@ -121,6 +127,7 @@ src/
   app/           Zustand und Logik, je Thema ein Modul (Ordner, Entscheiden, Bearbeiten,
                  Nachbearbeiten, Serien, Stick, Tasten, Profile)
   history.rs     Rückgängig: Schritte, Papierkorb, Ganz von vorn
+  wall/          Fotowand: Druckgrößen, Plätze im Raster, Hindernisse, Verdeckung, Einrasten
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import
@@ -139,7 +146,7 @@ src/
     kit/         Bausteine: Glasflächen, Knöpfe, Umschalter, Chips, Meldungen
     icons.rs     Symbole (Phosphor)
     frame.rs     Ablauf eines Frames: Darstellung, Tasten, Hintergrund, Übergänge
-    home/, swipe/, gallery.rs, burst.rs, viewer.rs, textstyles.rs   je eine Ansicht
+    home/, swipe/, wall/, gallery.rs, burst.rs, viewer.rs, textstyles.rs   je eine Ansicht
     popups/, dialogs/   Popups an den Leisten, Einführung und seitliche Felder
 assets/fonts/    Inter, Playfair Display, Caveat, Oswald, Phosphor (Lizenzen in LIZENZEN.md)
 ```

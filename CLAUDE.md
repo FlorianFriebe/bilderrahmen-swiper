@@ -38,7 +38,9 @@ src/app/             Zustand SwiperApp + Logik, ein impl-Block pro Thema
   keys.rs            Tastenbelegung
   profiles.rs        Profile je Bilderrahmen
   textures.rs        Ergebnisse der Worker abholen (Speichern, Vorschaubilder, Texturen)
+  wall.rs            Fotowand: Wände anlegen/wechseln, Fotos einlesen, Vorschlag, eigenes Rückgängig
   tests.rs           Ablauf-Tests ohne UI (Behalten, Rückgängig, Ganz von vorn, Nachbearbeiten)
+src/wall/            Fotowand ohne UI: Druckgrößen (echte Maße), Raster, Hindernisse, Verdeckung, Einrasten
 src/history.rs       Rückgängig: Step-Stapel, Papierkorb `.papierkorb` (14 Tage), Ganz von vorn
 src/folders.rs       Ordnerbaum, natürliche Sortierung, StatusFile (.bilderrahmen_status.json)
 src/session.rs       Weitermachen: Auswahlen pausieren/fortsetzen
@@ -56,7 +58,7 @@ src/ui/
   style.rs           Design-Tokens: sp:: (8er-Raster), radius::, size::, ts::, Farben hell/dunkel
   kit/               Bausteine (glass, Knöpfe, Chips, Toast, …) – immer diese nutzen
   icons.rs           Phosphor-Symbole
-  home/  swipe/  gallery.rs  burst.rs  viewer.rs  textstyles.rs   Ansichten
+  home/  swipe/  wall/  gallery.rs  burst.rs  viewer.rs  textstyles.rs   Ansichten
   popups/            kleine Popups an Leisten (form_popup, menu_row)
   dialogs/           Einführung, Tasten, seitliche Felder, Kürzel-Übersicht
 ```
@@ -72,6 +74,9 @@ src/ui/
   gleich. Dateinamen: `YYYY-MM-DD_HHMMSS_<Original>.jpg` in `Quer/` und `Hochkant/`.
 - **`current()`** liefert nur offene Fotos, außer beim Nachbearbeiten oder wenn `look_at` gesetzt ist
   (Klick im Bilderband auf ein schon entschiedenes Foto).
+- **Fotowand**: `cfg.walls` (Wände mit Plätzen, Hindernissen, Fotoliste), Maße in cm. Rechnen nur in
+  `src/wall/`, Bedienzustand in `ui::wall::WallUi`. Sie legt keine Dateien an; ihr Rückgängig ist ein
+  eigener Stapel (`wall_checkpoint()` vor jeder Änderung, `wall_undo()`), nicht `history`.
 - **Stick**: `system::copy_plan` gleicht ab; entfernt werden nur Dateien mit `is_our_name`.
 
 ## Regeln für Änderungen

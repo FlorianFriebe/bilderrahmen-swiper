@@ -26,6 +26,8 @@ mod reedit;
 #[cfg(test)]
 mod tests;
 mod textures;
+mod wall;
+pub use wall::WallScan;
 
 pub const QUER_FORMATS: &[&str] = &["16:9", "16:10", "4:3", "3:2", "5:4", "1:1"];
 pub const HOCH_FORMATS: &[&str] = &["9:16", "10:16", "3:4", "2:3", "4:5", "1:1"];
@@ -189,6 +191,12 @@ pub struct Config {
     pub install_asked: bool,
     /// beim Abgleich mit dem Stick nicht mehr behaltene Bilder dort entfernen
     pub copy_remove_stale: bool,
+    /// geplante Fotowände
+    pub walls: Vec<crate::wall::Wall>,
+    /// gerade offene Wand in `walls`
+    pub wall: usize,
+    /// Druckgrößen mit echten Maßen (anpassbar)
+    pub print_sizes: Vec<crate::wall::PrintSize>,
 }
 
 /// Neue Einführung zeigen, wenn sich die Bedienung geändert hat.
@@ -256,6 +264,9 @@ impl Default for Config {
             profile_asked: false,
             install_asked: false,
             copy_remove_stale: true,
+            walls: vec![],
+            wall: 0,
+            print_sizes: crate::wall::default_sizes(),
         }
     }
 }
@@ -266,6 +277,8 @@ pub enum View {
     Swipe,
     Gallery,
     Burst,
+    /// Fotowand planen
+    Wall,
 }
 
 pub struct FolderInfo {
@@ -459,6 +472,12 @@ pub struct SwiperApp {
     /// laufendes Ein-Klick-Update
     pub updater: Option<crate::update::Handle>,
     pub custom_frame: bool,
+    /// Fotowand: frühere Stände für Strg+Z
+    pub wall_history: Vec<crate::wall::Wall>,
+    /// Fotowand: Fotos werden gerade eingelesen
+    pub wall_scan: Option<WallScan>,
+    /// Fotowand: Zustand der Bedienung (Ziehen, Menüs)
+    pub wall_ui: crate::ui::wall::WallUi,
 }
 
 impl SwiperApp {
@@ -551,6 +570,9 @@ impl SwiperApp {
             update: system::check_update(ctx.clone()),
             updater: None,
             custom_frame: false,
+            wall_history: vec![],
+            wall_scan: None,
+            wall_ui: Default::default(),
         };
         app.custom_frame =
             !app.cfg.frame.is_empty() && !FRAMES.iter().any(|f| f.1 == app.cfg.frame);

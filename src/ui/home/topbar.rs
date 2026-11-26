@@ -9,16 +9,31 @@ pub(super) fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let pad = sp::S;
     let h = size::CONTROL;
     let cy = ws.top() + size::TOPBAR / 2.0;
-    // oben steht nur der Behalten-Zähler; Einstellungen sitzen unten in der Leiste
-    let bar = if app.total_kept > 0 {
-        let kept = format!("{} behalten", fmt_int(app.total_kept));
-        let kept_w = kit::pill_width(ui, &kept);
-        let bar = Rect::from_center_size(
-            pos2(ws.center().x, cy),
-            vec2(pad * 2.0 + kept_w, size::TOPBAR),
+    // oben: Fotowand und der Behalten-Zähler; Einstellungen sitzen unten in der Leiste
+    let kept = (app.total_kept > 0).then(|| format!("{} behalten", fmt_int(app.total_kept)));
+    let kept_w = kept
+        .as_ref()
+        .map(|k| kit::pill_width(ui, k) + sp::XS)
+        .unwrap_or(0.0);
+    let bar = Rect::from_center_size(
+        pos2(ws.center().x, cy),
+        vec2(pad * 2.0 + h + kept_w, size::TOPBAR),
+    );
+    kit::glass(&p, bar, radius::XL - 2);
+    let wall = Rect::from_min_size(pos2(bar.left() + pad, cy - h / 2.0), vec2(h, h));
+    if kit::icon_button(ui, wall, icons::WALL, true)
+        .on_hover_text(
+            "Fotowand planen: wie viele Fotos passen an deine Wand, und wie sieht es aus?",
+        )
+        .clicked()
+    {
+        app.open_wall();
+    }
+    if let Some(kept) = kept {
+        let r = Rect::from_min_size(
+            pos2(wall.right() + sp::XS, cy - h / 2.0),
+            vec2(kept_w - sp::XS, h),
         );
-        kit::glass(&p, bar, radius::XL - 2);
-        let r = Rect::from_min_size(pos2(bar.left() + pad, cy - h / 2.0), vec2(kept_w, h));
         if kit::pill(ui, r, icons::HEART, &kept, Tone::Keep)
             .on_hover_text(format!(
                 "Behaltene Bilder ansehen ({})",
@@ -28,10 +43,7 @@ pub(super) fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         {
             app.open_gallery();
         }
-        bar
-    } else {
-        Rect::from_center_size(pos2(ws.center().x, cy), vec2(0.0, size::TOPBAR))
-    };
+    }
     app.spots.menu = Some(bar);
 
     let update = app.update.lock().unwrap().clone();

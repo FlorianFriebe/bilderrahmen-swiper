@@ -13,6 +13,7 @@ pub mod style;
 mod swipe;
 pub mod textstyles;
 pub mod viewer;
+pub mod wall;
 
 pub use frame::frame;
 
