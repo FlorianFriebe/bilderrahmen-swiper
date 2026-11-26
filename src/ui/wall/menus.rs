@@ -168,21 +168,47 @@ fn photos(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
     let has = !app.wall().photos.is_empty();
     let src = app.wall().source.clone();
     let mut act = 0;
-    let keep = form_popup(ui, "wall_photos", anchor, 320.0, false, |ui| {
+    let w = app.wall();
+    let places = w.pieces.len();
+    let sorting = w.target.is_some() && w.source == w.target;
+    let sort_sub = if w.target.is_none() {
+        format!("{} per Wischen, im Format {}", bilder(places), w.size)
+    } else {
+        format!("{} von {} da, im Format {}", w.photos.len(), places, w.size)
+    };
+    let keep = form_popup(ui, "wall_photos", anchor, 340.0, false, |ui| {
         caption(ui, "Fotos für die Wand");
+        if menu_row(ui, "Dafür sortieren", &sort_sub, sorting).clicked() && places > 0 {
+            act = 3;
+        }
         let sub = if kept == 0 {
             "Noch keine – erst sortieren".to_string()
         } else {
             format!("{}, schon zugeschnitten", bilder(kept))
         };
-        if menu_row(ui, "Behaltene Bilder", &sub, has && src.is_none()).clicked() && kept > 0 {
+        if menu_row(
+            ui,
+            "Behaltene Bilder",
+            &sub,
+            has && src.is_none() && !sorting,
+        )
+        .clicked()
+            && kept > 0
+        {
             act = 1;
         }
         let sub = match &src {
             Some(f) if has => crate::folders::file_name(f),
             _ => "Fotos, die du schon sortiert hast".into(),
         };
-        if menu_row(ui, "Ordner wählen …", &sub, has && src.is_some()).clicked() {
+        if menu_row(
+            ui,
+            "Ordner wählen …",
+            &sub,
+            has && src.is_some() && !sorting,
+        )
+        .clicked()
+        {
             act = 2;
         }
         act == 0
@@ -190,6 +216,7 @@ fn photos(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
     match act {
         1 => app.wall_use_kept(),
         2 => app.wall_pick_folder(),
+        3 => app.sort_for_wall(),
         _ => {}
     }
     keep
@@ -292,7 +319,9 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
     let names: Vec<String> = app.sizes().iter().map(|s| s.name.clone()).collect();
     let last = app.wall().pieces.len() - 1;
     let mut size: Option<String> = None;
-    // 1 drehen, 2 nach vorn, 3 nach hinten, 4 abnehmen, 5 entfernen
+    // nur Bilder aus dem aktiven Zielordner lassen sich neu zuschneiden
+    let own = pc.photo.as_deref().and_then(|f| app.original_of(f));
+    // 1 drehen, 2 nach vorn, 3 nach hinten, 4 abnehmen, 5 entfernen, 6 Zuschnitt
     let mut act = 0;
     let keep = form_popup(ui, "wall_ctx", anchor, 260.0, false, |ui| {
         caption(ui, "Größe");
@@ -319,6 +348,11 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
         if i > 0 && menu_row(ui, "Nach hinten", "Liegt unter den anderen", false).clicked() {
             act = 3;
         }
+        if own.is_some()
+            && menu_row(ui, "Zuschnitt ändern", "Doppelklick aufs Foto", false).clicked()
+        {
+            act = 6;
+        }
         if pc.photo.is_some()
             && menu_row(ui, "Foto abnehmen", "Der Platz bleibt frei", false).clicked()
         {
@@ -331,6 +365,12 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
     });
     if act == 0 && size.is_none() {
         return keep;
+    }
+    if act == 6 {
+        if let Some(f) = &pc.photo {
+            app.wall_reedit(f);
+        }
+        return false;
     }
     app.wall_checkpoint();
     let sizes = app.sizes().to_vec();

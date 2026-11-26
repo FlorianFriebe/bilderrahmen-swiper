@@ -299,6 +299,13 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
             tip.push_str(
                 "\nZiehen: verschieben · auf ein anderes Foto: tauschen · Rechtsklick: mehr",
             );
+            if pc
+                .photo
+                .as_deref()
+                .is_some_and(|f| app.original_of(f).is_some())
+            {
+                tip.push_str("\nDoppelklick: Zuschnitt ändern");
+            }
             let _ = resp.clone().on_hover_text(tip);
         }
     } else {
@@ -313,7 +320,14 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     }
     if resp.double_clicked() {
         if let Some(Hit::Piece(i)) = hit {
-            fill_empty(app, i);
+            match app.wall().pieces[i].photo.clone() {
+                Some(f) => {
+                    if app.original_of(&f).is_some() {
+                        app.wall_reedit(&f);
+                    }
+                }
+                None => fill_empty(app, i),
+            }
         }
     }
     if resp.secondary_clicked() {

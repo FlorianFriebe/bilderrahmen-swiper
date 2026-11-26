@@ -3,6 +3,18 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.15.0
+
+- Neu: **Für die Wand sortieren**. Im Bilder-Menü der Fotowand startet „Dafür sortieren“ das
+  gewohnte Wischen mit der Wand als Ziel. Die App legt dafür ein eigenes Profil mit eigenem
+  Ordner an, schneidet behaltene Fotos gleich im Format des Abzugs zu (z. B. 10x15) und zählt
+  mit: „Für die Wand: 12 von 28 Bildern, noch 16“.
+- Ein Klick auf diese Zeile auf der Startseite bringt dich zur Wand. Neue Bilder füllen dort
+  von selbst die freien Plätze, passend quer oder hochkant.
+- Ändert sich die Wand (Größe, Abstand, Druckgröße), ziehen Ziel und Zuschnitt mit.
+- Doppelklick auf ein Foto an der Wand öffnet den Zuschnitt; danach geht es zur Wand zurück.
+- Wählst du als Ordner einen Zielordner der App, kommen die Bilder aus „Quer“ und „Hochkant“ mit.
+
 ## 3.14.0
 
 - Neu: **Fotowand planen**. Der Wand-Knopf oben auf der Startseite öffnet eine eigene Ansicht.

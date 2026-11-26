@@ -30,6 +30,13 @@ impl SwiperApp {
                 Orient::Hochkant => format!("{b}{sep}{a}"),
             };
         }
+        // für eine Fotowand: die Druckgröße statt krummer Zahlen wie „15,2:10,2“
+        if let Some(w) = self.sorting_wall() {
+            let (q, h) = crate::wall::crop_ratios(&self.cfg.print_sizes, &w.size);
+            if q == self.cfg.ratio_quer && h == self.cfg.ratio_hoch {
+                return w.size.clone();
+            }
+        }
         match o {
             Orient::Quer => self.cfg.ratio_quer.clone(),
             Orient::Hochkant => self.cfg.ratio_hoch.clone(),

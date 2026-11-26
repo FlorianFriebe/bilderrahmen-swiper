@@ -25,6 +25,7 @@ impl SwiperApp {
         self.wall_history.clear();
         self.wall_ui = Default::default();
         self.view = View::Wall;
+        self.wall_refresh();
     }
 
     pub fn sizes(&self) -> &[PrintSize] {
@@ -98,6 +99,7 @@ impl SwiperApp {
         if i < self.cfg.walls.len() && i != self.cfg.wall {
             self.cfg.wall = i;
             self.wall_history.clear();
+            self.wall_refresh();
         }
     }
 
@@ -128,7 +130,7 @@ impl SwiperApp {
             .set_directory(start)
             .pick_folder()
         {
-            let files = folders::images_in(&dir);
+            let files = super::wall_sort::wall_files(&dir);
             if files.is_empty() {
                 self.toast("In diesem Ordner sind keine Fotos.".into());
                 return;
@@ -151,7 +153,10 @@ impl SwiperApp {
             self.toast("Noch keine Bilder behalten.".into());
             return;
         }
-        self.wall_mut().source = None;
+        self.wall_mut().source = self
+            .sorting_wall()
+            .is_some()
+            .then(|| self.cfg.target.clone());
         self.wall_read(files);
     }
 
@@ -211,6 +216,11 @@ impl SwiperApp {
         }
         self.wall_checkpoint();
         let n = photos.len();
+        let added = {
+            let had: HashSet<&PathBuf> = self.wall().photos.iter().map(|p| &p.path).collect();
+            photos.iter().filter(|p| !had.contains(&p.path)).count()
+        };
+        let first = self.wall().photos.is_empty();
         let manual = self.wall().manual;
         let pool: HashSet<PathBuf> = photos.iter().map(|p| p.path.clone()).collect();
         let w = self.wall_mut();
@@ -222,10 +232,19 @@ impl SwiperApp {
                     p.photo = None;
                 }
             }
+            let sizes = self.cfg.print_sizes.clone();
+            wl::fill_empty(self.wall_mut(), &sizes);
         } else {
             let pieces = wl::propose(self.wall(), self.sizes());
             self.wall_mut().pieces = pieces;
         }
-        self.toast_with_undo(format!("{} für die Wand", crate::ui::bilder(n)));
+        let msg = if first || added == 0 {
+            format!("{} für die Wand", crate::ui::bilder(n))
+        } else if added == 1 {
+            "1 neues Bild für die Wand".to_string()
+        } else {
+            format!("{added} neue Bilder für die Wand")
+        };
+        self.toast_with_undo(msg);
     }
 }

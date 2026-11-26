@@ -63,6 +63,7 @@ impl SwiperApp {
                 pos: self.pos,
                 groups: std::mem::take(&mut self.groups),
                 finished: self.finished.take(),
+                to_wall: false,
             });
         }
         self.groups = vec![(0, 1); list.len()];
@@ -79,6 +80,7 @@ impl SwiperApp {
     /// Feinschliff zur Abschlussseite des Ordners.
     pub(crate) fn end_reedit(&mut self) {
         let polish = self.reedit.as_ref().is_some_and(|r| r.polish);
+        let to_wall = self.reedit.as_ref().is_some_and(|r| r.to_wall);
         if let Some(r) = self.reedit.take() {
             self.folder = r.folder;
             self.items = r.items;
@@ -92,7 +94,9 @@ impl SwiperApp {
         self.fill_panel = false;
         self.adjust_panel = false;
         self.text_panel = false;
-        if polish {
+        if to_wall {
+            self.back_to_wall();
+        } else if polish {
             self.view = View::Home;
             self.refresh_folders();
         } else {

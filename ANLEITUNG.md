@@ -233,7 +233,8 @@ gedruckter Fotos:
 
 1. **Wand einstellen** (Lineal-Knopf oder Klick auf die Maße): Breite und Höhe in cm,
    Druckgröße und **Abstand**. Ganz nach links geschoben überlappen sich die Fotos.
-2. **Fotos wählen** (Bilder-Knopf): deine behaltenen Bilder oder ein Ordner mit fertigen Fotos.
+2. **Fotos wählen** (Bilder-Knopf): deine behaltenen Bilder, ein Ordner mit fertigen Fotos oder
+   **Dafür sortieren** (siehe unten).
 3. Oben steht, wie viele **Plätze** die Wand hat und wie viele Fotos **fehlen** oder **übrig** sind.
    Daneben siehst du, wie viele es mit der nächstkleineren oder -größeren Druckgröße wären.
 4. **Hindernisse** (gestrichelter Knopf): Fläche aufziehen, die frei bleiben soll, z. B.
@@ -243,6 +244,20 @@ gedruckter Fotos:
    ein Foto: Größe, quer/hochkant, nach vorn/hinten, entfernen. Der Zauberstab ordnet alles neu.
 6. **Strg+Z** nimmt jeden Schritt zurück. Alles wird automatisch gespeichert, auch mehrere Wände
    (Klick auf den Namen der Wand).
+
+### Für die Wand sortieren
+
+Hast du die Fotos noch nicht ausgesucht, plane erst die Wand und wähle dann im Bilder-Menü
+**Dafür sortieren**. Die App legt ein Profil mit dem Namen der Wand und einem eigenen Ordner an
+(neben deinem bisherigen Zielordner) und bringt dich zur Startseite. Dort wischst du wie gewohnt:
+
+- Behaltene Fotos werden gleich im Format des Abzugs zugeschnitten (z. B. 10x15).
+- Oben steht, wie viele du schon hast: *Für die Wand „Flur“: 12 von 28 Bildern, noch 16*.
+  Ein Klick auf diese Zeile bringt dich zur Wand.
+- An der Wand füllen neue Bilder von selbst die freien Plätze. Ein **Doppelklick** auf ein Foto
+  öffnet den Zuschnitt, danach bist du wieder an der Wand.
+- Änderst du die Wand, passen sich Ziel und Zuschnitt an. Zurück zu deinem Bilderrahmen geht es
+  über das Profil in der Leiste.
 
 Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über die Wand. Gelbe Umrandung mit
 Prozentzahl: so viel vom Foto ist verdeckt. Die App rechnet mit den echten Maßen der Abzüge

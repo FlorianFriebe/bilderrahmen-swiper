@@ -181,3 +181,49 @@ fn labels_read_naturally() {
     assert_eq!(gap_label(0.0), "Kante an Kante");
     assert_eq!(fmt_cm(10.2), "10,2");
 }
+
+#[test]
+fn crop_ratio_follows_the_real_print() {
+    let s = default_sizes();
+    assert_eq!(
+        crop_ratios(&s, "10x15"),
+        ("15,2:10,2".to_string(), "10,2:15,2".to_string())
+    );
+    assert_eq!(crop_ratios(&s, "15x15").0, "1:1");
+    let r = crate::imaging::parse_ratio(&crop_ratios(&s, "10x15").0).unwrap();
+    assert!((r - 15.2 / 10.2).abs() < 0.001, "{r}");
+}
+
+#[test]
+fn folder_names_are_safe() {
+    assert_eq!(safe_name("Flur: oben/links"), "Flur_ oben_links");
+    assert_eq!(safe_name("  "), "Fotowand");
+    assert_eq!(safe_name("Wand."), "Wand");
+}
+
+#[test]
+fn new_photos_fill_matching_empty_places() {
+    let s = default_sizes();
+    let mut w = wall(100.0, 60.0, 3.0);
+    let pc = |hoch: bool, photo: Option<&str>| Piece {
+        size: "10x15".into(),
+        hoch,
+        photo: photo.map(PathBuf::from),
+        ..Default::default()
+    };
+    w.pieces = vec![pc(false, Some("a")), pc(false, None), pc(true, None)];
+    let ph = |p: &str, ratio: f32| WallPhoto {
+        path: p.into(),
+        ratio,
+    };
+    w.photos = vec![
+        ph("a", 1.5),
+        ph("hoch", 0.67),
+        ph("quer", 1.5),
+        ph("rest", 1.5),
+    ];
+    assert_eq!(fill_empty(&mut w, &s), 2);
+    assert_eq!(w.pieces[1].photo.as_deref(), Some(Path::new("quer")));
+    assert_eq!(w.pieces[2].photo.as_deref(), Some(Path::new("hoch")));
+    assert_eq!(unplaced(&w).len(), 1);
+}
