@@ -39,6 +39,7 @@ src/app/             Zustand SwiperApp + Logik, ein impl-Block pro Thema
   profiles.rs        Profile je Bilderrahmen
   textures.rs        Ergebnisse der Worker abholen (Speichern, Vorschaubilder, Texturen)
   wall.rs            Fotowand: Wände anlegen/wechseln, Fotos einlesen, Vorschlag, eigenes Rückgängig
+  wall_sort.rs       Für die Wand sortieren: Profil je Wand (Ziel, Zuschnitt), Wand nachladen
   tests.rs           Ablauf-Tests ohne UI (Behalten, Rückgängig, Ganz von vorn, Nachbearbeiten)
 src/wall/            Fotowand ohne UI: Druckgrößen (echte Maße), Raster, Hindernisse, Verdeckung, Einrasten
 src/history.rs       Rückgängig: Step-Stapel, Papierkorb `.papierkorb` (14 Tage), Ganz von vorn
@@ -77,6 +78,8 @@ src/ui/
 - **Fotowand**: `cfg.walls` (Wände mit Plätzen, Hindernissen, Fotoliste), Maße in cm. Rechnen nur in
   `src/wall/`, Bedienzustand in `ui::wall::WallUi`. Sie legt keine Dateien an; ihr Rückgängig ist ein
   eigener Stapel (`wall_checkpoint()` vor jeder Änderung, `wall_undo()`), nicht `history`.
+  Zum Sortieren bekommt eine Wand ein normales Profil: `Wall::target` = dessen Zielordner,
+  `sync_wall_profiles()` hält Ziel und Zuschnitt gleich, `sorting_wall()` sagt, ob es aktiv ist.
 - **Stick**: `system::copy_plan` gleicht ab; entfernt werden nur Dateien mit `is_our_name`.
 
 ## Regeln für Änderungen

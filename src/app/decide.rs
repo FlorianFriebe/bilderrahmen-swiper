@@ -169,10 +169,14 @@ impl SwiperApp {
             && !self.goal_announced
         {
             self.goal_announced = true;
-            self.toast(format!(
-                "Ziel erreicht: {} Bilder behalten!",
-                fmt_int(self.total_kept)
-            ));
+            let msg = match self.sorting_wall() {
+                Some(w) => format!("Genug Bilder für die Wand „{}“!", w.name),
+                None => format!(
+                    "Ziel erreicht: {} Bilder behalten!",
+                    fmt_int(self.total_kept)
+                ),
+            };
+            self.toast(msg);
         }
     }
 

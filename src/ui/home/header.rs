@@ -8,12 +8,30 @@ pub(super) struct Header {
     title: String,
     sub: String,
     goal: Option<String>,
+    /// Ziel gehört zu einer Fotowand: Klick auf die Zeile öffnet sie
+    to_wall: bool,
 }
 
 pub(super) fn header_lines(app: &SwiperApp) -> Header {
+    let wall = app.sorting_wall().map(|w| w.name.clone());
     let goal = (app.cfg.goal > 0).then(|| {
         let goal = app.cfg.goal as usize;
         let left = goal.saturating_sub(app.total_kept);
+        if let Some(name) = &wall {
+            return if left == 0 {
+                format!(
+                    "Genug für die Wand „{name}“: {} · zur Wand",
+                    bilder(app.total_kept)
+                )
+            } else {
+                format!(
+                    "Für die Wand „{name}“: {} von {}, noch {} · zur Wand",
+                    fmt_int(app.total_kept),
+                    bilder(goal),
+                    fmt_int(left)
+                )
+            };
+        }
         if left == 0 {
             format!(
                 "Ziel erreicht: {} von {}",
@@ -48,12 +66,14 @@ pub(super) fn header_lines(app: &SwiperApp) -> Header {
         return Header {
             title: format!("Fertig mit „{label}“"),
             sub,
+            to_wall: wall.is_some() && goal.is_some(),
             goal,
         };
     }
     Header {
         title: "Welche Fotos möchtest du durchgehen?".into(),
         sub: String::new(),
+        to_wall: wall.is_some() && goal.is_some(),
         goal,
     }
 }
@@ -104,13 +124,31 @@ impl Header {
         }
         if let Some(g) = &self.goal {
             *y += sp::S;
-            p.text(
+            let r = p.text(
                 pos2(cx, *y + 9.0),
                 Align2::CENTER_CENTER,
                 g,
                 font(ts::BODY, W::Medium),
                 keep(),
             );
+            if self.to_wall {
+                let resp = ui
+                    .interact(r, ui.make_persistent_id("goal_wall"), Sense::click())
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_text("Zur Fotowand: sehen, wie die Bilder an der Wand hängen");
+                if resp.hovered() {
+                    p.line_segment(
+                        [
+                            pos2(r.left(), r.bottom() + 1.0),
+                            pos2(r.right(), r.bottom() + 1.0),
+                        ],
+                        Stroke::new(1.0, keep()),
+                    );
+                }
+                if resp.clicked() {
+                    app.open_sorting_wall();
+                }
+            }
             *y += 18.0;
         }
         if app.finished.is_none() {

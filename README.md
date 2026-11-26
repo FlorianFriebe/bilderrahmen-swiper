@@ -70,6 +70,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Eigene Ansicht ab der Startseite: Wandmaße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
 - Rechner: Plätze an der Wand, vorhandene Fotos, was fehlt oder übrig ist, Vergleich mit der nächsten Druckgröße
 - Abstand oder Überlappung per Regler, verdeckter Anteil pro Foto, Hindernisse (Lichtschalter, Möbel) bleiben frei
+- Für die Wand sortieren: eigenes Profil mit Ordner, Zuschnitt im Format des Abzugs, Ziel = Plätze an der Wand; neue Bilder füllen freie Plätze, Doppelklick öffnet den Zuschnitt
 - Fotos aus den behaltenen Bildern oder einem Ordner; verschieben mit Einrasten, tauschen, Größe und Ausrichtung pro Foto, mehrere Wände, Rückgängig
 
 **Bedienung**
@@ -125,7 +126,7 @@ nächste Foto wird vorgeladen.
 src/
   main.rs        Start, Fenster, Grafik-Ausweichweg
   app/           Zustand und Logik, je Thema ein Modul (Ordner, Entscheiden, Bearbeiten,
-                 Nachbearbeiten, Serien, Stick, Tasten, Profile)
+                 Nachbearbeiten, Serien, Stick, Tasten, Profile, Fotowand)
   history.rs     Rückgängig: Schritte, Papierkorb, Ganz von vorn
   wall/          Fotowand: Druckgrößen, Plätze im Raster, Hindernisse, Verdeckung, Einrasten
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)

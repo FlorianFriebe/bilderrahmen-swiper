@@ -156,3 +156,49 @@ fn frame_resolution_sets_format_and_size() {
     assert!((o.ratio_quer - 1.6).abs() < 1e-3);
     assert!((o.ratio_hoch - 0.625).abs() < 1e-3);
 }
+
+#[test]
+fn sorting_for_a_wall_fills_it() {
+    let (mut app, base, f) = setup("wall");
+    app.open_wall();
+    let places = app.wall().pieces.len();
+    assert!(places > 0);
+    app.sort_for_wall();
+    let target = base.join("Meine Fotowand");
+    assert_eq!(app.cfg.target, target, "eigener Ordner für die Wand");
+    assert_eq!(app.cfg.goal as usize, places, "Ziel = Plätze an der Wand");
+    assert_eq!(app.cfg.ratio_quer, "15,2:10,2", "Zuschnitt wie der Abzug");
+    assert_eq!(app.view, View::Home);
+    assert!(app.sorting_wall().is_some());
+
+    // ein Foto behalten: es wird im Druckformat gespeichert
+    app.record(&f[0], true);
+    wait_saved(&mut app);
+    let out = out_of(&app, &f[0]);
+    assert!(out.starts_with(&target));
+    let (w, h) = image::image_dimensions(&out).unwrap();
+    assert!(
+        ((w as f32 / h as f32) - 15.2 / 10.2).abs() < 0.02,
+        "{w}x{h}"
+    );
+
+    // zurück zur Wand: das neue Bild hängt auf dem ersten Platz
+    app.open_sorting_wall();
+    let t0 = Instant::now();
+    while app.wall_scan.is_some() {
+        app.poll_wall_scan();
+        assert!(t0.elapsed() < Duration::from_secs(30), "Einlesen hängt");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(app.wall().photos.len(), 1);
+    assert_eq!(app.wall().pieces[0].photo.as_ref(), Some(&out));
+    assert_eq!(app.original_of(&out), Some(f[0].clone()));
+
+    // Wand kleiner: das Ziel zieht mit
+    app.wall_mut().w = 60.0;
+    app.wall_settings_changed();
+    app.sync_wall_profiles();
+    assert_eq!(app.cfg.goal as usize, app.wall().pieces.len());
+    assert!(app.wall().pieces.len() < places);
+    let _ = fs::remove_dir_all(&base);
+}

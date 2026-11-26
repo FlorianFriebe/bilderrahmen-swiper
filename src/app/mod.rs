@@ -27,6 +27,7 @@ mod reedit;
 mod tests;
 mod textures;
 mod wall;
+mod wall_sort;
 pub use wall::WallScan;
 
 pub const QUER_FORMATS: &[&str] = &["16:9", "16:10", "4:3", "3:2", "5:4", "1:1"];
@@ -328,6 +329,8 @@ pub struct Reedit {
     pos: usize,
     groups: Vec<(usize, usize)>,
     finished: Option<PathBuf>,
+    /// aus der Fotowand gestartet: danach dorthin zurück
+    pub to_wall: bool,
 }
 
 /// (Foto, Anzahl behaltener, bekannte Abdrücke, Ergebnis)

@@ -92,6 +92,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     if app.cfg.walls.is_empty() {
         app.open_wall();
     }
+    app.sync_wall_profiles();
     if !top_bar(app, ui, ws) {
         return;
     }
@@ -321,10 +322,15 @@ fn calc_row(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, top: f32) {
     let mut x = ws.center().x - total / 2.0;
     let r = |x: f32, w: f32| Rect::from_min_size(pos2(x, top), vec2(w, CALC_H));
 
+    let more = if photos < places {
+        "\nKlick: Fotos wählen oder dafür sortieren."
+    } else {
+        ""
+    };
     let resp = kit::chip(ui, r(x, main_w), glyph, false, &main, tone).on_hover_text(format!(
-        "{print}\nPlätze = so viele Fotos passen mit diesen Einstellungen an die Wand."
+        "{print}\nPlätze = so viele Fotos passen mit diesen Einstellungen an die Wand.{more}"
     ));
-    if resp.clicked() && photos == 0 {
+    if resp.clicked() && photos < places {
         app.wall_ui.popup = Some((1, resp.rect));
     }
     x += main_w + sp::S;

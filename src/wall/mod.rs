@@ -159,6 +159,8 @@ pub struct Wall {
     pub source: Option<PathBuf>,
     /// Plätze wurden von Hand verschoben: Einstellungen ordnen dann nicht mehr neu an
     pub manual: bool,
+    /// Zielordner, in den für diese Wand sortiert wird (eigenes Profil, leer = noch nie)
+    pub target: Option<PathBuf>,
 }
 
 impl Default for Wall {
@@ -174,6 +176,7 @@ impl Default for Wall {
             photos: vec![],
             source: None,
             manual: false,
+            target: None,
         }
     }
 }
@@ -368,4 +371,45 @@ pub fn fmt_cm(v: f32) -> String {
     } else {
         format!("{r:.1}").replace('.', ",")
     }
+}
+
+/// Seitenverhältnisse (quer, hochkant) für den Zuschnitt beim Sortieren, aus den echten Maßen,
+/// z. B. „15,2:10,2“ und „10,2:15,2“.
+pub fn crop_ratios(sizes: &[PrintSize], size: &str) -> (String, String) {
+    let s = size_of(sizes, size).cloned().unwrap_or_default();
+    if (s.long - s.short).abs() < 0.05 {
+        return ("1:1".into(), "1:1".into());
+    }
+    let (l, k) = (fmt_cm(s.long), fmt_cm(s.short));
+    (format!("{l}:{k}"), format!("{k}:{l}"))
+}
+
+/// Name, der als Ordnername taugt (verbotene Zeichen werden zu „_“).
+pub fn safe_name(name: &str) -> String {
+    let s: String = name
+        .trim()
+        .chars()
+        .map(|c| if "\\/:*?\"<>|".contains(c) { '_' } else { c })
+        .collect();
+    let s = s.trim_end_matches(['.', ' ']).to_string();
+    if s.is_empty() {
+        "Fotowand".into()
+    } else {
+        s
+    }
+}
+
+/// Leere Plätze mit Fotos füllen, die noch nicht hängen; nur wenn quer/hochkant passt
+/// (bei quadratischen Größen passt alles). Gibt zurück, wie viele dazukamen.
+pub fn fill_empty(wall: &mut Wall, sizes: &[PrintSize]) -> usize {
+    let mut free: Vec<WallPhoto> = unplaced(wall).into_iter().cloned().collect();
+    let mut n = 0;
+    for p in wall.pieces.iter_mut().filter(|p| p.photo.is_none()) {
+        let square = size_of(sizes, &p.size).is_some_and(|s| (s.long - s.short).abs() < 0.05);
+        if let Some(i) = free.iter().position(|f| square || f.hoch() == p.hoch) {
+            p.photo = Some(free.remove(i).path);
+            n += 1;
+        }
+    }
+    n
 }
