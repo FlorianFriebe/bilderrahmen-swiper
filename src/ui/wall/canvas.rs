@@ -1,32 +1,30 @@
-//! Die Wand selbst: maßstabsgetreu zeichnen, Lineal, Plätze und Hindernisse ziehen,
-//! Fotos aus dem Band ablegen, tauschen und abnehmen.
+//! Die Wand selbst: maßstabsgetreu zeichnen (mit Zoom), Lineal, Plätze mit Pins und sanftem
+//! Gleiten beim Neuordnen, Hindernisse mit Rand, Ziehen beginnen, Klicks und Rechtsklick.
 
 use egui::{Color32, CursorIcon, Painter, Shape};
 
 use super::*;
+use super::{drag, zoom};
 use crate::ui::image_cover;
-use crate::wall::{Area, Obstacle, Piece};
+use crate::wall::{Area, Piece};
 
 /// Platz für das Lineal oben und links.
 const RULER: f32 = 22.0;
-/// Einrasten in Bildschirmpunkten (wird in cm umgerechnet).
-const SNAP_PX: f32 = 8.0;
-
 /// Wand-Rechteck auf dem Bildschirm und Umrechnungen.
 #[derive(Clone, Copy)]
-struct View2 {
-    wr: Rect,
-    s: f32,
+pub(super) struct View2 {
+    pub wr: Rect,
+    pub s: f32,
 }
 
 impl View2 {
-    fn cm(&self, p: Pos2) -> (f32, f32) {
+    pub fn cm(&self, p: Pos2) -> (f32, f32) {
         (
             (p.x - self.wr.left()) / self.s,
             (p.y - self.wr.top()) / self.s,
         )
     }
-    fn px(&self, a: Area) -> Rect {
+    pub fn px(&self, a: Area) -> Rect {
         Rect::from_min_size(
             self.wr.min + vec2(a.x * self.s, a.y * self.s),
             vec2(a.w * self.s, a.h * self.s),
@@ -34,12 +32,12 @@ impl View2 {
     }
 }
 
-fn view_of(app: &SwiperApp) -> Option<View2> {
+pub(super) fn view_of(app: &SwiperApp) -> Option<View2> {
     app.wall_ui.wall_rect.map(|(wr, s)| View2 { wr, s })
 }
 
 /// Oberster Platz, dann Hindernis, dann freie Wand unter dem Punkt (cm).
-fn hit_test(app: &SwiperApp, x: f32, y: f32, skip: Option<usize>) -> Option<Hit> {
+pub(super) fn hit_test(app: &SwiperApp, x: f32, y: f32, skip: Option<usize>) -> Option<Hit> {
     let w = app.wall();
     let sizes = app.sizes();
     if let Some(i) = (0..w.pieces.len())
@@ -55,63 +53,22 @@ fn hit_test(app: &SwiperApp, x: f32, y: f32, skip: Option<usize>) -> Option<Hit>
     (x >= 0.0 && y >= 0.0 && x <= w.w && y <= w.h).then_some(Hit::Wall(x, y))
 }
 
-/// Zielposition (cm, linke obere Ecke) für einen gezogenen Platz.
-fn piece_target(app: &SwiperApp, v: View2, idx: usize, grab: (f32, f32), at: Pos2) -> (f32, f32) {
-    let (cx, cy) = v.cm(at);
-    let w = app.wall();
-    let (pw, ph) = w.pieces[idx].dims(app.sizes());
-    let x = (cx - grab.0).clamp(-pw * 0.5, w.w - pw * 0.5);
-    let y = (cy - grab.1).clamp(-ph * 0.5, w.h - ph * 0.5);
-    wl::snap(w, app.sizes(), idx, x, y, SNAP_PX / v.s)
-}
-
-/// Platz, mit dem beim Loslassen getauscht würde (Zeiger im inneren Bereich eines anderen).
-fn swap_target(app: &SwiperApp, v: View2, idx: usize, at: Pos2) -> Option<usize> {
-    let (x, y) = v.cm(at);
-    match hit_test(app, x, y, Some(idx))? {
-        Hit::Piece(j) => {
-            let a = app.wall().pieces[j].area(app.sizes());
-            let inner = Area {
-                x: a.x + a.w * 0.25,
-                y: a.y + a.h * 0.25,
-                w: a.w * 0.5,
-                h: a.h * 0.5,
-            };
-            inner.contains(x, y).then_some(j)
-        }
-        _ => None,
-    }
-}
-
-/// Neuer Platz für ein Foto aus dem Band, mittig unter dem Zeiger.
-fn new_piece(app: &SwiperApp, v: View2, photo: &std::path::Path, at: Pos2) -> Piece {
-    let w = app.wall();
-    let hoch = w
-        .photos
-        .iter()
-        .find(|p| p.path == photo)
-        .is_some_and(|p| p.hoch());
-    let mut p = Piece {
-        photo: Some(photo.to_path_buf()),
-        size: w.size.clone(),
-        hoch,
-        ..Default::default()
-    };
-    let (pw, ph) = p.dims(app.sizes());
-    let (cx, cy) = v.cm(at);
-    p.x = cx - pw / 2.0;
-    p.y = cy - ph / 2.0;
-    p
-}
-
 pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     let (ww, wh) = (app.wall().w.max(1.0), app.wall().h.max(1.0));
-    let avail = Rect::from_min_max(area.min + vec2(RULER, RULER), area.max);
-    let s = (avail.width() / ww).min(avail.height() / wh).max(0.01);
-    let wr = Rect::from_center_size(avail.center(), vec2(ww * s, wh * s));
+    let avail = Rect::from_min_max(area.min + vec2(RULER, RULER), area.max - vec2(sp::S, sp::S));
+    let canvas = ui.interact(
+        area,
+        ui.make_persistent_id("wall_canvas"),
+        Sense::click_and_drag(),
+    );
+    zoom::input(app, ui, area, avail.center());
+    let fit = (avail.width() / ww).min(avail.height() / wh).max(0.01);
+    let s = fit * app.wall_ui.zoom();
+    zoom::clamp(app, area, vec2(ww * s, wh * s));
+    let wr = Rect::from_center_size(avail.center() + app.wall_ui.pan, vec2(ww * s, wh * s));
     let v = View2 { wr, s };
     app.wall_ui.wall_rect = Some((wr, s));
-    let p = ui.painter().clone();
+    let p = ui.painter().with_clip_rect(area);
 
     // Wand
     p.rect(
@@ -121,31 +78,45 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         Stroke::new(1.0, divider()),
         StrokeKind::Outside,
     );
+    // Rand zur Kante, ganz leise
+    let m = app.wall().margin;
+    if m > 0.1 && m * 2.0 < ww.min(wh) {
+        let inner = v.px(Area {
+            x: m,
+            y: m,
+            w: ww - 2.0 * m,
+            h: wh - 2.0 * m,
+        });
+        dashed_rect(&p, inner, divider());
+    }
     ruler(&p, wr, s, ww, wh);
 
-    let resp = ui.interact(
-        wr.expand(6.0),
-        ui.make_persistent_id("wall_canvas"),
-        Sense::click_and_drag(),
-    );
-    let hover = ui.input(|i| i.pointer.hover_pos());
+    let resp = canvas;
+    let hover = ui
+        .input(|i| i.pointer.hover_pos())
+        .filter(|h| area.contains(*h));
     let hit = hover.and_then(|h| {
         let (x, y) = v.cm(h);
         hit_test(app, x, y, None)
     });
+    let space = ui.input(|i| i.key_down(egui::Key::Space));
 
     // Ziehen beginnen
-    if resp.drag_started() && app.wall_ui.drag.is_none() {
+    let middle = ui.input(|i| i.pointer.middle_down());
+    if (resp.drag_started() || (middle && resp.hovered())) && app.wall_ui.drag.is_none() {
         if let Some(o) = ui.input(|i| i.pointer.press_origin()) {
             let (x, y) = v.cm(o);
             app.wall_ui.menu = None;
-            app.wall_ui.drag = if app.wall_ui.draw {
+            app.wall_ui.drag = if space || middle {
+                Some(Drag::Pan)
+            } else if app.wall_ui.draw {
                 Some(Drag::NewObstacle((x.clamp(0.0, ww), y.clamp(0.0, wh))))
             } else {
                 match hit_test(app, x, y, None) {
                     Some(Hit::Piece(i)) => {
                         let (px, py) = (app.wall().pieces[i].x, app.wall().pieces[i].y);
                         app.wall_ui.sel = Some(i);
+                        app.wall_ui.sel_obstacle = None;
                         Some(Drag::Piece {
                             idx: i,
                             grab: (x - px, y - py),
@@ -153,26 +124,43 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                     }
                     Some(Hit::Obstacle(i)) => {
                         let a = app.wall().obstacles[i].area;
+                        app.wall_ui.sel = None;
+                        app.wall_ui.sel_obstacle = Some(i);
                         Some(Drag::Obstacle {
                             idx: i,
                             grab: (x - a.x, y - a.y),
                         })
                     }
-                    _ => None,
+                    _ => Some(Drag::Pan),
                 }
             };
         }
     }
-
-    // Hindernisse
-    for (i, o) in app.wall().obstacles.iter().enumerate() {
-        let moving = matches!(app.wall_ui.drag, Some(Drag::Obstacle { idx, .. }) if idx == i);
-        let r = v.px(o.area);
-        let col = if moving { accent() } else { muted() };
-        obstacle(&p, r, &o.label, col, hit == Some(Hit::Obstacle(i)));
+    if app.wall_ui.drag == Some(Drag::Pan) {
+        app.wall_ui.pan += ui.input(|i| i.pointer.delta());
     }
 
-    // Plätze
+    // Hindernisse mit ihrem Rand
+    for (i, o) in app.wall().obstacles.iter().enumerate() {
+        let moving = matches!(app.wall_ui.drag, Some(Drag::Obstacle { idx, .. }) if idx == i);
+        let picked = app.wall_ui.sel_obstacle == Some(i);
+        if let Some(k) = o.keep_out() {
+            if o.margin > 0.05 {
+                dashed_rect(&p, v.px(k), muted().gamma_multiply(0.5));
+            }
+        }
+        let r = v.px(o.area);
+        let col = if moving || picked { accent() } else { muted() };
+        obstacle(
+            &p,
+            r,
+            &o.label,
+            col,
+            hit == Some(Hit::Obstacle(i)) || picked,
+        );
+    }
+
+    // Plätze (gleiten beim Neuordnen sanft an ihre neue Stelle)
     let sizes = app.sizes().to_vec();
     let n = app.wall().pieces.len();
     let dragging = match &app.wall_ui.drag {
@@ -180,18 +168,20 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         _ => None,
     };
     let pointer = ui.input(|i| i.pointer.latest_pos());
-    let swap = match (&app.wall_ui.drag, pointer) {
-        (Some(Drag::Piece { idx, .. }), Some(at)) => swap_target(app, v, *idx, at),
-        (Some(Drag::Photo(_)), Some(at)) => match hit_test(app, v.cm(at).0, v.cm(at).1, None) {
-            Some(Hit::Piece(j)) => Some(j),
-            _ => None,
-        },
-        _ => None,
-    };
+    let swap = drag::swap_hint(app, v, pointer);
+    let behind: Vec<Area> = app
+        .wall()
+        .obstacles
+        .iter()
+        .filter(|o| o.behind)
+        .map(|o| o.area)
+        .collect();
     for i in 0..n {
         let w = app.wall();
         let pc = w.pieces[i].clone();
-        let r = v.px(pc.area(&sizes));
+        let target = pc.area(&sizes);
+        let a = glide(ui, &pc, i, target);
+        let r = v.px(a);
         let cov = wl::covered(&w.pieces, &sizes, i);
         let blocked = wl::blocked(w, &sizes, &pc);
         let faded = dragging == Some(i);
@@ -207,6 +197,9 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         }
         if let Some(c) = ring {
             p.rect_stroke(r, 2, Stroke::new(2.0, c), StrokeKind::Outside);
+        }
+        if pc.pinned && r.width() > 22.0 {
+            pin_badge(&p, r);
         }
         if cov >= wl::COVER_WARN && pc.photo.is_some() && r.width() > 44.0 {
             let label = format!("{} %", (cov * 100.0).round() as u32);
@@ -225,98 +218,43 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
             kit::icon(&p, r.center(), icons::SWAP, 20.0, text());
         }
     }
-
-    // Vorschau beim Ziehen
-    if let (Some(drag), Some(at)) = (app.wall_ui.drag.clone(), pointer) {
-        match drag {
-            Drag::Piece { idx, grab } if swap.is_none() && !over_strip(app, at) => {
-                let (x, y) = piece_target(app, v, idx, grab, at);
-                let pc = Piece {
-                    x,
-                    y,
-                    ..app.wall().pieces[idx].clone()
-                };
-                let r = v.px(pc.area(&sizes));
-                draw_piece(app, ui, &p, r, &pc, false, true);
-                p.rect_stroke(r, 2, Stroke::new(2.0, accent()), StrokeKind::Outside);
-            }
-            Drag::Photo(path) if swap.is_none() && wr.contains(at) => {
-                let pc = new_piece(app, v, &path, at);
-                let r = v.px(pc.area(&sizes));
-                draw_piece(app, ui, &p, r, &pc, false, true);
-                p.rect_stroke(r, 2, Stroke::new(2.0, accent()), StrokeKind::Outside);
-            }
-            Drag::Obstacle { idx, grab } => {
-                let (x, y) = v.cm(at);
-                let a = app.wall().obstacles[idx].area;
-                let na = Area {
-                    x: (x - grab.0).clamp(0.0, ww - a.w),
-                    y: (y - grab.1).clamp(0.0, wh - a.h),
-                    ..a
-                };
-                p.rect_stroke(v.px(na), 2, Stroke::new(2.0, accent()), StrokeKind::Inside);
-            }
-            Drag::NewObstacle(start) => {
-                let a = drawn_area(start, v.cm(at), ww, wh);
-                obstacle(&p, v.px(a), "", accent(), true);
-                size_badge(
-                    &p,
-                    v.px(a),
-                    &format!("{} × {} cm", fmt_cm(a.w), fmt_cm(a.h)),
-                );
-            }
-            _ => {}
-        }
+    // Hindernisse, hinter denen Fotos verschwinden dürfen, liegen über den Fotos
+    for a in &behind {
+        let r = v.px(*a);
+        p.rect_filled(r, 3, field().gamma_multiply(0.85));
+        dashed_rect(&p, r, muted());
     }
+
+    drag::preview(app, ui, &p, v, pointer, swap);
 
     // Klicks, Menü, Mauszeiger
     if app.wall_ui.drag.is_none() {
-        if app.wall_ui.draw && resp.hovered() {
+        if space && resp.hovered() {
+            ui.ctx().set_cursor_icon(CursorIcon::Grab);
+        } else if app.wall_ui.draw && resp.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::Crosshair);
         } else if matches!(hit, Some(Hit::Piece(_) | Hit::Obstacle(_))) {
             ui.ctx().set_cursor_icon(CursorIcon::Grab);
         }
         if let Some(Hit::Piece(i)) = hit {
-            let w = app.wall();
-            let pc = &w.pieces[i];
-            let name = pc
-                .photo
-                .as_deref()
-                .map(crate::folders::file_name)
-                .unwrap_or_else(|| "Leerer Platz".into());
-            let cov = wl::covered(&w.pieces, &sizes, i);
-            let mut tip = format!(
-                "{name}\n{} {}",
-                pc.size,
-                if pc.hoch { "hochkant" } else { "quer" }
-            );
-            if cov > 0.01 {
-                tip.push_str(&format!(" · {} % verdeckt", (cov * 100.0).round()));
-            }
-            if wl::blocked(w, &sizes, pc) {
-                tip.push_str("\nLiegt auf einem Hindernis oder ragt über die Wand.");
-            }
-            tip.push_str(
-                "\nZiehen: verschieben · auf ein anderes Foto: tauschen · Rechtsklick: mehr",
-            );
-            if pc
-                .photo
-                .as_deref()
-                .is_some_and(|f| app.original_of(f).is_some())
-            {
-                tip.push_str("\nDoppelklick: Zuschnitt ändern");
-            }
-            let _ = resp.clone().on_hover_text(tip);
+            // Tooltip am Foto selbst, nicht unter der ganzen Wand
+            let r = v.px(app.wall().pieces[i].area(&sizes));
+            let _ = ui
+                .interact(r, ui.make_persistent_id("wall_tip"), Sense::hover())
+                .on_hover_text(piece_tip(app, i));
         }
     } else {
         ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
     }
     if resp.clicked() && !app.wall_ui.draw {
         app.wall_ui.menu = None;
-        app.wall_ui.sel = match hit {
-            Some(Hit::Piece(i)) => Some(i),
-            _ => None,
-        };
+        app.wall_ui.sel = None;
+        app.wall_ui.sel_obstacle = None;
+        match hit {
+            Some(Hit::Piece(i)) => app.wall_ui.sel = Some(i),
+            Some(Hit::Obstacle(i)) => app.wall_ui.sel_obstacle = Some(i),
+            _ => {}
+        }
     }
     if resp.double_clicked() {
         if let Some(Hit::Piece(i)) = hit {
@@ -326,155 +264,82 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                         app.wall_reedit(&f);
                     }
                 }
-                None => fill_empty(app, i),
+                None => drag::fill_empty(app, i),
             }
         }
     }
     if resp.secondary_clicked() {
         if let (Some(h), Some(at)) = (hit, hover) {
             app.wall_ui.menu = Some((h, at));
-            if let Hit::Piece(i) = h {
-                app.wall_ui.sel = Some(i);
+            match h {
+                Hit::Piece(i) => app.wall_ui.sel = Some(i),
+                Hit::Obstacle(i) => app.wall_ui.sel_obstacle = Some(i),
+                _ => {}
             }
         }
     }
 }
 
-/// Leerer Platz bekommt das nächste Foto aus dem Band.
-fn fill_empty(app: &mut SwiperApp, i: usize) {
-    if app.wall().pieces[i].photo.is_some() {
-        return;
-    }
-    let next = wl::unplaced(app.wall()).first().map(|p| p.path.clone());
-    if let Some(f) = next {
-        app.wall_checkpoint();
-        app.wall_mut().pieces[i].photo = Some(f);
-    }
-}
-
-fn over_strip(app: &SwiperApp, at: Pos2) -> bool {
-    app.wall_ui.strip_rect.is_some_and(|r| r.contains(at))
-}
-
-fn drawn_area(a: (f32, f32), b: (f32, f32), ww: f32, wh: f32) -> Area {
-    let (bx, by) = (b.0.clamp(0.0, ww), b.1.clamp(0.0, wh));
+/// Lage eines Platzes mit kurzem Gleiten zur neuen Stelle (gleiches Foto = gleiche Kennung).
+fn glide(ui: &Ui, pc: &Piece, i: usize, a: Area) -> Area {
+    let id = match &pc.photo {
+        Some(f) => ui.make_persistent_id(("wall_glide", f)),
+        None => ui.make_persistent_id(("wall_glide_empty", i)),
+    };
+    let ctx = ui.ctx();
+    let t = motion::FAST + 0.08;
     Area {
-        x: a.0.min(bx),
-        y: a.1.min(by),
-        w: (a.0 - bx).abs(),
-        h: (a.1 - by).abs(),
+        x: ctx.animate_value_with_time(id.with("x"), a.x, t),
+        y: ctx.animate_value_with_time(id.with("y"), a.y, t),
+        ..a
     }
 }
 
-/// Loslassen: Platz verschieben oder tauschen, Foto ablegen, Hindernis setzen.
-pub(super) fn finish_drag(app: &mut SwiperApp, ui: &Ui) {
-    if app.wall_ui.drag.is_none() {
-        return;
+/// Kleiner Pin oben rechts an festgepinnten Fotos.
+fn pin_badge(p: &Painter, r: Rect) {
+    let c = pos2(r.right() - 9.0, r.top() + 9.0);
+    p.circle_filled(c, 8.0, accent());
+    kit::icon_filled(p, c, icons::PIN, 11.0, Color32::WHITE);
+}
+
+fn piece_tip(app: &SwiperApp, i: usize) -> String {
+    let w = app.wall();
+    let sizes = app.sizes();
+    let pc = &w.pieces[i];
+    let name = pc
+        .photo
+        .as_deref()
+        .map(crate::folders::file_name)
+        .unwrap_or_else(|| "Leerer Platz".into());
+    let cov = wl::covered(&w.pieces, sizes, i);
+    let mut tip = format!(
+        "{name}\n{} {}",
+        pc.size,
+        if pc.hoch { "hochkant" } else { "quer" }
+    );
+    if pc.pinned {
+        tip.push_str(" · festgepinnt (P löst)");
     }
-    let (released, down, at) = ui.input(|i| {
-        (
-            i.pointer.any_released(),
-            i.pointer.primary_down(),
-            i.pointer.latest_pos(),
-        )
-    });
-    if !released && down {
-        return;
+    if cov > 0.01 {
+        tip.push_str(&format!(" · {} % verdeckt", (cov * 100.0).round()));
     }
-    let Some(drag) = app.wall_ui.drag.take() else {
-        return;
-    };
-    let (Some(v), Some(at)) = (view_of(app), at) else {
-        return;
-    };
-    let (ww, wh) = (app.wall().w, app.wall().h);
-    match drag {
-        Drag::Piece { idx, grab } => {
-            if idx >= app.wall().pieces.len() {
-                return;
-            }
-            if over_strip(app, at) {
-                if app.wall().pieces[idx].photo.is_some() {
-                    app.wall_checkpoint();
-                    app.wall_mut().pieces[idx].photo = None;
-                }
-            } else if let Some(j) = swap_target(app, v, idx, at) {
-                app.wall_checkpoint();
-                let w = app.wall_mut();
-                let a = w.pieces[idx].photo.take();
-                let b = w.pieces[j].photo.take();
-                w.pieces[idx].photo = b;
-                w.pieces[j].photo = a;
-            } else {
-                let (x, y) = piece_target(app, v, idx, grab, at);
-                let pc = &app.wall().pieces[idx];
-                if (pc.x - x).abs() < 0.01 && (pc.y - y).abs() < 0.01 {
-                    return;
-                }
-                app.wall_checkpoint();
-                let w = app.wall_mut();
-                let mut pc = w.pieces.remove(idx);
-                pc.x = x;
-                pc.y = y;
-                // verschobene Fotos liegen oben
-                w.pieces.push(pc);
-                w.manual = true;
-                app.wall_ui.sel = Some(app.wall().pieces.len() - 1);
-            }
-        }
-        Drag::Photo(path) => {
-            if !v.wr.contains(at) {
-                return;
-            }
-            let (x, y) = v.cm(at);
-            app.wall_checkpoint();
-            match hit_test(app, x, y, None) {
-                Some(Hit::Piece(j)) => app.wall_mut().pieces[j].photo = Some(path),
-                _ => {
-                    let pc = new_piece(app, v, &path, at);
-                    let w = app.wall_mut();
-                    w.pieces.push(pc);
-                    w.manual = true;
-                    let idx = w.pieces.len() - 1;
-                    let (x, y) = (w.pieces[idx].x, w.pieces[idx].y);
-                    let (x, y) = wl::snap(app.wall(), app.sizes(), idx, x, y, SNAP_PX / v.s);
-                    let w = app.wall_mut();
-                    w.pieces[idx].x = x;
-                    w.pieces[idx].y = y;
-                    app.wall_ui.sel = Some(idx);
-                }
-            }
-        }
-        Drag::Obstacle { idx, grab } => {
-            let (x, y) = v.cm(at);
-            app.wall_checkpoint();
-            if let Some(o) = app.wall_mut().obstacles.get_mut(idx) {
-                o.area.x = (x - grab.0).clamp(0.0, (ww - o.area.w).max(0.0));
-                o.area.y = (y - grab.1).clamp(0.0, (wh - o.area.h).max(0.0));
-            }
-            app.wall_settings_changed();
-        }
-        Drag::NewObstacle(start) => {
-            let a = drawn_area(start, v.cm(at), ww, wh);
-            if a.w < 2.0 || a.h < 2.0 {
-                return;
-            }
-            app.wall_checkpoint();
-            app.wall_mut().obstacles.push(Obstacle {
-                area: a,
-                label: String::new(),
-            });
-            app.wall_ui.draw = false;
-            app.wall_settings_changed();
-            app.toast(
-                "Hindernis eingezeichnet. Rechtsklick darauf: benennen oder entfernen.".into(),
-            );
-        }
+    if wl::blocked(w, sizes, pc) {
+        tip.push_str("\nLiegt auf einem Hindernis oder ragt über die Wand.");
     }
+    tip.push_str("\nZiehen: festpinnen und verschieben · auf ein anderes Foto: tauschen");
+    tip.push_str("\nIns Band unten ziehen: abnehmen · Rechtsklick: mehr");
+    if pc
+        .photo
+        .as_deref()
+        .is_some_and(|f| app.original_of(f).is_some())
+    {
+        tip.push_str("\nDoppelklick: Zuschnitt ändern");
+    }
+    tip
 }
 
 /// `label`: Größe auf leere Plätze schreiben (nicht, wenn sie großteils verdeckt sind).
-fn draw_piece(
+pub(super) fn draw_piece(
     app: &SwiperApp,
     ui: &Ui,
     p: &Painter,
@@ -509,7 +374,13 @@ fn draw_piece(
                     fill
                 },
             );
-            dashed_rect(p, r, muted().gamma_multiply(if faded { 0.3 } else { 0.8 }));
+            let col = muted().gamma_multiply(if faded { 0.3 } else { 0.8 });
+            if label {
+                dashed_rect(p, r, col);
+            } else {
+                // überlappt: ruhiger Rand statt vieler Striche, wie gestapeltes Papier
+                p.rect_stroke(r, 2, Stroke::new(1.0, divider()), StrokeKind::Inside);
+            }
             if r.width() > 34.0 && r.height() > 20.0 && label {
                 p.text(
                     r.center(),
@@ -523,7 +394,7 @@ fn draw_piece(
     }
 }
 
-fn dashed_rect(p: &Painter, r: Rect, col: Color32) {
+pub(super) fn dashed_rect(p: &Painter, r: Rect, col: Color32) {
     let pts = [
         r.left_top(),
         r.right_top(),
@@ -534,7 +405,7 @@ fn dashed_rect(p: &Painter, r: Rect, col: Color32) {
     p.extend(Shape::dashed_line(&pts, Stroke::new(1.0, col), 4.0, 3.0));
 }
 
-fn obstacle(p: &Painter, r: Rect, label: &str, col: Color32, hot: bool) {
+pub(super) fn obstacle(p: &Painter, r: Rect, label: &str, col: Color32, hot: bool) {
     p.rect_filled(r, 3, if hot { control() } else { divider() });
     dashed_rect(p, r, col);
     // feine Schraffur, damit es nicht wie ein Foto aussieht
@@ -558,7 +429,7 @@ fn obstacle(p: &Painter, r: Rect, label: &str, col: Color32, hot: bool) {
     }
 }
 
-fn size_badge(p: &Painter, r: Rect, label: &str) {
+pub(super) fn size_badge(p: &Painter, r: Rect, label: &str) {
     let f = font(ts::CAPTION, W::Semibold);
     let w = label.chars().count() as f32 * 6.5 + sp::M;
     let br = Rect::from_center_size(r.center(), vec2(w, 18.0));
@@ -602,4 +473,10 @@ fn ruler(p: &Painter, wr: Rect, s: f32, ww: f32, wh: f32) {
         );
         c += step;
     }
+}
+
+/// Neues Hindernis beim Aufziehen, mit Maßen.
+pub(super) fn drawn_obstacle(p: &Painter, v: View2, a: Area) {
+    obstacle(p, v.px(a), "", accent(), true);
+    size_badge(p, v.px(a), &format!("{} × {} cm", fmt_cm(a.w), fmt_cm(a.h)));
 }

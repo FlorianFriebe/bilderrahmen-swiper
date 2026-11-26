@@ -196,9 +196,71 @@ fn sorting_for_a_wall_fills_it() {
 
     // Wand kleiner: das Ziel zieht mit
     app.wall_mut().w = 60.0;
-    app.wall_settings_changed();
+    app.wall_relayout();
     app.sync_wall_profiles();
     assert_eq!(app.cfg.goal as usize, app.wall().pieces.len());
     assert!(app.wall().pieces.len() < places);
+    let _ = fs::remove_dir_all(&base);
+}
+
+#[test]
+fn wall_pins_swaps_and_takes_off() {
+    use crate::wall::WallPhoto;
+    let (mut app, base, _) = setup("wall_hand");
+    app.open_wall();
+    let photos: Vec<WallPhoto> = (0..5)
+        .map(|i| WallPhoto {
+            path: PathBuf::from(format!("w{i}.jpg")),
+            ratio: 1.5,
+            ..Default::default()
+        })
+        .collect();
+    app.wall_mut().photos = photos;
+    app.wall_relayout();
+    let at = |app: &SwiperApp, n: &str| {
+        app.wall()
+            .pieces
+            .iter()
+            .position(|p| p.photo.as_deref() == Some(Path::new(n)))
+    };
+    assert!(at(&app, "w4.jpg").is_some());
+
+    // verschieben pinnt fest; ändert sich die Wand, bleibt das Foto, wo es ist
+    let i = at(&app, "w0.jpg").unwrap();
+    app.wall_move(i, 120.0, 70.0);
+    let i = at(&app, "w0.jpg").unwrap();
+    assert!(app.wall().pieces[i].pinned);
+    app.wall_mut().gap = 6.0;
+    app.wall_relayout();
+    let p = &app.wall().pieces[at(&app, "w0.jpg").unwrap()];
+    assert_eq!((p.x, p.y), (120.0, 70.0));
+
+    // tauschen ohne Pins merkt sich die Reihenfolge
+    let (a, b) = (at(&app, "w1.jpg").unwrap(), at(&app, "w2.jpg").unwrap());
+    let (pa, pb) = (app.wall().pieces[a].clone(), app.wall().pieces[b].clone());
+    app.wall_swap(a, b);
+    let na = &app.wall().pieces[at(&app, "w1.jpg").unwrap()];
+    assert_eq!((na.x, na.y), (pb.x, pb.y));
+    app.wall_relayout();
+    let nb = &app.wall().pieces[at(&app, "w2.jpg").unwrap()];
+    assert_eq!((nb.x, nb.y), (pa.x, pa.y));
+
+    // abnehmen: bleibt im Band, auch nach dem Neuordnen
+    let i = at(&app, "w3.jpg").unwrap();
+    app.wall_take_off(i);
+    app.wall_relayout();
+    assert!(at(&app, "w3.jpg").is_none());
+    assert_eq!(crate::wall::unplaced(app.wall()).len(), 1);
+    // und wieder zurück
+    app.wall_put_back(Path::new("w3.jpg"));
+    assert!(at(&app, "w3.jpg").is_some());
+
+    // Rückgängig holt den Stand vor dem Zurückholen
+    app.wall_undo();
+    assert!(at(&app, "w3.jpg").is_none());
+
+    // alle lösen: nichts ist mehr festgepinnt
+    app.wall_unpin_all();
+    assert!(app.wall().pieces.iter().all(|p| !p.pinned));
     let _ = fs::remove_dir_all(&base);
 }

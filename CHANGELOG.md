@@ -3,6 +3,24 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.16.0
+
+- Die **Fotowand** ist neu aufgebaut: Rechts sitzt eine Seitenleiste mit den Reitern Wand,
+  Anordnung und Auswahl. Jede Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
+- Drei Anordnungen: **Raster** (ordentlich), **Reihen** (quer und hochkant gemischt) und
+  **Collage** (dicht und bunt gemischt). Der Rand zur Wandkante bleibt fest, die Abstände
+  dazwischen werden gleichmäßig.
+- Beim Überlappen wählst du das Muster: **Dachziegel**, **Mauerwerk** oder **Schachbrett**.
+- **Reihenfolge**: wie gewählt, nach Datum oder gemischt, damit Fotos vom selben Tag nicht
+  nebeneinander hängen. „Mischen“ würfelt neu.
+- Hindernisse bekommen einen eigenen **Rand**, oder Fotos dürfen **dahinter** verschwinden
+  (z. B. hinter dem Sofa).
+- Ein Foto, das du verschiebst, wird **festgepinnt**. Alles andere ordnet sich drumherum neu.
+  „Alle lösen“ gibt alles wieder frei.
+- **Zoom** mit Strg + Mausrad, zwei Fingern oder Strg + / −, verschieben mit der Leertaste.
+  Pfeiltasten schieben das gewählte Foto, P pinnt, Entf nimmt es ab.
+- Der Rechner sitzt jetzt unten als schmale Leiste mit Zoom.
+
 ## 3.15.0
 
 - Neu: **Für die Wand sortieren**. Im Bilder-Menü der Fotowand startet „Dafür sortieren“ das

@@ -38,10 +38,12 @@ src/app/             Zustand SwiperApp + Logik, ein impl-Block pro Thema
   keys.rs            Tastenbelegung
   profiles.rs        Profile je Bilderrahmen
   textures.rs        Ergebnisse der Worker abholen (Speichern, Vorschaubilder, Texturen)
-  wall.rs            Fotowand: Wände anlegen/wechseln, Fotos einlesen, Vorschlag, eigenes Rückgängig
+  wall.rs            Fotowand: Wände anlegen/wechseln, Fotos einlesen, sofort neu anordnen, Rückgängig
+  wall_edit.rs       Fotowand von Hand: verschieben (pinnt), tauschen, abnehmen, Größe je Foto
   wall_sort.rs       Für die Wand sortieren: Profil je Wand (Ziel, Zuschnitt), Wand nachladen
   tests.rs           Ablauf-Tests ohne UI (Behalten, Rückgängig, Ganz von vorn, Nachbearbeiten)
-src/wall/            Fotowand ohne UI: Druckgrößen (echte Maße), Raster, Hindernisse, Verdeckung, Einrasten
+src/wall/            Fotowand ohne UI: Druckgrößen (echte Maße), layout.rs (Raster, Reihen, Collage, Muster),
+                     order.rs (Reihenfolge), Hindernisse, Verdeckung, Einrasten
 src/history.rs       Rückgängig: Step-Stapel, Papierkorb `.papierkorb` (14 Tage), Ganz von vorn
 src/folders.rs       Ordnerbaum, natürliche Sortierung, StatusFile (.bilderrahmen_status.json)
 src/session.rs       Weitermachen: Auswahlen pausieren/fortsetzen
@@ -78,6 +80,9 @@ src/ui/
 - **Fotowand**: `cfg.walls` (Wände mit Plätzen, Hindernissen, Fotoliste), Maße in cm. Rechnen nur in
   `src/wall/`, Bedienzustand in `ui::wall::WallUi`. Sie legt keine Dateien an; ihr Rückgängig ist ein
   eigener Stapel (`wall_checkpoint()` vor jeder Änderung, `wall_undo()`), nicht `history`.
+  Plätze entstehen immer neu aus `wall::arrange()` (nach jeder Änderung `wall_relayout()`);
+  nur festgepinnte (`Piece::pinned`) bleiben, abgenommene Fotos haben `WallPhoto::off`.
+  UI in `ui/wall/`: canvas (Zeichnen, Zoom), drag (Ziehen/Ablegen), side (Seitenleiste), menus.
   Zum Sortieren bekommt eine Wand ein normales Profil: `Wall::target` = dessen Zielordner,
   `sync_wall_profiles()` hält Ziel und Zuschnitt gleich, `sorting_wall()` sagt, ob es aktiv ist.
 - **Stick**: `system::copy_plan` gleicht ab; entfernt werden nur Dateien mit `is_our_name`.

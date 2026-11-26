@@ -1,4 +1,4 @@
-//! Tests der Fotowand-Rechnungen: Plätze, Hindernisse, Vorschlag, Verdeckung, Einrasten.
+//! Tests der Fotowand-Rechnungen: Anordnen, Hindernisse, Pins, Reihenfolge, Verdeckung, Einrasten.
 
 use super::*;
 
@@ -15,41 +15,55 @@ fn photo(name: &str, ratio: f32) -> WallPhoto {
     WallPhoto {
         path: PathBuf::from(name),
         ratio,
+        ..Default::default()
+    }
+}
+
+fn inside(w: &Wall, s: &[PrintSize], p: &Piece) -> bool {
+    let a = p.area(s);
+    a.x >= w.margin - 0.01
+        && a.y >= w.margin - 0.01
+        && a.right() <= w.w - w.margin + 0.01
+        && a.bottom() <= w.h - w.margin + 0.01
+}
+
+#[test]
+fn raster_counts_with_real_sizes_and_margin() {
+    let s = default_sizes();
+    // 10x15 = 15,2 × 10,2 cm, 3 cm Abstand, 5 cm Rand: Innenfläche 190 × 110.
+    // quer passen 10 × 8 = 80, hochkant 14 × 6 = 84; ohne Fotos gewinnt die mit mehr Plätzen
+    let mut w = wall(200.0, 120.0, 3.0);
+    assert_eq!(capacity(&w, &s, "10x15"), 84);
+    w.facing = Facing::Quer;
+    assert_eq!(capacity(&w, &s, "10x15"), 80);
+    // größere Abzüge = weniger Fotos
+    assert!(capacity(&w, &s, "13x18") < 80);
+    for p in arrange(&w, &s) {
+        assert!(inside(&w, &s, &p));
     }
 }
 
 #[test]
-fn grid_counts_with_real_sizes() {
-    let s = default_sizes();
-    // 10x15 quer = 15,2 × 10,2 cm, 3 cm Abstand: 11 × 9 auf 200 × 120
-    let w = wall(200.0, 120.0, 3.0);
-    assert_eq!(slots(&w, &s, "10x15", false).len(), 99);
-    // hochkant: 15 × 6
-    assert_eq!(slots(&w, &s, "10x15", true).len(), 90);
-    assert_eq!(capacity(&w, &s, "10x15"), 99);
-    // größere Abzüge = weniger Fotos
-    assert!(capacity(&w, &s, "13x18") < 99);
-}
-
-#[test]
-fn grid_is_centered_and_inside() {
+fn raster_fills_edge_to_edge_with_even_gaps() {
     let s = default_sizes();
     let w = wall(100.0, 50.0, 2.0);
-    let sl = slots(&w, &s, "10x15", false);
-    let p = |(x, y): (f32, f32)| Piece {
-        size: "10x15".into(),
-        x,
-        y,
-        ..Default::default()
+    let p = arrange(&w, &s);
+    let xs: Vec<f32> = {
+        let mut v: Vec<f32> = p.iter().map(|p| p.x).collect();
+        v.sort_by(f32::total_cmp);
+        v.dedup_by(|a, b| (*a - *b).abs() < 0.01);
+        v
     };
-    let first = sl.first().copied().unwrap();
-    let last = sl.last().copied().unwrap();
-    let a = p(first).area(&s);
-    let b = p(last).area(&s);
-    assert!(a.x >= 0.0 && a.y >= 0.0);
-    assert!(b.right() <= 100.0 + 0.01 && b.bottom() <= 50.0 + 0.01);
-    // links und rechts gleich viel Rand
-    assert!((a.x - (100.0 - b.right())).abs() < 0.01);
+    // erste Spalte am Rand, letzte bündig am rechten Rand
+    assert!((xs[0] - 5.0).abs() < 0.01);
+    let last = p.iter().map(|p| p.area(&s).right()).fold(0.0, f32::max);
+    assert!((last - 95.0).abs() < 0.01, "{last}");
+    // alle Abstände gleich
+    let steps: Vec<f32> = xs.windows(2).map(|w| w[1] - w[0]).collect();
+    assert!(
+        steps.iter().all(|d| (d - steps[0]).abs() < 0.01),
+        "{steps:?}"
+    );
 }
 
 #[test]
@@ -63,12 +77,8 @@ fn overlap_fits_more_and_is_capped() {
     assert!(crazy < 200);
 }
 
-#[test]
-fn obstacles_stay_free() {
-    let s = default_sizes();
-    let mut w = wall(100.0, 60.0, 2.0);
-    let free = slots(&w, &s, "10x15", false).len();
-    w.obstacles.push(Obstacle {
+fn switch() -> Obstacle {
+    Obstacle {
         area: Area {
             x: 40.0,
             y: 20.0,
@@ -76,18 +86,39 @@ fn obstacles_stay_free() {
             h: 20.0,
         },
         label: "Lichtschalter".into(),
-    });
-    let left = slots(&w, &s, "10x15", false);
-    assert!(left.len() < free);
-    for (x, y) in left {
-        let p = Piece {
-            size: "10x15".into(),
-            x,
-            y,
-            ..Default::default()
-        };
-        assert!(!blocked(&w, &s, &p));
+        ..Default::default()
     }
+}
+
+#[test]
+fn obstacles_keep_their_margin_in_every_mode() {
+    let s = default_sizes();
+    for mode in Arrange::ALL {
+        let mut w = wall(100.0, 60.0, 2.0);
+        w.arrange = mode;
+        let free = arrange(&w, &s).len();
+        w.obstacles.push(switch());
+        let left = arrange(&w, &s);
+        assert!(left.len() < free, "{mode:?}");
+        let keep = w.obstacles[0].keep_out().unwrap();
+        for p in &left {
+            assert!(keep.overlap(&p.area(&s)) <= 0.0, "{mode:?} {p:?}");
+            assert!(inside(&w, &s, p), "{mode:?} {p:?}");
+        }
+    }
+}
+
+#[test]
+fn photos_may_go_behind_an_obstacle_if_allowed() {
+    let s = default_sizes();
+    let mut w = wall(100.0, 60.0, 2.0);
+    let free = arrange(&w, &s).len();
+    w.obstacles.push(Obstacle {
+        behind: true,
+        ..switch()
+    });
+    assert_eq!(arrange(&w, &s).len(), free);
+    assert!(!blocked(&w, &s, &arrange(&w, &s)[0]));
 }
 
 #[test]
@@ -97,23 +128,115 @@ fn wall_too_small_gives_no_places() {
 }
 
 #[test]
-fn proposal_follows_most_photos_and_fills_in_order() {
+fn mixed_photos_keep_their_orientation() {
     let s = default_sizes();
-    let mut w = wall(60.0, 40.0, 2.0);
+    for mode in Arrange::ALL {
+        let mut w = wall(80.0, 60.0, 2.0);
+        w.arrange = mode;
+        w.photos = vec![
+            photo("a.jpg", 0.75),
+            photo("b.jpg", 1.5),
+            photo("c.jpg", 0.66),
+        ];
+        let p = arrange(&w, &s);
+        let of = |n: &str| p.iter().find(|p| p.photo.as_deref() == Some(Path::new(n)));
+        assert!(of("a.jpg").unwrap().hoch, "{mode:?}");
+        assert!(!of("b.jpg").unwrap().hoch, "{mode:?}");
+        assert!(p.len() > 3, "leere Plätze füllen die Wand");
+        w.pieces = p;
+        assert!(unplaced(&w).is_empty());
+        // alle quer: auch hochkant-Fotos liegen quer
+        w.facing = Facing::Quer;
+        assert!(arrange(&w, &s).iter().all(|p| !p.hoch), "{mode:?}");
+    }
+}
+
+#[test]
+fn pinned_pieces_stay_and_others_flow_around() {
+    let s = default_sizes();
+    let mut w = wall(100.0, 60.0, 2.0);
+    w.photos = (0..6).map(|i| photo(&format!("{i}.jpg"), 1.5)).collect();
+    w.pieces = arrange(&w, &s);
+    let mut pin = w.pieces[0].clone();
+    pin.x = 40.0;
+    pin.y = 25.0;
+    pin.pinned = true;
+    w.pieces = vec![pin.clone()];
+    let p = arrange(&w, &s);
+    assert_eq!(p.last(), Some(&pin), "festgepinnt bleibt und liegt oben");
+    let a = pin.area(&s);
+    for q in &p[..p.len() - 1] {
+        assert!(a.overlap(&q.area(&s)) <= 0.0, "{q:?}");
+        assert_ne!(q.photo, pin.photo, "kein Foto doppelt");
+    }
+}
+
+#[test]
+fn taken_off_photos_stay_off() {
+    let s = default_sizes();
+    let mut w = wall(100.0, 60.0, 2.0);
+    w.photos = vec![photo("a.jpg", 1.5), photo("b.jpg", 1.5)];
+    w.photos[0].off = true;
+    let p = arrange(&w, &s);
+    assert!(p
+        .iter()
+        .all(|p| p.photo.as_deref() != Some(Path::new("a.jpg"))));
+    assert!(p
+        .iter()
+        .any(|p| p.photo.as_deref() == Some(Path::new("b.jpg"))));
+}
+
+#[test]
+fn order_by_date_and_mixed() {
+    let mut w = wall(100.0, 60.0, 2.0);
+    let day = 86_400;
+    let mk = |n: &str, t: i64| WallPhoto {
+        taken: t,
+        ..photo(n, 1.5)
+    };
     w.photos = vec![
-        photo("a.jpg", 0.75),
-        photo("b.jpg", 1.5),
-        photo("c.jpg", 0.66),
+        mk("c", 3 * day),
+        mk("a1", day),
+        mk("a2", day + 60),
+        mk("a3", day + 120),
+        mk("b", 2 * day),
     ];
-    // zwei von drei hochkant: Raster hochkant, hochkant-Fotos zuerst
-    let p = propose(&w, &s);
-    assert!(p.iter().all(|p| p.hoch));
-    assert_eq!(p[0].photo.as_deref(), Some(Path::new("a.jpg")));
-    assert_eq!(p[1].photo.as_deref(), Some(Path::new("c.jpg")));
-    assert_eq!(p[2].photo.as_deref(), Some(Path::new("b.jpg")));
-    assert!(p.len() > 3 && p[3].photo.is_none());
-    w.pieces = p;
-    assert!(unplaced(&w).is_empty());
+    w.sequence = Sequence::Datum;
+    let names = |v: Vec<PathBuf>| -> Vec<String> {
+        v.iter().map(|p| p.to_string_lossy().to_string()).collect()
+    };
+    assert_eq!(names(ordered(&w)), ["a1", "a2", "a3", "b", "c"]);
+    w.sequence = Sequence::Gemischt;
+    let mixed = names(ordered(&w));
+    assert_eq!(mixed.len(), 5);
+    // Fotos vom ersten Tag nie direkt hintereinander (es gibt genug andere)
+    let first_day = |n: &str| n.starts_with('a');
+    assert!(
+        mixed
+            .windows(2)
+            .take(3)
+            .all(|p| !(first_day(&p[0]) && first_day(&p[1]))),
+        "{mixed:?}"
+    );
+    w.seed += 1;
+    assert_eq!(ordered(&w).len(), 5);
+}
+
+#[test]
+fn every_pattern_overlaps_without_leaving_the_wall() {
+    let s = default_sizes();
+    for mode in [Arrange::Raster, Arrange::Reihen] {
+        for pat in Pattern::ALL {
+            let mut w = wall(100.0, 60.0, -3.0);
+            w.arrange = mode;
+            w.pattern = pat;
+            let p = arrange(&w, &s);
+            assert!(!p.is_empty());
+            for q in &p {
+                assert!(inside(&w, &s, q), "{mode:?} {pat:?} {q:?}");
+            }
+        }
+    }
 }
 
 #[test]
@@ -199,31 +322,4 @@ fn folder_names_are_safe() {
     assert_eq!(safe_name("Flur: oben/links"), "Flur_ oben_links");
     assert_eq!(safe_name("  "), "Fotowand");
     assert_eq!(safe_name("Wand."), "Wand");
-}
-
-#[test]
-fn new_photos_fill_matching_empty_places() {
-    let s = default_sizes();
-    let mut w = wall(100.0, 60.0, 3.0);
-    let pc = |hoch: bool, photo: Option<&str>| Piece {
-        size: "10x15".into(),
-        hoch,
-        photo: photo.map(PathBuf::from),
-        ..Default::default()
-    };
-    w.pieces = vec![pc(false, Some("a")), pc(false, None), pc(true, None)];
-    let ph = |p: &str, ratio: f32| WallPhoto {
-        path: p.into(),
-        ratio,
-    };
-    w.photos = vec![
-        ph("a", 1.5),
-        ph("hoch", 0.67),
-        ph("quer", 1.5),
-        ph("rest", 1.5),
-    ];
-    assert_eq!(fill_empty(&mut w, &s), 2);
-    assert_eq!(w.pieces[1].photo.as_deref(), Some(Path::new("quer")));
-    assert_eq!(w.pieces[2].photo.as_deref(), Some(Path::new("hoch")));
-    assert_eq!(unplaced(&w).len(), 1);
 }

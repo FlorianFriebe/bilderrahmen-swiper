@@ -68,10 +68,15 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 
 **Fotowand planen**
 - Eigene Ansicht ab der Startseite: Wandmaße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
-- Rechner: Plätze an der Wand, vorhandene Fotos, was fehlt oder übrig ist, Vergleich mit der nächsten Druckgröße
-- Abstand oder Überlappung per Regler, verdeckter Anteil pro Foto, Hindernisse (Lichtschalter, Möbel) bleiben frei
+- Seitenleiste mit den Reitern Wand, Anordnung und Auswahl; jede Änderung wirkt sofort und die Fotos gleiten an ihre Plätze
+- Anordnung als Raster, Reihen oder Collage, fester Rand zur Kante, gleichmäßige Abstände; quer und hochkant gemischt oder alle gleich
+- Überlappen als Dachziegel, Mauerwerk oder Schachbrett, verdeckter Anteil pro Foto
+- Reihenfolge wie gewählt, nach Datum oder gemischt (Fotos vom selben Tag nicht nebeneinander)
+- Hindernisse (Lichtschalter, Möbel) mit eigenem Rand oder „Fotos dürfen dahinter“
+- Von Hand gelegte Fotos werden festgepinnt, der Rest ordnet sich drumherum; Zoom mit Strg + Mausrad, zwei Fingern oder Strg + / −
+- Rechner unten: Plätze, vorhandene Fotos, was fehlt oder übrig ist, was zu drucken ist
 - Für die Wand sortieren: eigenes Profil mit Ordner, Zuschnitt im Format des Abzugs, Ziel = Plätze an der Wand; neue Bilder füllen freie Plätze, Doppelklick öffnet den Zuschnitt
-- Fotos aus den behaltenen Bildern oder einem Ordner; verschieben mit Einrasten, tauschen, Größe und Ausrichtung pro Foto, mehrere Wände, Rückgängig
+- Fotos aus den behaltenen Bildern oder einem Ordner; verschieben mit Einrasten, tauschen, Größe und Ausrichtung pro Foto, Pfeiltasten, mehrere Wände, Rückgängig
 
 **Bedienung**
 - Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit ? oder F1
@@ -128,7 +133,8 @@ src/
   app/           Zustand und Logik, je Thema ein Modul (Ordner, Entscheiden, Bearbeiten,
                  Nachbearbeiten, Serien, Stick, Tasten, Profile, Fotowand)
   history.rs     Rückgängig: Schritte, Papierkorb, Ganz von vorn
-  wall/          Fotowand: Druckgrößen, Plätze im Raster, Hindernisse, Verdeckung, Einrasten
+  wall/          Fotowand: Druckgrößen, Anordnen (Raster, Reihen, Collage), Reihenfolge,
+                 Hindernisse, Pins, Verdeckung, Einrasten
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import

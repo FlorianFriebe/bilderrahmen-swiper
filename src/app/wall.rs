@@ -1,4 +1,5 @@
-//! Fotowand: Wände anlegen und wechseln, Fotos dafür einlesen, Vorschlag, Rückgängig.
+//! Fotowand: Wände anlegen und wechseln, Fotos dafür einlesen, sofort neu anordnen, Rückgängig.
+//! Was man von Hand macht (Pins, Tauschen, Abnehmen), liegt in `wall_edit`.
 
 use super::*;
 use crate::wall::{self as wl, PrintSize, Wall, WallPhoto};
@@ -16,15 +17,14 @@ impl SwiperApp {
             self.cfg.print_sizes = wl::default_sizes();
         }
         if self.cfg.walls.is_empty() {
-            let mut w = Wall::default();
-            w.pieces = wl::propose(&w, &self.cfg.print_sizes);
-            self.cfg.walls.push(w);
+            self.cfg.walls.push(Wall::default());
             self.cfg.wall = 0;
         }
         self.cfg.wall = self.cfg.wall.min(self.cfg.walls.len() - 1);
         self.wall_history.clear();
         self.wall_ui = Default::default();
         self.view = View::Wall;
+        self.wall_relayout();
         self.wall_refresh();
     }
 
@@ -63,42 +63,48 @@ impl SwiperApp {
         }
     }
 
-    /// Neu anordnen nach den Einstellungen der Wand.
+    /// Sofort neu anordnen nach den Einstellungen der Wand. Festgepinnte Fotos bleiben,
+    /// die Auswahl bleibt am selben Foto. Vorher `wall_checkpoint()` aufrufen.
     pub fn wall_relayout(&mut self) {
-        self.wall_checkpoint();
-        let pieces = wl::propose(self.wall(), self.sizes());
-        let w = self.wall_mut();
-        w.pieces = pieces;
-        w.manual = false;
-        self.wall_ui.sel = None;
+        let sel = self
+            .wall_ui
+            .sel
+            .and_then(|i| self.wall().pieces.get(i).cloned());
+        let pieces = wl::arrange(self.wall(), self.sizes());
+        self.wall_mut().pieces = pieces;
+        self.wall_ui.sel = sel.and_then(|s| self.find_piece(&s));
     }
 
-    /// Nach einer Änderung an Maßen, Größe oder Abstand: solange nichts von Hand
-    /// verschoben wurde, ordnet sich die Wand sofort neu an.
-    pub fn wall_settings_changed(&mut self) {
-        if !self.wall().manual {
-            let pieces = wl::propose(self.wall(), self.sizes());
-            self.wall_mut().pieces = pieces;
-            self.wall_ui.sel = None;
+    /// Platz wiederfinden (nach dem Neuordnen): gleiches Foto, sonst gleiche Stelle.
+    pub fn find_piece(&self, p: &wl::Piece) -> Option<usize> {
+        let v = &self.wall().pieces;
+        match &p.photo {
+            Some(f) => v.iter().position(|q| q.photo.as_ref() == Some(f)),
+            None => v.iter().position(|q| {
+                q.photo.is_none() && (q.x - p.x).abs() < 0.01 && (q.y - p.y).abs() < 0.01
+            }),
         }
     }
 
     pub fn new_wall(&mut self) {
         let n = self.cfg.walls.len() + 1;
-        let mut w = Wall {
+        let w = Wall {
             name: format!("Fotowand {n}"),
             ..Default::default()
         };
-        w.pieces = wl::propose(&w, self.sizes());
         self.cfg.walls.push(w);
         self.cfg.wall = self.cfg.walls.len() - 1;
         self.wall_history.clear();
+        self.wall_ui.sel = None;
+        self.wall_relayout();
     }
 
     pub fn switch_wall(&mut self, i: usize) {
         if i < self.cfg.walls.len() && i != self.cfg.wall {
             self.cfg.wall = i;
             self.wall_history.clear();
+            self.wall_ui.sel = None;
+            self.wall_relayout();
             self.wall_refresh();
         }
     }
@@ -110,11 +116,11 @@ impl SwiperApp {
             self.cfg.walls.remove(self.cfg.wall);
             self.cfg.wall = self.cfg.wall.min(self.cfg.walls.len() - 1);
         } else {
-            let mut w = Wall::default();
-            w.pieces = wl::propose(&w, self.sizes());
-            self.cfg.walls[0] = w;
+            self.cfg.walls[0] = Wall::default();
         }
         self.wall_history.clear();
+        self.wall_ui.sel = None;
+        self.wall_relayout();
         self.toast(format!("„{name}“ entfernt"));
     }
 
@@ -162,11 +168,11 @@ impl SwiperApp {
 
     /// Seitenverhältnisse im Hintergrund lesen; danach übernimmt `poll_wall_scan`.
     pub fn wall_read(&mut self, files: Vec<PathBuf>) {
-        let known: HashMap<PathBuf, f32> = self
+        let known: HashMap<PathBuf, WallPhoto> = self
             .wall()
             .photos
             .iter()
-            .map(|p| (p.path.clone(), p.ratio))
+            .map(|p| (p.path.clone(), p.clone()))
             .collect();
         let state: WallScan = Arc::new(Mutex::new((0, files.len(), None)));
         let st = state.clone();
@@ -174,11 +180,21 @@ impl SwiperApp {
         std::thread::spawn(move || {
             let mut out = Vec::with_capacity(files.len());
             for (i, f) in files.into_iter().enumerate() {
-                let ratio = known.get(&f).copied().or_else(|| {
+                let old = known.get(&f);
+                let ratio = old.map(|p| p.ratio).or_else(|| {
                     imaging::oriented_size(&f).map(|(w, h)| w as f32 / h.max(1) as f32)
                 });
                 if let Some(ratio) = ratio {
-                    out.push(WallPhoto { path: f, ratio });
+                    let taken = match old {
+                        Some(p) if p.taken != 0 => p.taken,
+                        _ => taken_at(&f),
+                    };
+                    out.push(WallPhoto {
+                        ratio,
+                        taken,
+                        off: old.is_some_and(|p| p.off),
+                        path: f,
+                    });
                 }
                 if let Ok(mut s) = st.lock() {
                     s.0 = i + 1;
@@ -221,23 +237,16 @@ impl SwiperApp {
             photos.iter().filter(|p| !had.contains(&p.path)).count()
         };
         let first = self.wall().photos.is_empty();
-        let manual = self.wall().manual;
         let pool: HashSet<PathBuf> = photos.iter().map(|p| p.path.clone()).collect();
         let w = self.wall_mut();
         w.photos = photos;
-        if manual {
-            // von Hand gelegte Plätze bleiben, Fotos aus der alten Auswahl werden abgenommen
-            for p in &mut w.pieces {
-                if p.photo.as_ref().is_some_and(|f| !pool.contains(f)) {
-                    p.photo = None;
-                }
+        // festgepinnte Fotos aus der alten Auswahl werden abgenommen, der Platz bleibt
+        for p in &mut w.pieces {
+            if p.photo.as_ref().is_some_and(|f| !pool.contains(f)) {
+                p.photo = None;
             }
-            let sizes = self.cfg.print_sizes.clone();
-            wl::fill_empty(self.wall_mut(), &sizes);
-        } else {
-            let pieces = wl::propose(self.wall(), self.sizes());
-            self.wall_mut().pieces = pieces;
         }
+        self.wall_relayout();
         let msg = if first || added == 0 {
             format!("{} für die Wand", crate::ui::bilder(n))
         } else if added == 1 {
@@ -247,4 +256,17 @@ impl SwiperApp {
         };
         self.toast_with_undo(msg);
     }
+}
+
+/// Aufnahmezeit in Sekunden: aus dem Dateinamen der App („2024-05-01_142233_…“),
+/// sonst aus den EXIF-Daten oder der Dateizeit.
+pub fn taken_at(f: &Path) -> i64 {
+    let name = crate::folders::file_name(f);
+    let from_name = name
+        .get(..17)
+        .and_then(|s| chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d_%H%M%S").ok());
+    from_name
+        .unwrap_or_else(|| imaging::capture_time(f))
+        .and_utc()
+        .timestamp()
 }
