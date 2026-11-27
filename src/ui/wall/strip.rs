@@ -117,7 +117,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
                     let resp = resp
                         .on_hover_cursor(egui::CursorIcon::Grab)
                         .on_hover_text(format!(
-                            "{}\nAuf die Wand ziehen · Doppelklick: auf den nächsten freien Platz",
+                            "{}\nAuf die Wand ziehen · Doppelklick: zurück an die Wand",
                             crate::folders::file_name(path)
                         ));
                     if resp.drag_started() {
@@ -125,7 +125,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
                         app.wall_ui.menu = None;
                     }
                     if resp.double_clicked() {
-                        place_next(app, path);
+                        app.wall_put_back(path);
                     }
                 }
             });
@@ -145,17 +145,5 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
                 );
             }
         }
-    }
-}
-
-/// Foto auf den ersten leeren Platz legen.
-fn place_next(app: &mut SwiperApp, path: &std::path::Path) {
-    let free = app.wall().pieces.iter().position(|p| p.photo.is_none());
-    match free {
-        Some(i) => {
-            app.wall_checkpoint();
-            app.wall_mut().pieces[i].photo = Some(path.to_path_buf());
-        }
-        None => app.toast("Kein freier Platz mehr. Zieh das Foto an eine Stelle der Wand.".into()),
     }
 }

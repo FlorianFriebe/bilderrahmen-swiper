@@ -3,6 +3,39 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.17.0
+
+- **Mehrere Fotos** an der Fotowand wählen: Umschalt-Klick, Rechteck auf einer freien Stelle
+  aufziehen oder Strg+A. Zieh eins davon, dann wandern alle mit.
+- **Ausrichten** (links, mittig, rechts, oben, mittig, unten) und **Verteilen** mit gleichen
+  Abständen, rechts unter Auswahl.
+- **Hilfslinien** beim Ziehen: Was bündig liegt, zeigt eine blaue Linie; die Abstände zu den
+  Nachbarn und zur Wandkante stehen in cm daneben.
+- **Bildausschnitt** direkt an der Wand: Doppelklick aufs Foto und das Bild im Rahmen verschieben.
+- **Hauptbild**: ein Lieblingsfoto groß in der Mitte, alles andere drumherum.
+- **Größen mischen** in der Collage: etwa jedes dritte Foto in einer anderen Größe.
+- **Weißer Rand** für alle Fotos oder einzelne, wie bei einem Sofortbild.
+- Ein gelbes **Warnzeichen** zeigt Fotos, die für ihre Größe zu wenige Pixel haben und im Druck
+  unscharf würden.
+
+## 3.16.0
+
+- Die **Fotowand** ist neu aufgebaut: Rechts sitzt eine Seitenleiste mit den Reitern Wand,
+  Anordnung und Auswahl. Jede Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
+- Drei Anordnungen: **Raster** (ordentlich), **Reihen** (quer und hochkant gemischt) und
+  **Collage** (dicht und bunt gemischt). Der Rand zur Wandkante bleibt fest, die Abstände
+  dazwischen werden gleichmäßig.
+- Beim Überlappen wählst du das Muster: **Dachziegel**, **Mauerwerk** oder **Schachbrett**.
+- **Reihenfolge**: wie gewählt, nach Datum oder gemischt, damit Fotos vom selben Tag nicht
+  nebeneinander hängen. „Mischen“ würfelt neu.
+- Hindernisse bekommen einen eigenen **Rand**, oder Fotos dürfen **dahinter** verschwinden
+  (z. B. hinter dem Sofa).
+- Ein Foto, das du verschiebst, wird **festgepinnt**. Alles andere ordnet sich drumherum neu.
+  „Alle lösen“ gibt alles wieder frei.
+- **Zoom** mit Strg + Mausrad, zwei Fingern oder Strg + / −, verschieben mit der Leertaste.
+  Pfeiltasten schieben das gewählte Foto, P pinnt, Entf nimmt es ab.
+- Der Rechner sitzt jetzt unten als schmale Leiste mit Zoom.
+
 ## 3.15.0
 
 - Neu: **Für die Wand sortieren**. Im Bilder-Menü der Fotowand startet „Dafür sortieren“ das

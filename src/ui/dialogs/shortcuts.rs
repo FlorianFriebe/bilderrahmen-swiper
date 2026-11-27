@@ -31,6 +31,22 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
             ("F11", "Vollbild"),
             ("Esc", "Zurück / schließen"),
         ];
+        let wall: [(&str, &str); 11] = [
+            ("Pfeiltasten", "Foto um 1 cm schieben (Umschalt: 10 cm)"),
+            ("P", "Foto festpinnen oder lösen"),
+            ("Entf", "Foto von der Wand nehmen"),
+            ("Umschalt + Klick", "Mehrere Fotos wählen"),
+            ("Auf freier Wand ziehen", "Fotos im Rechteck wählen"),
+            ("Strg + A", "Alle Fotos wählen"),
+            ("Doppelklick", "Bildausschnitt verschieben (Enter: fertig)"),
+            ("Strg + / −", "Wand zoomen"),
+            ("Strg + 0", "Ganze Wand zeigen"),
+            (
+                "Leertaste + ziehen",
+                "Ansicht verschieben (auch mittlere Maustaste)",
+            ),
+            ("Strg + Mausrad", "Zoomen (auch mit zwei Fingern)"),
+        ];
         let key_chip = |ui: &mut Ui, k: &str| {
             let f = font(ts::SMALL, W::Semibold);
             let w = kit::text_size(ui, k, f.clone()).x + sp::M * 2.0;
@@ -80,6 +96,18 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
                         for (k, label) in mouse {
                             ui.label(egui::RichText::new(k).font(font(ts::BODY, W::Medium)));
                             ui.colored_label(text_soft(), label);
+                            ui.end_row();
+                        }
+                    });
+                ui.add_space(sp::M);
+                kit::section(ui, "Fotowand");
+                egui::Grid::new("wall_keys_grid")
+                    .num_columns(2)
+                    .spacing(vec2(sp::L, sp::S))
+                    .show(ui, |ui| {
+                        for (k, label) in wall {
+                            key_chip(ui, k);
+                            ui.label(label);
                             ui.end_row();
                         }
                     });

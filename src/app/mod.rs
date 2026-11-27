@@ -27,6 +27,8 @@ mod reedit;
 mod tests;
 mod textures;
 mod wall;
+mod wall_edit;
+mod wall_fine;
 mod wall_sort;
 pub use wall::WallScan;
 

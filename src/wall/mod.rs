@@ -5,8 +5,18 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+mod align;
+mod collage;
+mod layout;
+mod order;
 #[cfg(test)]
 mod tests;
+
+pub use align::{align, distribute, dpi, guides, Align, Line, Measure, DPI_WARN};
+#[cfg(test)]
+pub use layout::capacity;
+pub use layout::{arrange, Arrange, Facing, Pattern};
+pub use order::{ordered, Sequence};
 
 /// Druckgröße mit echten Maßen (Abzüge sind meist etwas größer als ihr Name).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -83,14 +93,46 @@ impl Area {
     pub fn contains(&self, x: f32, y: f32) -> bool {
         x >= self.x && x <= self.right() && y >= self.y && y <= self.bottom()
     }
+    /// Rundherum um `d` größer (negativ: kleiner, höchstens bis auf nichts).
+    pub fn grow(&self, d: f32) -> Area {
+        let d = d.max(-self.w.min(self.h) / 2.0);
+        Area {
+            x: self.x - d,
+            y: self.y - d,
+            w: self.w + 2.0 * d,
+            h: self.h + 2.0 * d,
+        }
+    }
 }
 
 /// Etwas an der Wand, das frei bleiben muss (Lichtschalter, Steckdose, Sofa …).
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct Obstacle {
     pub area: Area,
     pub label: String,
+    /// so viel Platz bleibt rundherum frei (cm)
+    pub margin: f32,
+    /// Fotos dürfen dahinter verschwinden (z. B. hinter dem Sofa)
+    pub behind: bool,
+}
+
+impl Default for Obstacle {
+    fn default() -> Self {
+        Self {
+            area: Area::default(),
+            label: String::new(),
+            margin: 2.0,
+            behind: false,
+        }
+    }
+}
+
+impl Obstacle {
+    /// Fläche, die für Fotos tabu ist (mit Rand); `None`, wenn Fotos dahinter dürfen.
+    pub fn keep_out(&self) -> Option<Area> {
+        (!self.behind).then(|| self.area.grow(self.margin.max(0.0)))
+    }
 }
 
 /// Ein Platz für ein Foto. Die Reihenfolge in `Wall::pieces` ist die Stapelung:
@@ -103,6 +145,8 @@ pub struct Piece {
     pub hoch: bool,
     pub x: f32,
     pub y: f32,
+    /// festgepinnt: bleibt, wo er ist; alles andere ordnet sich drumherum
+    pub pinned: bool,
 }
 
 impl Piece {
@@ -131,6 +175,16 @@ impl Piece {
 pub struct WallPhoto {
     pub path: PathBuf,
     pub ratio: f32,
+    /// von Hand von der Wand genommen: kommt beim Neuordnen nicht wieder dran
+    pub off: bool,
+    /// Aufnahmezeit in Sekunden (0 = unbekannt), für „nach Datum“ und „gemischt“
+    pub taken: i64,
+    /// Breite und Höhe in Pixeln (aufrecht), für die Auflösungs-Warnung; 0 = unbekannt
+    pub px: (u32, u32),
+    /// Bildausschnitt im Abzug: Verschiebung -1..1 waagerecht und senkrecht (0 = Mitte)
+    pub focus: (f32, f32),
+    /// eigener weißer Rand in cm (`None` = wie die Wand)
+    pub border: Option<f32>,
 }
 
 impl WallPhoto {
@@ -157,8 +211,28 @@ pub struct Wall {
     pub photos: Vec<WallPhoto>,
     /// Ordner, aus dem die Fotos stammen (leer = behaltene Bilder)
     pub source: Option<PathBuf>,
-    /// Plätze wurden von Hand verschoben: Einstellungen ordnen dann nicht mehr neu an
-    pub manual: bool,
+    /// Rand zur Wandkante (cm)
+    pub margin: f32,
+    /// Raster, Reihen oder Collage
+    pub arrange: Arrange,
+    /// wie sich Fotos überlappen (Dachziegel, Mauerwerk, Schachbrett)
+    pub pattern: Pattern,
+    /// alle quer, alle hochkant oder wie die Fotos
+    pub facing: Facing,
+    /// Reihenfolge: wie gewählt, nach Datum oder gemischt
+    pub sequence: Sequence,
+    /// eigene Reihenfolge der Fotos (nach Tauschen), gilt bei „wie gewählt“
+    pub order: Vec<PathBuf>,
+    /// Zufallszahl für „Mischen“ und die Collage
+    pub seed: u32,
+    /// Hauptbild: groß in der Mitte, alles andere drumherum
+    pub hero: Option<PathBuf>,
+    /// Druckgröße des Hauptbilds
+    pub hero_size: String,
+    /// weitere Druckgrößen, die die Collage untermischt
+    pub mix: Vec<String>,
+    /// weißer Rand um jedes Foto im Abzug (cm), einzelne Fotos können abweichen
+    pub border: f32,
     /// Zielordner, in den für diese Wand sortiert wird (eigenes Profil, leer = noch nie)
     pub target: Option<PathBuf>,
 }
@@ -175,7 +249,17 @@ impl Default for Wall {
             pieces: vec![],
             photos: vec![],
             source: None,
-            manual: false,
+            margin: 5.0,
+            arrange: Arrange::Raster,
+            pattern: Pattern::Dachziegel,
+            facing: Facing::Auto,
+            sequence: Sequence::Gewaehlt,
+            order: vec![],
+            seed: 0,
+            hero: None,
+            hero_size: "20x30".into(),
+            mix: vec![],
+            border: 0.0,
             target: None,
         }
     }
@@ -183,83 +267,8 @@ impl Default for Wall {
 
 /// Größter erlaubter Anteil Überlappung an der kleineren Seite (sonst sieht man nichts mehr).
 pub const MAX_OVERLAP: f32 = 0.6;
-/// Ab diesem verdeckten Anteil wird ein Foto markiert.
-pub const COVER_WARN: f32 = 0.34;
-
-/// Plätze für Fotos einer Größe im Raster: mittig, mit `gap` Abstand, ohne Hindernisse.
-pub fn slots(wall: &Wall, sizes: &[PrintSize], size: &str, hoch: bool) -> Vec<(f32, f32)> {
-    let probe = Piece {
-        size: size.into(),
-        hoch,
-        ..Default::default()
-    };
-    let (pw, ph) = probe.dims(sizes);
-    if pw <= 0.0 || ph <= 0.0 {
-        return vec![];
-    }
-    let gap = wall.gap.max(-pw.min(ph) * MAX_OVERLAP);
-    let fit = |len: f32, p: f32| -> usize {
-        if len + 0.001 < p {
-            0
-        } else {
-            ((len - p) / (p + gap) + 0.001).floor() as usize + 1
-        }
-    };
-    let (cols, rows) = (fit(wall.w, pw), fit(wall.h, ph));
-    let x0 = (wall.w - (cols as f32 * (pw + gap) - gap)) / 2.0;
-    let y0 = (wall.h - (rows as f32 * (ph + gap) - gap)) / 2.0;
-    let mut out = vec![];
-    for r in 0..rows {
-        for c in 0..cols {
-            let a = Area {
-                x: x0 + c as f32 * (pw + gap),
-                y: y0 + r as f32 * (ph + gap),
-                w: pw,
-                h: ph,
-            };
-            if !wall.obstacles.iter().any(|o| o.area.overlap(&a) > 0.0) {
-                out.push((a.x, a.y));
-            }
-        }
-    }
-    out
-}
-
-/// Wie viele Fotos passen bei dieser Größe (in der Ausrichtung, die mehr Plätze hat)?
-pub fn capacity(wall: &Wall, sizes: &[PrintSize], size: &str) -> usize {
-    slots(wall, sizes, size, false)
-        .len()
-        .max(slots(wall, sizes, size, true).len())
-}
-
-/// Ausrichtung für den Vorschlag: wie die meisten Fotos, ohne Fotos die mit mehr Plätzen.
-pub fn best_orientation(wall: &Wall, sizes: &[PrintSize]) -> bool {
-    let hoch = wall.photos.iter().filter(|p| p.hoch()).count();
-    let quer = wall.photos.len() - hoch;
-    if hoch != quer {
-        return hoch > quer;
-    }
-    slots(wall, sizes, &wall.size, true).len() > slots(wall, sizes, &wall.size, false).len()
-}
-
-/// Vorschlag: Raster in der Standardgröße, Fotos der Reihe nach, übrige Plätze leer.
-/// Fotos der passenden Ausrichtung kommen zuerst an die Reihe.
-pub fn propose(wall: &Wall, sizes: &[PrintSize]) -> Vec<Piece> {
-    let hoch = best_orientation(wall, sizes);
-    let mut photos: Vec<&WallPhoto> = wall.photos.iter().filter(|p| p.hoch() == hoch).collect();
-    photos.extend(wall.photos.iter().filter(|p| p.hoch() != hoch));
-    slots(wall, sizes, &wall.size, hoch)
-        .into_iter()
-        .enumerate()
-        .map(|(i, (x, y))| Piece {
-            photo: photos.get(i).map(|p| p.path.clone()),
-            size: wall.size.clone(),
-            hoch,
-            x,
-            y,
-        })
-        .collect()
-}
+/// Ab diesem verdeckten Anteil wird ein Foto markiert (mehr als die Hälfte unsichtbar).
+pub const COVER_WARN: f32 = 0.5;
 
 /// Anteil von Platz `i`, den darüberliegende Plätze verdecken (0..1, abgetastet).
 pub fn covered(pieces: &[Piece], sizes: &[PrintSize], i: usize) -> f32 {
@@ -286,11 +295,40 @@ pub fn covered(pieces: &[Piece], sizes: &[PrintSize], i: usize) -> f32 {
     hit as f32 / (N * N) as f32
 }
 
+impl Wall {
+    /// Eintrag eines Fotos in der Fotoliste.
+    pub fn photo(&self, path: &Path) -> Option<&WallPhoto> {
+        self.photos.iter().find(|p| p.path == path)
+    }
+    /// Weißer Rand eines Platzes in cm (eigener Rand des Fotos oder der der Wand), höchstens
+    /// so groß, dass noch ein Drittel der kurzen Seite Bild bleibt.
+    pub fn border_of(&self, sizes: &[PrintSize], p: &Piece) -> f32 {
+        let b = p
+            .photo
+            .as_deref()
+            .and_then(|f| self.photo(f))
+            .and_then(|w| w.border)
+            .unwrap_or(self.border);
+        let (w, h) = p.dims(sizes);
+        b.clamp(0.0, w.min(h) / 3.0)
+    }
+    /// Auflösung des Fotos auf diesem Platz (Punkte pro Zoll), wenn bekannt.
+    pub fn dpi_of(&self, sizes: &[PrintSize], p: &Piece) -> Option<f32> {
+        let ph = self.photo(p.photo.as_deref()?)?;
+        let (w, h) = p.dims(sizes);
+        let b = 2.0 * self.border_of(sizes, p);
+        dpi(ph.px, w - b, h - b)
+    }
+}
+
 /// Liegt der Platz auf einem Hindernis oder ragt über die Wand hinaus?
 pub fn blocked(wall: &Wall, sizes: &[PrintSize], p: &Piece) -> bool {
     let a = p.area(sizes);
     let out = a.x < -0.05 || a.y < -0.05 || a.right() > wall.w + 0.05 || a.bottom() > wall.h + 0.05;
-    out || wall.obstacles.iter().any(|o| o.area.overlap(&a) > 0.0)
+    out || wall
+        .obstacles
+        .iter()
+        .any(|o| !o.behind && o.area.overlap(&a) > 0.0)
 }
 
 /// Fotos, die noch an keinem Platz hängen (in der Reihenfolge der Auswahl).
@@ -333,12 +371,19 @@ pub fn snap(wall: &Wall, sizes: &[PrintSize], idx: usize, x: f32, y: f32, tol: f
             continue;
         }
         let a = o.area(sizes);
-        xs.extend([a.x, a.right() - w, a.right() + wall.gap, a.x - wall.gap - w]);
+        xs.extend([
+            a.x,
+            a.right() - w,
+            a.right() + wall.gap,
+            a.x - wall.gap - w,
+            a.x + (a.w - w) / 2.0,
+        ]);
         ys.extend([
             a.y,
             a.bottom() - h,
             a.bottom() + wall.gap,
             a.y - wall.gap - h,
+            a.y + (a.h - h) / 2.0,
         ]);
     }
     let pick = |v: f32, c: &[f32]| {
@@ -397,19 +442,4 @@ pub fn safe_name(name: &str) -> String {
     } else {
         s
     }
-}
-
-/// Leere Plätze mit Fotos füllen, die noch nicht hängen; nur wenn quer/hochkant passt
-/// (bei quadratischen Größen passt alles). Gibt zurück, wie viele dazukamen.
-pub fn fill_empty(wall: &mut Wall, sizes: &[PrintSize]) -> usize {
-    let mut free: Vec<WallPhoto> = unplaced(wall).into_iter().cloned().collect();
-    let mut n = 0;
-    for p in wall.pieces.iter_mut().filter(|p| p.photo.is_none()) {
-        let square = size_of(sizes, &p.size).is_some_and(|s| (s.long - s.short).abs() < 0.05);
-        if let Some(i) = free.iter().position(|f| square || f.hoch() == p.hoch) {
-            p.photo = Some(free.remove(i).path);
-            n += 1;
-        }
-    }
-    n
 }

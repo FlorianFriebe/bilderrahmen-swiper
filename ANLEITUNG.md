@@ -231,19 +231,56 @@ Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Profil.
 Der **Wand-Knopf** oben auf der Startseite öffnet die Fotowand. Dort planst du eine Wand voller
 gedruckter Fotos:
 
-1. **Wand einstellen** (Lineal-Knopf oder Klick auf die Maße): Breite und Höhe in cm,
-   Druckgröße und **Abstand**. Ganz nach links geschoben überlappen sich die Fotos.
-2. **Fotos wählen** (Bilder-Knopf): deine behaltenen Bilder, ein Ordner mit fertigen Fotos oder
-   **Dafür sortieren** (siehe unten).
-3. Oben steht, wie viele **Plätze** die Wand hat und wie viele Fotos **fehlen** oder **übrig** sind.
-   Daneben siehst du, wie viele es mit der nächstkleineren oder -größeren Druckgröße wären.
-4. **Hindernisse** (gestrichelter Knopf): Fläche aufziehen, die frei bleiben soll, z. B.
-   Lichtschalter oder Sofa. Rechtsklick darauf benennt oder entfernt sie.
-5. **Anordnen**: Fotos ziehen verschiebt sie, auf ein anderes Foto ziehen tauscht die beiden,
-   ins Band unten ziehen nimmt es ab. Fotos aus dem Band ziehst du auf die Wand. Rechtsklick auf
-   ein Foto: Größe, quer/hochkant, nach vorn/hinten, entfernen. Der Zauberstab ordnet alles neu.
-6. **Strg+Z** nimmt jeden Schritt zurück. Alles wird automatisch gespeichert, auch mehrere Wände
-   (Klick auf den Namen der Wand).
+Rechts sitzt eine **Seitenleiste** mit drei Reitern (oben rechts ein- und ausblenden). Jede
+Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
+
+1. **Wand**: Breite und Höhe in cm und der **Rand** zur Wandkante. Darunter deine Hindernisse
+   und die *Echten Druckmaße*.
+2. **Fotos wählen** (Bilder-Knopf oben): deine behaltenen Bilder, ein Ordner mit fertigen Fotos
+   oder **Dafür sortieren** (siehe unten).
+3. **Anordnung**:
+   - **Raster**: gleich große Felder, sehr ordentlich. **Reihen**: Reihe für Reihe, quer und
+     hochkant gemischt. **Collage**: dicht gepackt und bunt gemischt.
+   - **Fotogröße** und **Ausrichtung** (wie das Foto, alle quer oder alle hochkant).
+   - **Abstand**: die Fotos verteilen sich gleichmäßig zwischen den Rändern. Ganz nach links
+     geschoben überlappen sie sich, dann wählst du das **Muster**: Dachziegel, Mauerwerk
+     (jede zweite Reihe versetzt) oder Schachbrett (abwechselnd vorn und hinten).
+   - **Reihenfolge**: wie gewählt, nach Datum (älteste oben links) oder gemischt (Fotos vom
+     selben Tag hängen nicht nebeneinander). **Mischen** würfelt neu.
+4. **Hindernisse** (gestrichelter Knopf oben): Fläche aufziehen, die frei bleiben soll, z. B.
+   Lichtschalter oder Sofa. Anklicken zeigt sie unter **Auswahl**: Name, Maße, wie viel **Rand**
+   frei bleibt, oder ob Fotos **dahinter** verschwinden dürfen (z. B. hinter dem Sofa).
+5. **Von Hand**: Ein Foto ziehen legt es dorthin und **pinnt** es fest (kleiner Pin). Alle
+   anderen ordnen sich drumherum neu. Auf ein anderes Foto ziehen tauscht die beiden, ins Band
+   unten ziehen nimmt es ab (Doppelklick im Band hängt es wieder auf). Ein angeklicktes Foto
+   stellst du unter **Auswahl** ein: Größe, quer oder hochkant, genaue Lage in cm, Pin lösen.
+   „Alle lösen“ unter Anordnung gibt alle Fotos wieder frei.
+6. **Feinjustieren**:
+   - **Mehrere Fotos**: Umschalt-Klick nimmt Fotos dazu, Ziehen auf einer freien Stelle zieht
+     ein Rechteck auf, Strg+A wählt alle. Zieh eins davon, dann wandern alle mit. Unter
+     **Auswahl** richtest du sie aus (links, mittig, rechts, oben, mittig, unten) oder
+     **verteilst** sie mit gleichen Abständen (ab drei Fotos).
+   - **Hilfslinien**: Beim Ziehen zeigen blaue Linien, was bündig liegt, und Maße in cm den
+     Abstand zu den Nachbarn und zur Wandkante.
+   - **Bildausschnitt**: Doppelklick auf ein Foto, dann verschiebst du das Bild im Rahmen. Der
+     Rest vom Foto erscheint blass drumherum. Klick daneben oder Enter: fertig. „Wieder
+     mittig“ unter Auswahl setzt ihn zurück; „Zuschnitt ändern“ öffnet das Foto zum Zuschneiden.
+   - **Hauptbild**: Rechtsklick auf ein Foto, „Als Hauptbild“. Es hängt groß in der Mitte
+     (Größe unter Anordnung, z. B. 20x30), alles andere ordnet sich drumherum.
+   - **Größen mischen**: Bei der Collage wählst du weitere Größen. Etwa jedes dritte Foto
+     bekommt eine davon.
+   - **Weißer Rand**: unter Anordnung für alle Fotos, unter Auswahl für ein einzelnes Foto
+     („Eigener“). Das Bild wird um den Rand kleiner, wie bei einem Sofortbild.
+   - **Auflösung**: Ein gelbes Warnzeichen unten rechts heißt, das Foto hat für diese Größe zu
+     wenige Pixel (unter 200 dpi) und wird im Druck unscharf. Unter Auswahl steht der Wert.
+7. **Zoom**: Strg + Mausrad, zwei Finger auf dem Touchpad, Strg + / − oder die Knöpfe unten
+   rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Wand. Verschieben
+   mit gedrückter Leertaste oder mittlerer Maustaste.
+8. Unten steht, wie viele **Plätze** die Wand hat, wie viele Fotos **fehlen** oder **übrig**
+   sind und was zu drucken ist.
+9. **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **P** pinnt oder
+   löst, **Entf** nimmt sie ab, **Strg+A** wählt alle, **Strg+Z** nimmt jeden Schritt zurück. Alles wird automatisch
+   gespeichert, auch mehrere Wände (Klick auf den Namen der Wand).
 
 ### Für die Wand sortieren
 
@@ -254,13 +291,13 @@ Hast du die Fotos noch nicht ausgesucht, plane erst die Wand und wähle dann im 
 - Behaltene Fotos werden gleich im Format des Abzugs zugeschnitten (z. B. 10x15).
 - Oben steht, wie viele du schon hast: *Für die Wand „Flur“: 12 von 28 Bildern, noch 16*.
   Ein Klick auf diese Zeile bringt dich zur Wand.
-- An der Wand füllen neue Bilder von selbst die freien Plätze. Ein **Doppelklick** auf ein Foto
-  öffnet den Zuschnitt, danach bist du wieder an der Wand.
+- An der Wand füllen neue Bilder von selbst die freien Plätze. **Zuschnitt ändern** (Rechtsklick
+  aufs Foto) öffnet den Zuschnitt, danach bist du wieder an der Wand.
 - Änderst du die Wand, passen sich Ziel und Zuschnitt an. Zurück zu deinem Bilderrahmen geht es
   über das Profil in der Leiste.
 
 Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über die Wand. Gelbe Umrandung mit
-Prozentzahl: so viel vom Foto ist verdeckt. Die App rechnet mit den echten Maßen der Abzüge
+Prozentzahl: mehr als die Hälfte vom Foto ist verdeckt. Die App rechnet mit den echten Maßen der Abzüge
 (10x15 ist meist 10,2 × 15,2 cm); weichen deine ab, änderst du sie unter *Echte Druckmaße*.
 
 ## Text aufs Bild

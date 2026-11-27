@@ -264,13 +264,24 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
     }
     let k = |key: Key| ctx.input(|i| i.key_pressed(key));
     let m = ctx.input(|i| i.modifiers);
+    // in der Fotowand zoomen Strg + / − / 0 die Wand, sonst die Schrift
+    let wall = app.view == View::Wall && !app.modal_open();
     if m.command && (k(Key::Plus) || k(Key::Equals)) {
+        if wall {
+            return wall::zoom::step(app, 1.25);
+        }
         return zoom_ui(app, 0.1);
     }
     if m.command && k(Key::Minus) {
+        if wall {
+            return wall::zoom::step(app, 1.0 / 1.25);
+        }
         return zoom_ui(app, -0.1);
     }
     if m.command && k(Key::Num0) {
+        if wall {
+            return wall::zoom::fit(app);
+        }
         app.cfg.ui_scale = 1.0;
         return;
     }
@@ -351,16 +362,7 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
             if undo {
                 app.wall_undo();
             }
-            if k(Key::Delete) {
-                if let Some(i) = app.wall_ui.sel.take() {
-                    if i < app.wall().pieces.len() {
-                        app.wall_checkpoint();
-                        let w = app.wall_mut();
-                        w.pieces.remove(i);
-                        w.manual = true;
-                    }
-                }
-            }
+            wall::keys(app, &ctx);
         }
     }
 }

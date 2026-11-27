@@ -1,4 +1,4 @@
-//! Popups der Fotowand: Wand einstellen, Fotos wählen, Wände wechseln, Rechtsklick-Menü.
+//! Popups der Fotowand: Fotos wählen, Wände wechseln, Rechtsklick-Menü.
 
 use super::*;
 use crate::ui::popups::{caption, divider_line, field_row, form_popup, menu_row};
@@ -6,14 +6,12 @@ use crate::ui::popups::{caption, divider_line, field_row, form_popup, menu_row};
 pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui) {
     if let Some((which, anchor)) = app.wall_ui.popup {
         let keep = match which {
-            0 => settings(app, ui, anchor),
             1 => photos(app, ui, anchor),
             _ => walls(app, ui, anchor),
         };
         if !keep {
             app.wall_ui.popup = None;
             app.wall_ui.confirm_delete = false;
-            app.wall_ui.settings_dirty = false;
         }
     }
     if let Some((hit, at)) = app.wall_ui.menu {
@@ -21,145 +19,6 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui) {
             app.wall_ui.menu = None;
         }
     }
-}
-
-/// Maße, Fotogröße, Abstand, echte Druckmaße.
-fn settings(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
-    let mut changed = false;
-    let mut relayout = false;
-    let mut reset_sizes = false;
-    let names: Vec<String> = app.sizes().iter().map(|s| s.name.clone()).collect();
-    let manual = app.wall().manual;
-    let mut sizes = app.cfg.print_sizes.clone();
-    let mut w = app.wall().clone();
-    let keep = form_popup(ui, "wall_settings", anchor, 340.0, false, |ui| {
-        caption(ui, "Wand");
-        field_row(ui, "Breite", |ui| {
-            changed |= ui.add(cm(&mut w.w, 20.0..=2000.0, 1.0)).changed();
-        });
-        field_row(ui, "Höhe", |ui| {
-            changed |= ui.add(cm(&mut w.h, 20.0..=1000.0, 1.0)).changed();
-        });
-        divider_line(ui);
-        caption(ui, "Fotos");
-        field_row(ui, "Größe", |ui| {
-            egui::ComboBox::from_id_salt("wall_size")
-                .width(150.0)
-                .selected_text(w.size.clone())
-                .show_ui(ui, |ui| {
-                    for n in &names {
-                        changed |= ui.selectable_value(&mut w.size, n.clone(), n).changed();
-                    }
-                });
-        });
-        field_row(ui, "Abstand", |ui| {
-            ui.spacing_mut().slider_width = 150.0;
-            changed |= ui
-                .add(
-                    egui::Slider::new(&mut w.gap, -6.0..=10.0)
-                        .step_by(0.5)
-                        .show_value(false),
-                )
-                .on_hover_text("Nach links: Fotos überlappen. Nach rechts: mehr Abstand.")
-                .changed();
-        });
-        ui.horizontal(|ui| {
-            ui.add_space(sp::M + 104.0);
-            ui.label(
-                egui::RichText::new(wl::gap_label(w.gap))
-                    .font(font(ts::SMALL, W::Medium))
-                    .color(if w.gap < 0.0 { warn() } else { muted() }),
-            );
-        });
-        if manual {
-            ui.add_space(sp::XS);
-            relayout = menu_row(
-                ui,
-                "Neu anordnen",
-                "Verteilt alle Fotos nach diesen Werten",
-                false,
-            )
-            .clicked();
-        }
-        divider_line(ui);
-        caption(ui, "Echte Druckmaße");
-        ui.horizontal(|ui| {
-            ui.add_space(sp::M);
-            ui.add(
-                egui::Label::new(
-                    egui::RichText::new(
-                        "Abzüge sind oft etwas anders als ihr Name. Miss nach, wenn du es genau willst.",
-                    )
-                    .font(font(ts::SMALL, W::Regular))
-                    .color(muted()),
-                )
-                .wrap(),
-            );
-        });
-        for s in &mut sizes {
-            let square = (s.short - s.long).abs() < 0.01;
-            field_row(ui, &s.name, |ui| {
-                let speed = 0.1;
-                if square {
-                    let r = ui.add_sized([76.0, 24.0], cm(&mut s.short, 3.0..=100.0, speed));
-                    if r.changed() {
-                        s.long = s.short;
-                        changed = true;
-                    }
-                } else {
-                    changed |= ui
-                        .add_sized([76.0, 24.0], cm(&mut s.short, 3.0..=100.0, speed))
-                        .changed();
-                    ui.label(egui::RichText::new("×").color(muted()));
-                    changed |= ui
-                        .add_sized([76.0, 24.0], cm(&mut s.long, 3.0..=150.0, speed))
-                        .changed();
-                }
-            });
-        }
-        ui.add_space(sp::XS);
-        reset_sizes = menu_row(ui, "Übliche Maße wiederherstellen", "", false).clicked();
-        true
-    });
-    if changed {
-        if !app.wall_ui.settings_dirty {
-            app.wall_checkpoint();
-            app.wall_ui.settings_dirty = true;
-        }
-        for s in &mut sizes {
-            if s.long < s.short {
-                std::mem::swap(&mut s.short, &mut s.long);
-            }
-        }
-        app.cfg.print_sizes = sizes;
-        *app.wall_mut() = w;
-        app.wall_settings_changed();
-    }
-    if reset_sizes {
-        app.cfg.print_sizes = wl::default_sizes();
-        app.wall_settings_changed();
-    }
-    if relayout {
-        app.wall_relayout();
-        app.toast_with_undo("Neu angeordnet".into());
-    }
-    keep
-}
-
-/// Eingabefeld für Zentimeter mit deutschem Komma („10,2 cm“).
-fn cm(v: &mut f32, range: std::ops::RangeInclusive<f32>, speed: f64) -> egui::DragValue<'_> {
-    egui::DragValue::new(v)
-        .range(range)
-        .speed(speed)
-        .custom_formatter(|v, _| format!("{} cm", fmt_cm(v as f32)))
-        .custom_parser(|t| {
-            t.trim()
-                .trim_end_matches("cm")
-                .trim()
-                .replace(',', ".")
-                .parse::<f64>()
-                .ok()
-        })
 }
 
 /// Woher kommen die Fotos?
@@ -290,23 +149,11 @@ fn context(app: &mut SwiperApp, ui: &Ui, hit: Hit, at: Pos2) -> bool {
         Hit::Wall(x, y) => {
             let mut add = false;
             let keep = form_popup(ui, "wall_ctx", anchor, 240.0, false, |ui| {
-                add = menu_row(ui, "Leeren Platz hier", "", false).clicked();
+                add = menu_row(ui, "Leeren Platz hier", "Bleibt hier festgepinnt", false).clicked();
                 !add
             });
             if add {
-                app.wall_checkpoint();
-                let w = app.wall();
-                let mut pc = crate::wall::Piece {
-                    size: w.size.clone(),
-                    hoch: w.pieces.last().is_some_and(|p| p.hoch),
-                    ..Default::default()
-                };
-                let (pw, ph) = pc.dims(app.sizes());
-                pc.x = x - pw / 2.0;
-                pc.y = y - ph / 2.0;
-                let wm = app.wall_mut();
-                wm.pieces.push(pc);
-                wm.manual = true;
+                app.wall_add_empty(x, y);
             }
             keep
         }
@@ -317,11 +164,11 @@ fn context(app: &mut SwiperApp, ui: &Ui, hit: Hit, at: Pos2) -> bool {
 fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
     let pc = app.wall().pieces[i].clone();
     let names: Vec<String> = app.sizes().iter().map(|s| s.name.clone()).collect();
-    let last = app.wall().pieces.len() - 1;
     let mut size: Option<String> = None;
     // nur Bilder aus dem aktiven Zielordner lassen sich neu zuschneiden
     let own = pc.photo.as_deref().and_then(|f| app.original_of(f));
-    // 1 drehen, 2 nach vorn, 3 nach hinten, 4 abnehmen, 5 entfernen, 6 Zuschnitt
+    let hero = app.wall_is_hero(&pc);
+    // 1 drehen, 2 pinnen/lösen, 3 Hauptbild, 4 abnehmen, 5 entfernen, 6 Zuschnitt, 7 Ausschnitt
     let mut act = 0;
     let keep = form_popup(ui, "wall_ctx", anchor, 260.0, false, |ui| {
         caption(ui, "Größe");
@@ -342,80 +189,56 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
         if menu_row(ui, turn, "", false).clicked() {
             act = 1;
         }
-        if i < last && menu_row(ui, "Nach vorn", "Liegt über den anderen", false).clicked() {
+        let pin = if pc.pinned { "Lösen" } else { "Festpinnen" };
+        if menu_row(ui, pin, "P", pc.pinned).clicked() {
             act = 2;
         }
-        if i > 0 && menu_row(ui, "Nach hinten", "Liegt unter den anderen", false).clicked() {
-            act = 3;
+        if pc.photo.is_some() {
+            let label = if hero {
+                "Kein Hauptbild mehr"
+            } else {
+                "Als Hauptbild"
+            };
+            if menu_row(ui, label, "Groß in der Mitte", hero).clicked() {
+                act = 3;
+            }
+            if menu_row(ui, "Ausschnitt verschieben", "Doppelklick aufs Foto", false).clicked() {
+                act = 7;
+            }
         }
-        if own.is_some()
-            && menu_row(ui, "Zuschnitt ändern", "Doppelklick aufs Foto", false).clicked()
-        {
+        if own.is_some() && menu_row(ui, "Zuschnitt ändern", "", false).clicked() {
             act = 6;
         }
-        if pc.photo.is_some()
-            && menu_row(ui, "Foto abnehmen", "Der Platz bleibt frei", false).clicked()
-        {
+        if pc.photo.is_some() && menu_row(ui, "Von der Wand nehmen", "Entf", false).clicked() {
             act = 4;
         }
-        if menu_row(ui, "Platz entfernen", "", false).clicked() {
+        if pc.photo.is_none() && pc.pinned && menu_row(ui, "Platz entfernen", "", false).clicked() {
             act = 5;
         }
         act == 0 && size.is_none()
     });
-    if act == 0 && size.is_none() {
-        return keep;
-    }
-    if act == 6 {
-        if let Some(f) = &pc.photo {
-            app.wall_reedit(f);
-        }
-        return false;
-    }
-    app.wall_checkpoint();
-    let sizes = app.sizes().to_vec();
-    let w = app.wall_mut();
-    let resize = |p: &mut crate::wall::Piece, f: &dyn Fn(&mut crate::wall::Piece)| {
-        // Mitte bleibt, wo sie war
-        let (ow, oh) = p.dims(&sizes);
-        f(p);
-        let (nw, nh) = p.dims(&sizes);
-        p.x += (ow - nw) / 2.0;
-        p.y += (oh - nh) / 2.0;
-    };
-    // geänderte Fotos liegen danach oben, damit sie ganz zu sehen sind
-    let to_front = |w: &mut crate::wall::Wall| {
-        let p = w.pieces.remove(i);
-        w.pieces.push(p);
-        w.manual = true;
-    };
     if let Some(s) = size {
-        resize(&mut w.pieces[i], &|p| p.size = s.clone());
-        to_front(w);
-        app.wall_ui.sel = Some(last);
+        app.wall_reshape(i, Some(s), None);
         return false;
     }
     match act {
-        1 => {
-            resize(&mut w.pieces[i], &|p| p.hoch = !p.hoch);
-            to_front(w);
-            app.wall_ui.sel = Some(last);
-        }
-        2 => {
-            let p = w.pieces.remove(i);
-            w.pieces.push(p);
-            app.wall_ui.sel = Some(last);
-        }
+        0 => return keep,
+        1 => app.wall_reshape(i, None, Some(!pc.hoch)),
+        2 => app.wall_pin(i, !pc.pinned),
         3 => {
-            let p = w.pieces.remove(i);
-            w.pieces.insert(0, p);
-            app.wall_ui.sel = Some(0);
+            let f = pc.photo.clone().filter(|_| !hero);
+            app.wall_set_hero(f.as_deref());
         }
-        4 => w.pieces[i].photo = None,
-        5 => {
-            w.pieces.remove(i);
-            w.manual = true;
-            app.wall_ui.sel = None;
+        7 => {
+            app.wall_select(Some(i));
+            app.wall_ui.focus = Some(i);
+        }
+        4 => app.wall_take_off(i),
+        5 => app.wall_remove_piece(i),
+        6 => {
+            if let Some(f) = &pc.photo {
+                app.wall_reedit(f);
+            }
         }
         _ => {}
     }
@@ -423,28 +246,17 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
 }
 
 fn obstacle_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
-    let mut label = app.wall().obstacles[i].label.clone();
     let mut remove = false;
-    let keep = form_popup(ui, "wall_ctx", anchor, 280.0, false, |ui| {
+    let keep = form_popup(ui, "wall_ctx", anchor, 240.0, false, |ui| {
         caption(ui, "Hindernis");
-        field_row(ui, "Name", |ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut label)
-                    .hint_text("z. B. Sofa")
-                    .desired_width(130.0),
-            );
-        });
-        ui.add_space(sp::XS);
         remove = menu_row(ui, "Hindernis entfernen", "", false).clicked();
         !remove
     });
-    if label != app.wall().obstacles[i].label {
-        app.wall_mut().obstacles[i].label = label;
-    }
     if remove {
         app.wall_checkpoint();
         app.wall_mut().obstacles.remove(i);
-        app.wall_settings_changed();
+        app.wall_ui.sel_obstacle = None;
+        app.wall_relayout();
     }
     keep
 }

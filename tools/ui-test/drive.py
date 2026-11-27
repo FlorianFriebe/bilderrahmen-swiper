@@ -4,6 +4,8 @@ Aufruf: python3 tools/ui-test/drive.py <screenshot-ordner> <befehl> ...
 Befehle (Koordinaten in Pixeln des Bildschirms):
   c:x:y        Linksklick           rc:x:y   Rechtsklick      dc:x:y  Doppelklick
   m:x:y        Maus bewegen         d:x1:y1:x2:y2  ziehen
+  md:x:y       Maustaste drücken    mu       loslassen (dazwischen m:… und s:… für Bilder beim Ziehen)
+  sc:x:y       Umschalt-Klick
   k:Taste[:Mod+Mod]  Taste, z. B. k:Right, k:z:Control_L, k:BackSpace, k:Escape
   t:text       Text tippen          wheel:x:y:n  Mausrad (n>0 hoch)
   w:sek        warten               s:name   Screenshot <ordner>/<name>.png
@@ -53,7 +55,16 @@ for c in cmds:
     if op=="c": click(int(p[1]),int(p[2]))
     elif op=="rc": click(int(p[1]),int(p[2]),b=3)
     elif op=="dc": click(int(p[1]),int(p[2]),dbl=True)
-    elif op=="m": move(int(p[1]),int(p[2]))
+    elif op=="m":
+        for i in range(1,6): move(int(p[1]),int(p[2]))
+    elif op=="md":
+        move(int(p[1]),int(p[2])); xtest.fake_input(d, X.ButtonPress, 1); d.sync(); time.sleep(0.05)
+    elif op=="mu": xtest.fake_input(d, X.ButtonRelease, 1); d.sync(); time.sleep(0.1)
+    elif op=="sc":
+        sh=d.keysym_to_keycode(XK.string_to_keysym("Shift_L"))
+        xtest.fake_input(d, X.KeyPress, sh); d.sync()
+        click(int(p[1]),int(p[2]))
+        xtest.fake_input(d, X.KeyRelease, sh); d.sync(); time.sleep(0.1)
     elif op=="d": drag(*map(int,p[1:5]))
     elif op=="k": key(p[1], tuple(p[2].split("+")) if len(p)>2 and p[2] else ())
     elif op=="w": time.sleep(float(p[1]))
