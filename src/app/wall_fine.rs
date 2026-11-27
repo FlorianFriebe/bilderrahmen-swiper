@@ -79,7 +79,7 @@ impl SwiperApp {
         }
     }
 
-    /// Mehrere Plätze gemeinsam verschieben (alle werden festgepinnt).
+    /// Mehrere Plätze gemeinsam verschieben.
     pub fn wall_move_many(&mut self, idx: &[usize], dx: f32, dy: f32) {
         if idx.is_empty() || (dx.abs() < 0.01 && dy.abs() < 0.01) {
             return;
@@ -89,9 +89,9 @@ impl SwiperApp {
             if let Some(p) = self.wall_mut().pieces.get_mut(i) {
                 p.x += dx;
                 p.y += dy;
-                p.pinned = true;
             }
         }
+        self.wall_freeze();
         self.wall_relayout_keep(idx);
     }
 
@@ -104,6 +104,7 @@ impl SwiperApp {
         self.wall_checkpoint();
         let sizes = self.sizes().to_vec();
         wl::align(&mut self.wall_mut().pieces, &sizes, &idx, how);
+        self.wall_freeze();
         self.wall_relayout_keep(&idx);
     }
 
@@ -116,6 +117,7 @@ impl SwiperApp {
         self.wall_checkpoint();
         let sizes = self.sizes().to_vec();
         wl::distribute(&mut self.wall_mut().pieces, &sizes, &idx, across);
+        self.wall_freeze();
         self.wall_relayout_keep(&idx);
     }
 
@@ -147,7 +149,7 @@ impl SwiperApp {
                     ph.off = true;
                 }
             }
-            if p.pinned {
+            if p.pinned && !self.wall().frozen {
                 drop.push(i);
             }
         }
@@ -174,7 +176,7 @@ impl SwiperApp {
                 ph.off = false;
             }
         }
-        self.wall_relayout();
+        self.wall_rearrange();
         if let Some(f) = photo {
             self.wall_select_none();
             self.wall_ui.sel = self

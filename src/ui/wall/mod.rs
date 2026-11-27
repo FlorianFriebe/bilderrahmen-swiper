@@ -18,7 +18,9 @@ mod drag;
 mod guides;
 mod menus;
 mod piece;
+mod resize;
 mod side;
+mod side_fill;
 mod side_fine;
 mod strip;
 pub mod zoom;
@@ -29,6 +31,8 @@ const STRIP_H: f32 = 104.0;
 const CALC_H: f32 = 40.0;
 /// Breite der Seitenleiste.
 const SIDE_W: f32 = 312.0;
+/// eingeklappte Seitenleiste: nur die Reiter, senkrecht
+const SIDE_TABS_W: f32 = 36.0;
 
 /// Was unter dem Mauszeiger liegt.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -61,6 +65,12 @@ pub enum Drag {
     Band((f32, f32), bool),
     /// Bildausschnitt im Platz verschieben
     Focus(usize),
+    /// Größe an einer Ecke ziehen (welche Ecke: rechts?, unten?)
+    Resize {
+        idx: usize,
+        right: bool,
+        bottom: bool,
+    },
 }
 
 /// Reiter der Seitenleiste.
@@ -107,6 +117,8 @@ pub struct WallUi {
     /// Zoom (1 = Wand passt ganz hinein) und Verschiebung in Bildschirmpunkten
     pub zoom: f32,
     pub pan: Vec2,
+    /// Alt gedrückt: beim Ablegen tauschen, auch wo sich Fotos überlappen
+    pub alt: bool,
 }
 
 impl WallUi {
@@ -152,7 +164,9 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     }
     let top = ws.top() + size::BAR + sp::M;
     let main_right = if app.wall_ui.side_hidden {
-        ws.right()
+        let side = Rect::from_min_max(pos2(ws.right() - SIDE_TABS_W, top), ws.max);
+        side::folded(app, ui, side);
+        side.left() - sp::M
     } else {
         let side = Rect::from_min_max(pos2(ws.right() - SIDE_W, top), ws.max);
         side::show(app, ui, side);
@@ -178,22 +192,26 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     menus::show(app, ui);
 }
 
-/// Obere Leiste: Zurück, Name der Wand (Menü), Werkzeuge rechts.
+/// Obere Leiste: Menü links (Zurück, Rückgängig, Hindernis …), Name der Wand in der Mitte.
 fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
-    let back = Rect::from_min_size(
-        ws.min,
-        vec2(
-            kit::secondary_width(ui, icons::ARROW_LEFT, "Zurück"),
-            size::BAR,
-        ),
-    );
-    if kit::secondary(ui, back, icons::ARROW_LEFT, "Zurück", true)
-        .on_hover_text("Esc")
-        .clicked()
-    {
-        app.wall_ui = Default::default();
-        app.view = View::Home;
-        return false;
+    let back = Rect::from_min_size(ws.min, vec2(size::BAR, size::BAR));
+    let open = matches!(app.wall_ui.popup, Some((3, _)));
+    let resp = kit::secondary(ui, back, icons::LIST, "", true)
+        .on_hover_text("Menü: Zurück, Rückgängig, Hindernis einzeichnen, Fotos");
+    if open || app.wall_ui.draw {
+        let p = ui.painter();
+        p.rect_filled(back, radius::M, panel().to_opaque());
+        p.rect_filled(back, radius::M, accent_soft());
+        p.rect_stroke(
+            back,
+            radius::M,
+            Stroke::new(1.5, accent()),
+            StrokeKind::Inside,
+        );
+        kit::icon(p, back.center(), icons::LIST, 18.0, accent());
+    }
+    if resp.clicked() {
+        app.wall_ui.popup = if open { None } else { Some((3, back)) };
     }
 
     // Name der Wand mit kleinem Pfeil: öffnet die Liste der Wände
@@ -236,57 +254,6 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         app.wall_ui.confirm_delete = false;
     }
 
-    // Werkzeuge: gleich große Symbol-Knöpfe, bündig von rechts
-    let scanning = app.wall_scan.is_some();
-    let side_tip = if app.wall_ui.side_hidden {
-        "Einstellungen zeigen"
-    } else {
-        "Einstellungen ausblenden"
-    };
-    let tools: [(&str, &str, u8, bool); 4] = [
-        (icons::SIDEBAR, side_tip, 13, true),
-        (icons::IMAGES, "Fotos für die Wand wählen", 1, !scanning),
-        (
-            icons::SELECTION,
-            "Hindernis zeichnen: Fläche aufziehen, die frei bleibt (Lichtschalter, Steckdose, Möbel)",
-            11,
-            true,
-        ),
-        (
-            icons::UNDO,
-            "Rückgängig (Strg+Z)",
-            12,
-            !app.wall_history.is_empty(),
-        ),
-    ];
-    let mut x = ws.right();
-    for (glyph, tip, act, enabled) in tools {
-        let r = Rect::from_min_size(pos2(x - size::BAR, ws.top()), vec2(size::BAR, size::BAR));
-        x = r.left() - sp::XS;
-        let active = match act {
-            11 => app.wall_ui.draw,
-            13 => !app.wall_ui.side_hidden,
-            a => matches!(app.wall_ui.popup, Some((b, _)) if a == b),
-        };
-        let resp = kit::secondary(ui, r, glyph, "", enabled).on_hover_text(tip);
-        if active {
-            let p = ui.painter();
-            p.rect_filled(r, radius::M, panel().to_opaque());
-            p.rect_filled(r, radius::M, accent_soft());
-            p.rect_stroke(r, radius::M, Stroke::new(1.5, accent()), StrokeKind::Inside);
-            kit::icon(p, r.center(), glyph, 18.0, accent());
-        }
-        if resp.clicked() {
-            match act {
-                11 => app.wall_ui.draw = !app.wall_ui.draw,
-                12 => app.wall_undo(),
-                13 => app.wall_ui.side_hidden = !app.wall_ui.side_hidden,
-                a => {
-                    app.wall_ui.popup = if active { None } else { Some((a, r)) };
-                }
-            }
-        }
-    }
     true
 }
 
@@ -401,10 +368,11 @@ fn calc_bar(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
 }
 
 /// Tasten der Fotowand: Entf nimmt ab, P pinnt, Pfeile schieben (Umschalt: 10 cm),
-/// Strg+A wählt alle Fotos. Gilt bei Mehrfachauswahl für alle ausgewählten.
+/// Strg+↑/↓ ändert die Ebene (mit Umschalt: ganz), Strg+A wählt alle Fotos.
+/// Gilt bei Mehrfachauswahl für alle ausgewählten.
 pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
     use egui::Key;
-    let (k, shift, all) = ctx.input(|i| {
+    let (k, shift, all, cmd) = ctx.input(|i| {
         let pressed: Vec<Key> = [
             Key::Delete,
             Key::Backspace,
@@ -414,6 +382,7 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
             Key::ArrowUp,
             Key::ArrowDown,
             Key::Enter,
+            Key::Tab,
         ]
         .into_iter()
         .filter(|k| i.key_pressed(*k))
@@ -422,6 +391,7 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
             pressed,
             i.modifiers.shift,
             i.modifiers.command && i.key_pressed(Key::A),
+            i.modifiers.command,
         )
     });
     if all {
@@ -433,6 +403,9 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
     }
     if k.contains(&Key::Enter) {
         app.wall_ui.focus = None;
+    }
+    if k.contains(&Key::Tab) && !ctx.egui_wants_keyboard_input() {
+        app.wall_ui.side_hidden = !app.wall_ui.side_hidden;
     }
     let many = app.wall_selected();
     if many.is_empty() {
@@ -447,6 +420,9 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
         return;
     }
     let step = if shift { 10.0 } else { 1.0 };
+    if many.len() >= 2 && cmd {
+        return;
+    }
     if many.len() >= 2 {
         let mv = |app: &mut SwiperApp, dx, dy| app.wall_move_many(&many, dx, dy);
         for key in k {
@@ -466,6 +442,16 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
         return;
     }
     let i = many[0];
+    if cmd {
+        for key in k {
+            match key {
+                Key::ArrowUp => app.wall_layer(i, 1, shift),
+                Key::ArrowDown => app.wall_layer(i, -1, shift),
+                _ => {}
+            }
+        }
+        return;
+    }
     for key in k {
         match key {
             Key::Delete | Key::Backspace => {

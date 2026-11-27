@@ -1,7 +1,8 @@
 //! Seitenleiste, Feinjustieren: Hauptbild, Größen-Mix und weißer Rand (Reiter Anordnung),
-//! mehrere Fotos ausrichten und verteilen, Bildausschnitt, Auflösung und eigener Rand je Foto.
+//! Reiter Auswahl für ein Foto (Größe, Lage, Ebene, Bildausschnitt, Auflösung, eigener Rand)
+//! und für mehrere (ausrichten, verteilen).
 
-use super::side::{hint, size_combo, Act};
+use super::side::{cm, hint, seg, size_combo, Act};
 use super::*;
 use crate::ui::popups::{caption, divider_line, field_row, menu_row};
 use crate::wall::{Align, Arrange, Piece, PrintSize, Wall};
@@ -139,7 +140,7 @@ pub(super) fn multi_tab(ui: &mut Ui, n: usize, pinned: usize, acts: &mut Vec<Act
 }
 
 /// Reihe gleich großer Symbolknöpfe über die Breite; gibt den geklickten zurück.
-fn icon_row<const N: usize>(
+pub(super) fn icon_row<const N: usize>(
     ui: &mut Ui,
     glyphs: &[&str; N],
     tips: &[&str; N],
@@ -162,6 +163,103 @@ fn icon_row<const N: usize>(
         }
     }
     hit
+}
+
+/// Reiter Auswahl bei einem Foto: Größe, Lage, Pin, Ebene, dann die Feinheiten.
+pub(super) fn piece_tab(
+    app: &SwiperApp,
+    ui: &mut Ui,
+    w: &mut Wall,
+    i: usize,
+    sizes: &[PrintSize],
+    acts: &mut Vec<Act>,
+) {
+    let pc = w.pieces[i].clone();
+    let name = pc
+        .photo
+        .as_deref()
+        .map(crate::folders::file_name)
+        .unwrap_or_else(|| "Leerer Platz".into());
+    caption(ui, "Foto");
+    ui.horizontal(|ui| {
+        ui.add_space(sp::M);
+        let f = font(ts::BODY, W::Semibold);
+        let s = kit::fit_text(ui, &name, f.clone(), ui.available_width() - sp::M);
+        ui.label(egui::RichText::new(s).font(f).color(text()));
+    });
+    ui.add_space(sp::XS);
+    let mut size = pc.size.clone();
+    field_row(ui, "Größe", |ui| {
+        if size_combo(ui, "wall_side_piece_size", sizes, &mut size) {
+            acts.push(Act::Reshape(i, Some(size.clone()), None));
+        }
+    });
+    let cur = usize::from(pc.hoch);
+    if let Some(k) = seg(ui, &["Quer", "Hochkant"], cur) {
+        if k != cur {
+            acts.push(Act::Reshape(i, None, Some(k == 1)));
+        }
+    }
+    ui.add_space(sp::XS);
+    let (mut x, mut y) = (pc.x, pc.y);
+    let mut moved = false;
+    field_row(ui, "Links", |ui| {
+        moved |= ui.add(cm(&mut x, -100.0..=w.w, 0.1)).changed();
+    });
+    field_row(ui, "Oben", |ui| {
+        moved |= ui.add(cm(&mut y, -100.0..=w.h, 0.1)).changed();
+    });
+    if moved {
+        // direkt ändern: ein Rückgängig-Schritt, solange am Feld gezogen wird
+        let q = &mut w.pieces[i];
+        q.x = x;
+        q.y = y;
+        w.frozen = true;
+    }
+    divider_line(ui);
+    let (pin_label, pin_sub) = if pc.pinned {
+        ("Festgepinnt", "Bleibt hier. Klick löst es (P).")
+    } else {
+        ("Festpinnen", "Bleibt hier, auch bei „Neu anordnen“ (P)")
+    };
+    if menu_row(ui, pin_label, pin_sub, pc.pinned).clicked() {
+        acts.push(Act::Pin(i, !pc.pinned));
+    }
+    caption(ui, "Ebene");
+    let glyphs = [
+        icons::CARET_DOUBLE_DOWN,
+        icons::CARET_DOWN,
+        icons::CARET_UP,
+        icons::CARET_DOUBLE_UP,
+    ];
+    let tips = [
+        "Ganz nach hinten (Strg+Umschalt+↓)",
+        "Eine Ebene nach hinten (Strg+↓)",
+        "Eine Ebene nach vorn (Strg+↑)",
+        "Ganz nach vorn (Strg+Umschalt+↑)",
+    ];
+    let n = w.pieces.len();
+    let on = [i > 0, i > 0, i + 1 < n, i + 1 < n];
+    if let Some(k) = icon_row(ui, &glyphs, &tips, on) {
+        let (step, all) = [(-1, true), (-1, false), (1, false), (1, true)][k];
+        acts.push(Act::Layer(i, step, all));
+    }
+    piece_extras(app, ui, w, i, &pc, acts);
+    divider_line(ui);
+    if pc.photo.is_some() {
+        if menu_row(
+            ui,
+            "Von der Wand nehmen",
+            "Kommt ins Band unten (Entf)",
+            false,
+        )
+        .clicked()
+        {
+            acts.push(Act::TakeOff(i));
+        }
+    } else if (pc.pinned || w.frozen) && menu_row(ui, "Platz entfernen", "", false).clicked() {
+        acts.push(Act::Remove(i));
+    }
 }
 
 /// Reiter Auswahl bei einem Foto: Hauptbild, Bildausschnitt, Auflösung, eigener Rand.
@@ -217,7 +315,7 @@ pub(super) fn piece_extras(
         let msg = if low {
             format!(
                 "{} dpi: wird im Druck unscharf. Nimm eine kleinere Größe.",
-                d.round()
+                d.floor()
             )
         } else {
             format!("{} dpi: scharf genug für diese Größe.", d.round())
@@ -248,7 +346,7 @@ pub(super) fn piece_extras(
     };
     let own = ph.border.is_some();
     let cur = usize::from(own);
-    if let Some(k) = super::side::seg(ui, &["Wie die Wand", "Eigener"], cur) {
+    if let Some(k) = seg(ui, &["Wie die Wand", "Eigener"], cur) {
         ph.border = (k == 1).then_some(wall_b);
     }
     if let Some(b) = ph.border.as_mut() {

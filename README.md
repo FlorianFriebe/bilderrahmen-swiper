@@ -69,11 +69,12 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 **Fotowand planen**
 - Eigene Ansicht ab der Startseite: Wandmaße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
 - Seitenleiste mit den Reitern Wand, Anordnung und Auswahl; jede Änderung wirkt sofort und die Fotos gleiten an ihre Plätze
-- Anordnung als Raster, Reihen oder Collage, fester Rand zur Kante, gleichmäßige Abstände; quer und hochkant gemischt oder alle gleich
+- Anordnung als Raster, Reihen, Collage oder Lückenlos (ganze Fläche voller überlappender Fotos mit Größen-Anteilen, Überlappung von–bis, ordentlich bis wild, Mindest-Sichtbarkeit, bündig abgeschnittenen Kanten), fester Rand zur Kante, gleichmäßige Abstände; quer und hochkant gemischt oder alle gleich
 - Überlappen als Dachziegel, Mauerwerk oder Schachbrett, verdeckter Anteil pro Foto
 - Reihenfolge wie gewählt, nach Datum oder gemischt (Fotos vom selben Tag nicht nebeneinander)
 - Hindernisse (Lichtschalter, Möbel) mit eigenem Rand oder „Fotos dürfen dahinter“
-- Von Hand gelegte Fotos werden festgepinnt, der Rest ordnet sich drumherum; Zoom mit Strg + Mausrad, zwei Fingern oder Strg + / −
+- Fotos frei verschieben: von Hand angeordnet bleibt alles, wo es ist, bis „Neu anordnen“; Ebenen mit Strg+↑/↓, Größe an der Ecke ziehen (springt auf die nächste Druckgröße), Pins nur auf Wunsch; Zoom mit Strg + Mausrad, zwei Fingern oder Strg + / −
+- Menü oben links (Zurück, Rückgängig, Hindernis, Fotos), „+“ im Band, Seitenleiste mit Tab einklappbar
 - Feinjustieren: mehrere Fotos wählen (Umschalt-Klick, Rechteck, Strg+A), ausrichten und gleichmäßig verteilen, Hilfslinien mit Abständen in cm beim Ziehen
 - Hauptbild groß in der Mitte, Größen-Mix in der Collage, Bildausschnitt direkt an der Wand verschieben, weißer Rand für alle oder einzelne Fotos, Warnung bei zu geringer Auflösung (unter 200 dpi)
 - Rechner unten: Plätze, vorhandene Fotos, was fehlt oder übrig ist, was zu drucken ist
@@ -135,7 +136,7 @@ src/
   app/           Zustand und Logik, je Thema ein Modul (Ordner, Entscheiden, Bearbeiten,
                  Nachbearbeiten, Serien, Stick, Tasten, Profile, Fotowand)
   history.rs     Rückgängig: Schritte, Papierkorb, Ganz von vorn
-  wall/          Fotowand: Druckgrößen, Anordnen (Raster, Reihen, Collage), Reihenfolge,
+  wall/          Fotowand: Druckgrößen, Anordnen (Raster, Reihen, Collage, Lückenlos), Reihenfolge,
                  Ausrichten, Hilfslinien, Auflösung, Hindernisse, Pins, Verdeckung, Einrasten
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten

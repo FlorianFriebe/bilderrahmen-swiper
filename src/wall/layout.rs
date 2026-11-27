@@ -18,15 +18,23 @@ pub enum Arrange {
     Reihen,
     /// dicht gepackt und gemischt
     Collage,
+    /// die ganze Fläche bedeckt, Fotos überlappen sich
+    Lueckenlos,
 }
 
 impl Arrange {
-    pub const ALL: [Arrange; 3] = [Arrange::Raster, Arrange::Reihen, Arrange::Collage];
+    pub const ALL: [Arrange; 4] = [
+        Arrange::Raster,
+        Arrange::Reihen,
+        Arrange::Collage,
+        Arrange::Lueckenlos,
+    ];
     pub fn label(self) -> &'static str {
         match self {
             Arrange::Raster => "Raster",
             Arrange::Reihen => "Reihen",
             Arrange::Collage => "Collage",
+            Arrange::Lueckenlos => "Lückenlos",
         }
     }
     pub fn hint(self) -> &'static str {
@@ -34,6 +42,9 @@ impl Arrange {
             Arrange::Raster => "Gleich große Felder in Spalten und Zeilen, sehr ordentlich.",
             Arrange::Reihen => "Reihe für Reihe, quer und hochkant gemischt.",
             Arrange::Collage => "Dicht gepackt und bunt gemischt, danach von Hand schieben.",
+            Arrange::Lueckenlos => {
+                "Die ganze Fläche voller Fotos, die sich überlappen, mit geraden Außenkanten."
+            }
         }
     }
 }
@@ -162,11 +173,17 @@ pub fn arrange(wall: &Wall, sizes: &[PrintSize]) -> Vec<Piece> {
             size: None,
         })
         .collect();
+    if wall.arrange == Arrange::Lueckenlos {
+        let mut out = super::fill::fill(wall, &g, photos);
+        out.extend(wall.pieces.iter().filter(|p| p.pinned).cloned());
+        return out;
+    }
     let (hero, photos) = hero(wall, &mut g, photos);
     let mut out = match wall.arrange {
         Arrange::Raster => raster(wall, &g, photos),
         Arrange::Reihen => rows(wall, &g, photos),
         Arrange::Collage => super::collage::collage(wall, &g, photos),
+        Arrange::Lueckenlos => super::fill::fill(wall, &g, photos),
     };
     out.extend(hero);
     out.extend(wall.pieces.iter().filter(|p| p.pinned).cloned());

@@ -60,7 +60,7 @@ fn bounds(pieces: &[Piece], sizes: &[PrintSize], idx: &[usize]) -> Option<Area> 
     })
 }
 
-/// Plätze `idx` am gemeinsamen Rahmen ausrichten; sie werden dabei festgepinnt.
+/// Plätze `idx` am gemeinsamen Rahmen ausrichten.
 pub fn align(pieces: &mut [Piece], sizes: &[PrintSize], idx: &[usize], how: Align) {
     let Some(bb) = bounds(pieces, sizes, idx) else {
         return;
@@ -76,12 +76,11 @@ pub fn align(pieces: &mut [Piece], sizes: &[PrintSize], idx: &[usize], how: Alig
             Align::MitteY => p.y = bb.y + (bb.h - h) / 2.0,
             Align::Unten => p.y = bb.bottom() - h,
         }
-        p.pinned = true;
     }
 }
 
 /// Plätze `idx` mit gleichen Abständen verteilen (waagerecht oder senkrecht). Die beiden
-/// äußeren bleiben, wo sie sind; alle werden festgepinnt.
+/// äußeren bleiben, wo sie sind.
 pub fn distribute(pieces: &mut [Piece], sizes: &[PrintSize], idx: &[usize], across: bool) {
     let mut v: Vec<(usize, Area)> = idx
         .iter()
@@ -108,7 +107,6 @@ pub fn distribute(pieces: &mut [Piece], sizes: &[PrintSize], idx: &[usize], acro
         } else {
             p.y = at;
         }
-        p.pinned = true;
         at += len(&a) + gap;
     }
 }
@@ -266,7 +264,7 @@ mod tests {
             at(50.0, 40.0, false),
         ];
         align(&mut v, &s, &[0, 1, 2], Align::Links);
-        assert!(v.iter().all(|p| (p.x - 10.0).abs() < 0.01 && p.pinned));
+        assert!(v.iter().all(|p| (p.x - 10.0).abs() < 0.01));
         // Mitte: alle Mitten liegen auf einer senkrechten Linie
         let mut v = vec![at(10.0, 0.0, false), at(30.0, 20.0, true)];
         align(&mut v, &s, &[0, 1], Align::MitteX);
@@ -280,7 +278,6 @@ mod tests {
         ];
         align(&mut v, &s, &[0, 1], Align::Unten);
         assert_eq!(v[2].y, 5.0);
-        assert!(!v[2].pinned);
     }
 
     #[test]

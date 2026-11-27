@@ -1,5 +1,5 @@
-//! Band unten: Fotos, die noch nicht an der Wand hängen. Von hier auf die Wand ziehen;
-//! ein Foto von der Wand hierher ziehen nimmt es ab.
+//! Band unten: Fotos, die noch nicht an der Wand hängen, vorn ein „+“ für mehr Fotos.
+//! Von hier auf die Wand ziehen; ein Foto von der Wand hierher ziehen nimmt es ab.
 
 use super::*;
 use crate::ui::image_cover;
@@ -91,6 +91,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
         .show(&mut child, |ui| {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = sp::S;
+                add_tile(app, ui, th);
                 for (path, ratio) in &free {
                     let w = (th * ratio.clamp(0.5, 2.0)).round();
                     let (tr, resp) = ui.allocate_exact_size(vec2(w, th), Sense::click_and_drag());
@@ -145,5 +146,30 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
                 );
             }
         }
+    }
+}
+
+/// Kachel „+“ vorn im Band: öffnet „Fotos für die Wand“.
+fn add_tile(app: &mut SwiperApp, ui: &mut Ui, th: f32) {
+    let (tr, resp) = ui.allocate_exact_size(vec2((th * 0.75).round(), th), Sense::click());
+    let resp = resp
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text("Fotos hinzufügen: Behaltene, Ordner oder dafür sortieren");
+    let t = kit::anim(ui, resp.id, resp.hovered());
+    let p = ui.painter();
+    p.rect_filled(tr, radius::S / 2, control());
+    if t > 0.0 {
+        p.rect_filled(tr, radius::S / 2, accent_soft().gamma_multiply(t));
+    }
+    super::canvas::dashed_rect(p, tr.shrink(1.0), muted());
+    kit::icon(
+        p,
+        tr.center(),
+        icons::PLUS,
+        22.0,
+        kit::mix(muted(), accent(), t),
+    );
+    if resp.clicked() && app.wall_scan.is_none() {
+        app.wall_ui.popup = Some((1, tr));
     }
 }
