@@ -274,8 +274,8 @@ pub(super) fn fill(wall: &Wall, g: &Geo, mut photos: Vec<Item>) -> Vec<Piece> {
         }
         let Some((_, a, si)) = best else {
             // hier passt nichts (Hindernis): ein Stück weiter unten weitermachen
-            for i in c0..c1 {
-                sky.depth[i] = (sky.depth[i] + res * 2.0).min(inner.bottom());
+            for d in &mut sky.depth[c0..c1] {
+                *d = (*d + res * 2.0).min(inner.bottom());
             }
             continue;
         };
@@ -283,8 +283,9 @@ pub(super) fn fill(wall: &Wall, g: &Geo, mut photos: Vec<Item>) -> Vec<Piece> {
             size: Some(sizes[si].0.clone()),
             ..base
         };
-        for i in sky.full(a.x, a.w, inner.right()) {
-            sky.depth[i] = sky.depth[i].max(a.bottom().min(inner.bottom()));
+        let full = sky.full(a.x, a.w, inner.right());
+        for d in &mut sky.depth[full] {
+            *d = d.max(a.bottom().min(inner.bottom()));
         }
         let key = stack_key(wall, g, &it, &mut rng);
         placed.push(Placed {
@@ -409,8 +410,7 @@ fn rate(sky: &Sky, inner: &Area, a: &Area, omax: f32, narrow: f32) -> f32 {
     let mut waste = 0.0;
     let bottom = a.bottom().min(inner.bottom());
     let full = sky.full(a.x, a.w, inner.right());
-    for i in full.clone() {
-        let d = sky.depth[i];
+    for &d in &sky.depth[full.clone()] {
         gain += (bottom - d).max(0.0);
         waste += (d.min(bottom) - a.y - omax).max(0.0);
     }
