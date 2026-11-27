@@ -104,7 +104,7 @@ pub(super) fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     p.rect_filled(row(x, pause_w), radius::M, field());
     if kit::icon_button(ui, row(x, pause_w), icons::HOME, true)
         .on_hover_text(
-            "Zum Startbildschirm. Dein Stand wird gespeichert und steht unter „Weitermachen“.",
+            "Zurück zu den Ordnern. Dein Stand wird gespeichert und steht unter „Weitermachen“.",
         )
         .clicked()
     {

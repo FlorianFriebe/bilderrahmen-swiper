@@ -18,6 +18,24 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 4. Beim ersten Klick auf Start fragt das Programm, **welchen Bilderrahmen du hast**, und öffnet
    dazu das Profil. Danach zeigt eine kurze Einführung die wichtigsten Handgriffe.
 
+## Startseite: Rahmen oder Wand
+
+Die Startseite fragt **„Was möchtest du machen?“** und zeigt zwei große Karten:
+
+- **Bilderrahmen füllen** (blau): für deinen **digitalen** Bilderrahmen. Fotos aussuchen,
+  zuschneiden und auf Stick oder SD-Karte bringen. Schritte: *1 Fotos · 2 Aussuchen · 3 Auf den Rahmen*.
+- **Fotowand planen** (violett): für **gedruckte** Fotos an der Wand. Wand ausmessen, Fotos
+  anordnen, Druckdateien und Aufhängeplan. Schritte: *1 Maße · 2 Fotos · 3 Export*.
+
+In jeder Karte steht **„Weitermachen“**, wenn du dort schon etwas angefangen hast: ein Klick, und
+du bist genau da, wo du aufgehört hast. Darunter der große Knopf für etwas Neues. Das **Zahnrad**
+oben rechts enthält, was man einmal einstellt (Zielordner, Farben, Schrift, Tasten, Hilfe).
+
+In beiden Bereichen sitzt oben in der Mitte dieselbe **Leiste**: das **Haus** (zurück zur
+Startseite), der Name des Bereichs (*Rahmen* oder *Wand*) und die drei nummerierten Schritte.
+Erledigte Schritte bekommen einen Haken, jeder Schritt ist anklickbar. Die Farbe zeigt dir immer,
+wo du bist.
+
 ## In 4 Schritten zu fertigen Bildern
 
 1. **Profil einstellen:** In der Leiste unter dem Start-Knopf öffnet das **Format-Symbol** ein
@@ -44,9 +62,9 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 3. **Loslegen:** Daneben wählst du den **Ablauf**: **1 Durchgang** (alles auf einmal) oder
    **2 Durchgänge** (erst sortieren, dann Feinschliff, siehe unten). Die Fotos kommen nach Aufnahmedatum
    sortiert. Ist ein Ordner durch, zeigt eine Abschlussseite, wie viele Fotos du behalten und
-   aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit zum
-   Startbildschirm; dein Stand steht dann unter **„Weitermachen“**.
-4. **Auf den Rahmen bringen:** In der Galerie (grünes ♥ oben) öffnet das **USB-Symbol** ein
+   aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit
+   zurück zu den Ordnern; dein Stand steht dann unter **„Weitermachen“**.
+4. **Auf den Rahmen bringen:** In der Galerie (Schritt *3 Auf den Rahmen* oder grüner Zähler oben) öffnet das **USB-Symbol** ein
    kleines Popup. Ein Klick auf den Stick oder die SD-Karte gleicht ab: Neues wird kopiert,
    was schon drauf ist, bleibt. Das Popup zeigt vorher, wie viel Platz nötig und frei ist, und
    wartet, bis alle Bilder gespeichert sind. Ist **„Nicht mehr behaltene Bilder vom Stick nehmen“**
@@ -59,7 +77,7 @@ Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** 
 
 ## Bedienung
 
-Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zum Startbildschirm, speichert
+Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zurück zu den Ordnern, speichert
 deinen Stand), das Zahnrad (Zielordner, Farben, Schrift, Tasten, Hilfe), die beiden Symbole **Quer / Hochkant**
 (nicht beim schnellen Sortieren; das Format steht im Tooltip), ein kleiner Hinweis auf den Schritt
 (*Schnell sortieren*, *Feinschliff 3 / 12*), Ordner und Fortschritt und die Zahl der behaltenen
@@ -67,8 +85,9 @@ Bilder. Hast du mehrere Ordner zusammen ausgewählt, öffnet ein Klick auf den O
 die Liste aller Ordner der Auswahl; ein Klick springt zum ersten offenen Foto dieses Ordners.
 Dein Stand in den anderen Ordnern bleibt erhalten. Alle Tastenkürzel zeigt **?** (oder **F1**).
 
-Auf dem Startbildschirm steht oben nur der grüne Zähler der behaltenen Bilder; ein Klick
-öffnet die Galerie. Alle Einstellungen sitzen in der Leiste unter dem Start-Knopf.
+Bei den Ordnern (Schritt 1) steht oben die Leiste des Bereichs mit dem grünen Zähler der behaltenen
+Bilder; ein Klick öffnet die Galerie. Die Einstellungen fürs Aussuchen sitzen in der Leiste unter dem
+großen Knopf.
 
 Unten schwebt die Leiste fürs Bild, sortiert nach Wichtigkeit: in der Mitte die beiden großen
 Knöpfe **Weg** (rot, ✕) und **Behalten** (grün, ♥), links **Zurück**, rechts die Werkzeuge
@@ -94,7 +113,7 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Hilfslinien wechseln | – | **O**, drehen mit **Umschalt+O** |
 | Text aufs Bild an / aus | **Text** | **T** |
 | Textfeld (Ort, Notiz, Stil) | kleiner Pfeil an **Text** | – |
-| Zum Startbildschirm, später weitermachen | **Haus** oben links | – |
+| Zurück zu den Ordnern, später weitermachen | **Haus** oben links | – |
 | Ausschnitt verschieben | den hellen Rahmen mit der Maus ziehen | – |
 | Ausschnitt größer / kleiner | an einer **Ecke** des Rahmens ziehen | – |
 | Hinein-/Herauszoomen | **Mausrad** oder zwei Finger am Touchpad | + / − |
@@ -128,7 +147,7 @@ Format-Popup unter der Leiste.
 
 ## Erst sortieren, dann Feinschliff
 
-Wählst du auf dem Startbildschirm unter *Ablauf* **2 Durchgänge**, zeigt der erste
+Wählst du bei den Ordnern unter *Ablauf* **2 Durchgänge**, zeigt der erste
 Durchgang nur das Foto mit **Zurück**, **Weg**, **Behalten** und **Drehen**. So gehst du große
 Ordner schnell durch. Ist der Ordner fertig, startet **„Feinschliff: … zuschneiden“** einen
 zweiten Durchgang nur über die gerade behaltenen Fotos, mit allen Werkzeugen. Hier gibt es
@@ -228,18 +247,21 @@ Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Profil.
 
 ## Fotowand planen
 
-Der **Wand-Knopf** oben auf der Startseite öffnet die Fotowand. Dort planst du eine Wand voller
+Die Karte **Fotowand planen** auf der Startseite öffnet **Deine Fotowände**: jede Wand als Kachel
+mit Miniatur, Maßen, wie viele Plätze schon ein Foto haben, und dem Schritt, in dem sie steht. Ein
+Klick auf eine Kachel macht dort weiter, **Neue Wand** legt eine an. Dort planst du eine Wand voller
 gedruckter Fotos:
 
-Oben in der Mitte führen dich drei **Schritte**: **Wand**, **Fotos** und **Export**. Ein Klick
+Oben in der Mitte führen dich drei **Schritte**: **Maße**, **Fotos** und **Export**. Ein Klick auf
+**Wand** in derselben Leiste zeigt wieder alle Wände. Ein Klick
 auf einen Schritt springt hin, der große Knopf unten in der Seitenleiste führt zum nächsten. Die
 Seitenleiste zeigt nur, was zum Schritt gehört. Ein Klick auf ihren Rand (oder die **Tab**-Taste)
 klappt sie ein. Jede Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
 
-Oben links öffnet das **Menü**: zurück zur Startseite, Rückgängig und Wiederholen, Fotos für die
+Oben links öffnet das **Menü**: zur Startseite, alle Wände, Rückgängig und Wiederholen, Fotos für die
 Wand, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 
-### 1. Wand
+### 1. Maße
 
 - **Fläche**: Breite und Höhe in cm und der **Rand** zur Wandkante.
 - **Hindernisse** (hier oder im Menü „Hindernis einzeichnen“): Fläche aufziehen, die frei
@@ -248,8 +270,9 @@ Wand, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 
 ### 2. Fotos
 
-- **Fotos wählen** (das **+** vorn im Band unten oder im Menü): deine behaltenen Bilder, ein
-  Ordner mit fertigen Fotos oder **Dafür sortieren** (siehe unten).
+- **Fotos wählen** (das **+** vorn im Band unten oder im Menü): **Schon sortiert** (deine
+  behaltenen Bilder vom Rahmen), **Ordner mit fertigen Fotos** oder **Für diese Wand aussuchen**
+  (siehe unten).
 - **Art**: **Raster** (gleich große Felder), **Reihen** (quer und hochkant gemischt),
   **Lückenlos** (die ganze Fläche voller Fotos, die sich überlappen, siehe unten) oder
   **Lücken erlaubt** (dicht gepackt wie eine Collage).
@@ -337,19 +360,20 @@ Fotos gefüllt, ohne Lücken. Unter Anordnung stellst du ein:
 
 Die Wand nimmt so viele Fotos, wie sie zum Füllen braucht; fehlen welche, bleiben leere Plätze.
 
-### Für die Wand sortieren
+### Für diese Wand aussuchen
 
 Hast du die Fotos noch nicht ausgesucht, plane erst die Wand und wähle dann im Bilder-Menü
-**Dafür sortieren**. Die App legt ein Profil mit dem Namen der Wand und einem eigenen Ordner an
-(neben deinem bisherigen Zielordner) und bringt dich zur Startseite. Dort wischst du wie gewohnt:
+**Für diese Wand aussuchen**. Die App legt ein Profil mit dem Namen der Wand und einem eigenen
+Ordner an (neben deinem bisherigen Zielordner) und zeigt dir die Ordner. Ein **violetter Streifen**
+oben sagt die ganze Zeit, für welche Wand du aussuchst. Dort wischst du wie gewohnt:
 
 - Behaltene Fotos werden gleich im Format des Abzugs zugeschnitten (z. B. 10x15).
-- Oben steht, wie viele du schon hast: *Für die Wand „Flur“: 12 von 28 Bildern, noch 16*.
-  Ein Klick auf diese Zeile bringt dich zur Wand.
+- Der Streifen zeigt, wie viele du schon hast: *12 von 28 · noch 16 · Zuschnitt 10x15*.
+  **Zurück zur Wand** bringt dich zur Wand, **✕** beendet das Aussuchen für die Wand.
 - An der Wand füllen neue Bilder von selbst die freien Plätze. **Zuschnitt ändern** (Rechtsklick
   aufs Foto) öffnet den Zuschnitt, danach bist du wieder an der Wand.
-- Änderst du die Wand, passen sich Ziel und Zuschnitt an. Zurück zu deinem Bilderrahmen geht es
-  über das Profil in der Leiste.
+- Änderst du die Wand, passen sich Ziel und Zuschnitt an. Gehst du über die Startseite zu
+  **Bilderrahmen füllen**, gilt wieder dein Bilderrahmen.
 
 Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über die Wand. Gelbe Umrandung mit
 Prozentzahl: mehr als die Hälfte vom Foto ist verdeckt (bei Lückenlos: weniger sichtbar als
@@ -384,7 +408,7 @@ aktuellen Fotos; alle anderen Ordner behalten den allgemeinen Stil.
 
 ## Programm aktualisieren
 
-Gibt es eine neue Version, erscheint oben rechts auf dem Startbildschirm
+Gibt es eine neue Version, erscheint oben rechts auf der Startseite
 **„Version X installieren“**. Ein Klick lädt sie herunter, danach startet
 **„Neu starten mit X“** das Programm neu. Dein Stand bleibt erhalten. Vorher prüft das Programm, ob die Datei unbeschädigt angekommen ist. Klappt das nicht (etwa
 weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Download-Seite.
@@ -402,7 +426,7 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
   Datei an die Person, von der du das Programm hast.
 
 - **Weitermachen:** Das **Haus** oben links merkt sich Ordner, Bild, Zeitraum und
-  Einstellungen der laufenden Auswahl. Auf dem Startbildschirm steht sie unter
+  Einstellungen der laufenden Auswahl. Bei den Ordnern steht sie unter
   **„Weitermachen“**: Ein Klick auf die Karte macht genau dort weiter, der Stift benennt sie
   um, der Papierkorb (erscheint beim Drüberfahren) entfernt sie aus dem Verlauf (behaltene
   Bilder bleiben). Ist eine Auswahl ganz

@@ -31,7 +31,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
     let (title, sub) = if app.wall().photos.is_empty() {
         (
             "Noch keine Fotos".to_string(),
-            "Behaltene oder ein Ordner".to_string(),
+            "Drei Wege, Fotos zu holen".to_string(),
         )
     } else if free.is_empty() {
         (
@@ -154,7 +154,7 @@ fn add_tile(app: &mut SwiperApp, ui: &mut Ui, th: f32) {
     let (tr, resp) = ui.allocate_exact_size(vec2((th * 0.75).round(), th), Sense::click());
     let resp = resp
         .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Fotos hinzufügen: Behaltene, Ordner oder dafür sortieren");
+        .on_hover_text("Fotos hinzufügen: schon sortiert, Ordner oder für diese Wand aussuchen");
     let t = kit::anim(ui, resp.id, resp.hovered());
     let p = ui.painter();
     p.rect_filled(tr, radius::S / 2, control());

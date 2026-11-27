@@ -22,7 +22,7 @@ pub(super) fn show(
     let all = w.photos.len();
     caption(ui, "Fotos");
     let sub = if all == 0 {
-        "Behaltene, ein Ordner oder dafür sortieren".to_string()
+        "Schon sortiert, ein Ordner oder für diese Wand aussuchen".to_string()
     } else {
         format!("{hung} von {all} an der Wand")
     };

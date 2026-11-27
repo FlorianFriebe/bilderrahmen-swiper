@@ -15,6 +15,7 @@ use crate::system::{self, CopyProgress, Stats};
 use crate::util::{debug, fmt_int, rotate_color_image, strip_unc};
 use crate::workers::{DateScan, Loader, Preview, Saver, ThumbLoader};
 
+mod areas;
 mod burst;
 mod decide;
 mod edit;
@@ -31,6 +32,7 @@ mod wall_edit;
 mod wall_export;
 mod wall_fine;
 mod wall_sort;
+pub use areas::WallStage;
 pub use wall::WallScan;
 
 pub const QUER_FORMATS: &[&str] = &["16:9", "16:10", "4:3", "3:2", "5:4", "1:1"];
@@ -277,12 +279,17 @@ impl Default for Config {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum View {
+    /// Startseite: zwei Türen, Bilderrahmen füllen oder Fotowand planen
+    Start,
+    /// Bereich Rahmen, Schritt 1: Ordner wählen (auch fürs Aussuchen für eine Wand)
     Home,
     Swipe,
     Gallery,
     Burst,
     /// Fotowand planen
     Wall,
+    /// Bereich Wand: alle Wände als Kacheln
+    Walls,
 }
 
 pub struct FolderInfo {
@@ -509,7 +516,7 @@ impl SwiperApp {
             cfg,
             tree: vec![],
             folders: vec![],
-            view: View::Home,
+            view: View::Start,
             active_session: None,
             gear_popup: false,
             ask_profile: false,

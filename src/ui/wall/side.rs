@@ -104,7 +104,7 @@ fn next_button(app: &SwiperApp, ui: &mut Ui, r: Rect, cmds: &mut Vec<Cmd>) {
     match app.wall_ui.step.next() {
         Some(s) => {
             let label = format!("Weiter: {}", s.label());
-            if kit::cta(ui, r, icons::ARROW_RIGHT, &label, true).clicked() {
+            if kit::cta_in(ui, r, icons::ARROW_RIGHT, &label, true, true).clicked() {
                 cmds.push(Cmd::Step(s));
             }
         }
@@ -115,7 +115,7 @@ fn next_button(app: &SwiperApp, ui: &mut Ui, r: Rect, cmds: &mut Vec<Cmd>) {
                 Some(f) => format!("Wird gespeichert … {} %", (f * 100.0) as u32),
                 None => "Druckdateien speichern".to_string(),
             };
-            if kit::cta(ui, r, icons::DOWNLOAD, &label, has && !busy)
+            if kit::cta_in(ui, r, icons::DOWNLOAD, &label, has && !busy, true)
                 .on_hover_text("Druckdateien, Aufhängeplan und Einkaufsliste in einen Ordner")
                 .clicked()
                 && has

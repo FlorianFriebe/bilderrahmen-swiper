@@ -56,7 +56,7 @@ impl SwiperApp {
         }
         let w = self.wall();
         let msg = format!(
-            "Sortieren für „{}“: Ziel {}, Zuschnitt {}",
+            "Aussuchen für „{}“: Ziel {}, Zuschnitt {}",
             w.name,
             crate::ui::bilder(w.pieces.len()),
             w.size

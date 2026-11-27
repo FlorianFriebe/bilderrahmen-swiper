@@ -38,8 +38,10 @@ pub fn text_size(ui: &Ui, text: &str, font: FontId) -> Vec2 {
     })
 }
 
+mod area;
 mod buttons;
 mod widgets;
+pub use area::*;
 pub use buttons::*;
 pub use widgets::*;
 

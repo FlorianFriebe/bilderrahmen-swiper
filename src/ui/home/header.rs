@@ -71,7 +71,11 @@ pub(super) fn header_lines(app: &SwiperApp) -> Header {
         };
     }
     Header {
-        title: "Welche Fotos möchtest du durchgehen?".into(),
+        title: if wall.is_some() && goal.is_some() {
+            "Aus welchen Ordnern?".into()
+        } else {
+            "Welche Fotos kommen auf den Rahmen?".into()
+        },
         sub: String::new(),
         to_wall: wall.is_some() && goal.is_some(),
         goal,
@@ -84,7 +88,9 @@ pub(super) fn header_height(app: &SwiperApp) -> f32 {
     if app.finished.is_some() {
         h += sp::M + 20.0;
     }
-    if app.cfg.goal > 0 {
+    if app.sorting_wall().is_some() && app.cfg.goal > 0 {
+        h += super::banner::BANNER_H + sp::XL;
+    } else if app.cfg.goal > 0 {
         h += sp::S + 18.0;
     }
     if let Some(done) = &app.finished {
@@ -103,6 +109,10 @@ impl Header {
     pub(super) fn draw(&self, app: &mut SwiperApp, ui: &mut Ui, ws: Rect, y: &mut f32) {
         let p = ui.painter().clone();
         let cx = ws.center().x;
+        if self.to_wall {
+            super::banner::wall_banner(app, ui, ws, *y);
+            *y += super::banner::BANNER_H + sp::XL;
+        }
         p.text(
             pos2(cx, *y + 24.0),
             Align2::CENTER_CENTER,
@@ -122,33 +132,15 @@ impl Header {
             );
             *y += 20.0;
         }
-        if let Some(g) = &self.goal {
+        if let Some(g) = self.goal.as_ref().filter(|_| !self.to_wall) {
             *y += sp::S;
-            let r = p.text(
+            p.text(
                 pos2(cx, *y + 9.0),
                 Align2::CENTER_CENTER,
                 g,
                 font(ts::BODY, W::Medium),
                 keep(),
             );
-            if self.to_wall {
-                let resp = ui
-                    .interact(r, ui.make_persistent_id("goal_wall"), Sense::click())
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .on_hover_text("Zur Fotowand: sehen, wie die Bilder an der Wand hängen");
-                if resp.hovered() {
-                    p.line_segment(
-                        [
-                            pos2(r.left(), r.bottom() + 1.0),
-                            pos2(r.right(), r.bottom() + 1.0),
-                        ],
-                        Stroke::new(1.0, keep()),
-                    );
-                }
-                if resp.clicked() {
-                    app.open_sorting_wall();
-                }
-            }
             *y += 18.0;
         }
         if app.finished.is_none() {

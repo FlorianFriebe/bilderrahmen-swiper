@@ -10,7 +10,7 @@ use egui::{pos2, vec2, Align2, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, Vec2};
 use super::kit::{self, Tone};
 use super::style::*;
 use super::{bilder, icons};
-use crate::app::{SwiperApp, View};
+use crate::app::SwiperApp;
 use crate::wall::{self as wl, fmt_cm};
 
 mod bottom;
@@ -56,7 +56,7 @@ impl Step {
     pub const ALL: [Step; 3] = [Step::Wand, Step::Fotos, Step::Export];
     pub fn label(self) -> &'static str {
         match self {
-            Step::Wand => "Wand",
+            Step::Wand => "Maße",
             Step::Fotos => "Fotos",
             Step::Export => "Export",
         }
@@ -342,69 +342,34 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     status_line(app, ui, pos2(ws.center().x, bar.bottom() + sp::XS));
 }
 
-/// Schrittleiste „1 Wand · 2 Fotos · 3 Export“. Erledigte Schritte bekommen einen Haken,
-/// jeder Schritt ist jederzeit anklickbar.
+/// Bereichs-Pille „Haus · Wand · 1 Maße · 2 Fotos · 3 Export“, wie im Bereich Rahmen.
+/// Erledigte Schritte bekommen einen Haken, jeder Schritt ist jederzeit anklickbar.
 fn step_bar(app: &mut SwiperApp, ui: &mut Ui, center: Pos2) -> Rect {
-    let f = font(ts::BODY, W::Semibold);
-    let dot = 22.0;
-    let pad = sp::M;
-    let widths: Vec<f32> = Step::ALL
+    let cur = Step::ALL
         .iter()
-        .map(|s| dot + sp::S + kit::text_size(ui, s.label(), f.clone()).x + pad * 2.0)
-        .collect();
-    let total: f32 = widths.iter().sum::<f32>() + sp::XS * 4.0;
-    let bar = Rect::from_center_size(center, vec2(total, size::BAR));
-    let p = ui.painter().clone();
-    kit::glass(&p, bar, radius::L);
-    let cur = app.wall_ui.step;
-    let cur_i = Step::ALL.iter().position(|s| *s == cur).unwrap_or(0);
-    let mut x = bar.left() + sp::XS;
-    for (i, s) in Step::ALL.into_iter().enumerate() {
-        let r = Rect::from_min_size(
-            pos2(x, bar.top() + sp::XS),
-            vec2(widths[i], bar.height() - sp::XS * 2.0),
-        );
-        x += widths[i] + sp::XS;
-        let resp = ui
-            .interact(r, ui.make_persistent_id(("wall_step", i)), Sense::click())
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
-        let on = s == cur;
-        let t = kit::anim(ui, resp.id, resp.hovered() && !on);
-        if on {
-            p.rect_filled(r, radius::M, glass_active());
-        } else if t > 0.0 {
-            p.rect_filled(r, radius::M, glass_hover().gamma_multiply(t));
-        }
-        let c = pos2(r.left() + pad + dot / 2.0, r.center().y);
-        let done = i < cur_i;
-        if on {
-            p.circle_filled(c, dot / 2.0, accent());
-        } else if done {
-            p.circle_filled(c, dot / 2.0, keep());
-        } else {
-            p.circle_stroke(c, dot / 2.0 - 0.75, Stroke::new(1.5, muted()));
-        }
-        if done {
-            kit::icon(&p, c, icons::CHECK, 13.0, bg());
-        } else {
-            p.text(
-                c,
-                Align2::CENTER_CENTER,
-                (i + 1).to_string(),
-                font(ts::SMALL, W::Semibold),
-                if on { bg() } else { muted() },
-            );
-        }
-        p.text(
-            pos2(c.x + dot / 2.0 + sp::S, r.center().y),
-            Align2::LEFT_CENTER,
-            s.label(),
-            f.clone(),
-            if on { text() } else { text_soft() },
-        );
-        if resp.clicked() {
-            app.wall_ui.go(s);
-        }
+        .position(|s| *s == app.wall_ui.step)
+        .unwrap_or(0);
+    let (bar, act) = kit::area_pill(
+        ui,
+        center,
+        size::BAR,
+        &kit::Pill {
+            area: kit::Area::Wand,
+            step: Some(cur),
+            tips: [
+                "Maße: Breite, Höhe, Rand und Hindernisse",
+                "Fotos: aussuchen und anordnen",
+                "Export: Druckdateien, Aufhängeplan, Einkaufsliste",
+            ],
+            area_tip: "Alle deine Wände",
+            counter: None,
+        },
+    );
+    match act {
+        Some(kit::PillAct::Home) => app.go_start(),
+        Some(kit::PillAct::Area) => app.open_walls(),
+        Some(kit::PillAct::Step(i)) => app.wall_ui.go(Step::ALL[i]),
+        _ => {}
     }
     bar
 }

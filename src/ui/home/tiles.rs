@@ -147,24 +147,7 @@ pub(super) fn add_tile(ui: &Ui, r: Rect) -> Option<TileAction> {
     resp.clicked().then_some(TileAction::Add)
 }
 
-/// Gestrichelter Rahmen mit runden Ecken.
-pub(super) fn dashed_round_rect(p: &egui::Painter, r: Rect, rad: f32, col: Color32) {
-    let mut pts = vec![];
-    let corners = [
-        (pos2(r.right() - rad, r.top() + rad), -90.0f32),
-        (pos2(r.right() - rad, r.bottom() - rad), 0.0),
-        (pos2(r.left() + rad, r.bottom() - rad), 90.0),
-        (pos2(r.left() + rad, r.top() + rad), 180.0),
-    ];
-    for (c, start) in corners {
-        for k in 0..=8 {
-            let a = (start + k as f32 * 90.0 / 8.0).to_radians();
-            pts.push(c + vec2(a.cos(), a.sin()) * rad);
-        }
-    }
-    pts.push(pts[0]);
-    p.extend(Shape::dashed_line(&pts, Stroke::new(1.5, col), 6.0, 5.0));
-}
+pub(super) use kit::dashed_round_rect;
 
 pub(super) fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option<TileAction> {
     let f = &app.folders[i];

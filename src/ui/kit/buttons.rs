@@ -380,6 +380,16 @@ pub(super) fn hex_lighten(c: Color32, t: f32) -> Color32 {
 
 /// Großer blauer Hauptknopf (z. B. „645 Fotos durchgehen“).
 pub fn cta(ui: &Ui, r: Rect, glyph: &str, label: &str, enabled: bool) -> Response {
+    cta_in(ui, r, glyph, label, enabled, false)
+}
+
+/// Hauptknopf in der Farbe des Bereichs: blau (Rahmen) oder violett (`wall`, Fotowand).
+pub fn cta_in(ui: &Ui, r: Rect, glyph: &str, label: &str, enabled: bool, wall: bool) -> Response {
+    let (base, dark) = if wall {
+        (VIOLET, VIOLET_DARK)
+    } else {
+        (BLUE, BLUE_DARK)
+    };
     let resp = clickable(ui, r, ("cta", label), enabled);
     let t = anim(ui, resp.id, resp.hovered() && enabled);
     let press = if resp.is_pointer_button_down_on() {
@@ -391,13 +401,13 @@ pub fn cta(ui: &Ui, r: Rect, glyph: &str, label: &str, enabled: bool) -> Respons
     let p = ui.painter();
     let rad = radius::XL - 2;
     if enabled {
-        glow(p, r, rad, BLUE_DARK.gamma_multiply(0.7 + 0.3 * t));
+        glow(p, r, rad, dark.gamma_multiply(0.7 + 0.3 * t));
         gradient(
             ui,
             r,
             rad,
-            mix(hex_lighten(BLUE, 0.1), hex_lighten(BLUE, 0.2), t),
-            BLUE_DARK,
+            mix(hex_lighten(base, 0.1), hex_lighten(base, 0.2), t),
+            dark,
         );
         p.line_segment(
             [

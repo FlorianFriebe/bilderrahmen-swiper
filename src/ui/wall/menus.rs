@@ -37,8 +37,11 @@ fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
     let n = app.cfg.walls.len();
     let mut act = 0;
     let keep = form_popup(ui, "wall_menu", anchor, 300.0, false, |ui| {
-        if menu_row(ui, "Zurück zur Startseite", "", false).clicked() {
+        if menu_row(ui, "Zur Startseite", "", false).clicked() {
             act = 1;
+        }
+        if menu_row(ui, "Alle Wände", "", false).clicked() {
+            act = 10;
         }
         let sub = if undo {
             "Strg+Z"
@@ -63,7 +66,7 @@ fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         if menu_row(
             ui,
             "Fotos für die Wand …",
-            "Behaltene, Ordner oder dafür sortieren",
+            "Schon sortiert, Ordner oder aussuchen",
             false,
         )
         .clicked()
@@ -111,10 +114,8 @@ fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         act == 0
     });
     match act {
-        1 => {
-            app.wall_ui = Default::default();
-            app.view = View::Home;
-        }
+        1 => app.go_start(),
+        10 => app.open_walls(),
         2 => app.wall_undo(),
         9 => app.wall_redo(),
         3 => app.wall_ui.popup = Some((Popup::Photos, anchor)),
@@ -145,40 +146,36 @@ fn photos(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
     } else {
         format!("{} von {} da, im Format {}", w.photos.len(), places, w.size)
     };
-    let keep = form_popup(ui, "wall_photos", anchor, 340.0, false, |ui| {
+    // aus dem Band unten öffnet es nach oben, sonst wäre die letzte Zeile abgeschnitten
+    let above = anchor.center().y > ui.ctx().content_rect().center().y;
+    let keep = form_popup(ui, "wall_photos", anchor, 340.0, above, |ui| {
         caption(ui, "Fotos für die Wand");
-        if menu_row(ui, "Dafür sortieren", &sort_sub, sorting).clicked() && places > 0 {
-            act = 3;
-        }
         let sub = if kept == 0 {
             "Noch keine – erst sortieren".to_string()
         } else {
             format!("{}, schon zugeschnitten", bilder(kept))
         };
-        if menu_row(
-            ui,
-            "Behaltene Bilder",
-            &sub,
-            has && src.is_none() && !sorting,
-        )
-        .clicked()
+        if menu_row(ui, "Schon sortiert", &sub, has && src.is_none() && !sorting).clicked()
             && kept > 0
         {
             act = 1;
         }
         let sub = match &src {
             Some(f) if has => crate::folders::file_name(f),
-            _ => "Fotos, die du schon sortiert hast".into(),
+            _ => "alle Fotos daraus übernehmen".into(),
         };
         if menu_row(
             ui,
-            "Ordner wählen …",
+            "Ordner mit fertigen Fotos …",
             &sub,
             has && src.is_some() && !sorting,
         )
         .clicked()
         {
             act = 2;
+        }
+        if menu_row(ui, "Für diese Wand aussuchen", &sort_sub, sorting).clicked() && places > 0 {
+            act = 3;
         }
         act == 0
     });

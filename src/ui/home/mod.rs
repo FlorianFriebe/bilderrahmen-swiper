@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use egui::{pos2, vec2, Align2, Color32, Id, Rect, Sense, Shape, Stroke, StrokeKind, Ui};
+use egui::{pos2, vec2, Align2, Color32, Id, Rect, Sense, Stroke, StrokeKind, Ui};
 
 use super::kit::{self, Tone};
 use super::style::*;
@@ -24,6 +24,7 @@ fn fotos(n: usize) -> String {
     }
 }
 
+mod banner;
 mod bar;
 mod drop;
 mod folder_menu;
@@ -37,8 +38,8 @@ use folder_menu::*;
 use header::*;
 use sessions::*;
 use tiles::*;
-pub use topbar::update_click;
 use topbar::*;
+pub use topbar::{update_click, update_corner};
 
 /// Bild für den Hintergrund: erster ausgewählter Ordner mit Vorschau.
 /// Enter / Start-Knopf
@@ -246,9 +247,11 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             };
             ("", l, false)
         } else {
-            let l = match &range {
-                Some(r) => format!("{} aus {r} durchgehen", fotos(open)),
-                None => format!("{} durchgehen", fotos(open)),
+            let wall = app.sorting_wall().map(|w| w.name.clone());
+            let l = match (&range, &wall) {
+                (_, Some(w)) => format!("Weiter: {} für „{w}“ aussuchen", fotos(open)),
+                (Some(r), None) => format!("Weiter: {} aus {r} aussuchen", fotos(open)),
+                (None, None) => format!("Weiter: {} aussuchen", fotos(open)),
             };
             (
                 if app.cfg.two_pass {
@@ -267,7 +270,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         } else {
             "Startet mit den ausgewählten Ordnern. Doppelklick auf einen Ordner startet nur diesen."
         };
-        if kit::cta(ui, r, glyph, &label, enabled)
+        if kit::cta_in(ui, r, glyph, &label, enabled, app.sorting_wall().is_some())
             .on_hover_text(tip)
             .clicked()
         {

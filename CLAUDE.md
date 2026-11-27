@@ -28,6 +28,7 @@ CI (`.github/workflows/windows.yml`, Windows) führt fmt, clippy, test und build
 ```
 src/main.rs          Start, Fenster, Grafik-Ausweichweg (wgpu → glow)
 src/app/             Zustand SwiperApp + Logik, ein impl-Block pro Thema
+  areas.rs           Bereiche Rahmen/Wand: go_start, enter_frame, leave_wall_sort, Stand einer Wand
   mod.rs             Config, FrameProfile, View, Dialog, Felder von SwiperApp, new(), Drop
   library.rs         Ordnerliste, Auswahl, Fortschrittsdatei laden/speichern, Export, Doppelte
   decide.rs          aktuelles Foto, Behalten/Weg (record/commit), weiterblättern, jump_to
@@ -66,6 +67,9 @@ src/ui/
   style.rs           Design-Tokens: sp:: (8er-Raster), radius::, size::, ts::, Farben hell/dunkel
   kit/               Bausteine (glass, Knöpfe, Chips, Toast, …) – immer diese nutzen
   icons.rs           Phosphor-Symbole
+  start.rs           Startseite: zwei Türen (Rahmen, Wand), je mit Weitermachen
+  walls.rs           Bereich Wand: alle Wände als Kacheln, Miniatur einer Wand
+  kit/area.rs        Bereichs-Pille (Haus · Rahmen/Wand · 3 Schritte · Zähler), überall gleich
   home/  swipe/  wall/  gallery.rs  burst.rs  viewer.rs  textstyles.rs   Ansichten
   popups/            kleine Popups an Leisten (form_popup, menu_row)
   dialogs/           Einführung, Tasten, seitliche Felder, Kürzel-Übersicht

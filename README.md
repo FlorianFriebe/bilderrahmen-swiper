@@ -67,8 +67,8 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Reihenfolge auf dem Rahmen: nach Datum, zufällig oder nach Ordner (über eine vierstellige Nummer vor dem Dateinamen; beim erneuten Kopieren werden vorhandene Dateien nur umbenannt)
 
 **Fotowand planen**
-- Eigene Ansicht ab der Startseite: Wandmaße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
-- Drei Schritte Wand, Fotos und Export; die Seitenleiste zeigt nur, was zum Schritt gehört, jede Änderung wirkt sofort und die Fotos gleiten an ihre Plätze
+- Eigener Bereich ab der Startseite (zwei Karten: Bilderrahmen füllen, Fotowand planen), Übersicht aller Wände als Kacheln; Wandmaße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
+- Drei Schritte Maße, Fotos und Export in derselben Leiste wie der Bereich Rahmen (Fotos, Aussuchen, Auf den Rahmen); die Seitenleiste zeigt nur, was zum Schritt gehört, jede Änderung wirkt sofort und die Fotos gleiten an ihre Plätze
 - Leiste am gewählten Foto (Größe, drehen, Ebene, Ausschnitt, tauschen, abnehmen, ⋯), bei mehreren Fotos Ausrichten und Verteilen
 - Ergebnis unten links mit Warnungen (unscharf, fast ganz verdeckt, im Weg); ein Klick springt zum Foto
 - Export: Druckdateien in 300 dpi mit Nummer und Größe im Namen, verdeckte Teile ganz, weiß oder weiß mit Schnittkante (Reserve, Linie gestrichelt oder durchgehend), Aufhängeplan als Bild und Einkaufsliste
