@@ -1,7 +1,7 @@
-//! Fotowand-Ansicht: obere Leiste, Wand in der Mitte (zoombar), Seitenleiste rechts mit den
-//! Einstellungen, unten die Rechner-Leiste mit Zoom und das Band mit freien Fotos.
-//! Zeichnen auf der Wand liegt in `canvas`, Ziehen und Ablegen in `drag`, Zoom in `zoom`,
-//! die Seitenleiste in `side`, Popups in `menus`.
+//! Fotowand-Ansicht als Ablauf in drei Schritten: 1 Wand (Fläche, Hindernisse), 2 Fotos
+//! (anordnen, Leiste am Foto) und 3 Export (Nummern, Druckdateien). Oben Menü und Schrittleiste,
+//! rechts die Seitenleiste des Schritts, unten die Leiste mit Ergebnis und Zoom, im Schritt
+//! Fotos das Band mit freien Fotos. Wand in `canvas`, Ziehen in `drag`, Befehle in `cmd`.
 
 use std::path::PathBuf;
 
@@ -13,26 +13,62 @@ use super::{bilder, icons};
 use crate::app::{SwiperApp, View};
 use crate::wall::{self as wl, fmt_cm};
 
+mod bottom;
 mod canvas;
+mod cmd;
 mod drag;
 mod guides;
+mod keys;
 mod menus;
+mod photo_bar;
 mod piece;
 mod resize;
 mod side;
-mod side_fill;
-mod side_fine;
+mod side_export;
+mod side_photos;
+mod side_wall;
 mod strip;
 pub mod zoom;
 
+pub use keys::keys;
+
 /// Höhe des Fotobands unten.
 const STRIP_H: f32 = 104.0;
-/// Höhe der Rechner-Leiste.
+/// Höhe der Ergebnis-Leiste.
 const CALC_H: f32 = 40.0;
 /// Breite der Seitenleiste.
 const SIDE_W: f32 = 312.0;
-/// eingeklappte Seitenleiste: nur die Reiter, senkrecht
+/// eingeklappte Seitenleiste: ein schmaler Streifen
 const SIDE_TABS_W: f32 = 36.0;
+/// Zeile unter der Schrittleiste (Zustand: von Hand angeordnet, Zeichnen, Tauschen)
+const STATUS_H: f32 = 22.0;
+
+/// Die drei Schritte der Fotowand.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Step {
+    #[default]
+    Wand,
+    Fotos,
+    Export,
+}
+
+impl Step {
+    pub const ALL: [Step; 3] = [Step::Wand, Step::Fotos, Step::Export];
+    pub fn label(self) -> &'static str {
+        match self {
+            Step::Wand => "Wand",
+            Step::Fotos => "Fotos",
+            Step::Export => "Export",
+        }
+    }
+    pub fn next(self) -> Option<Step> {
+        match self {
+            Step::Wand => Some(Step::Fotos),
+            Step::Fotos => Some(Step::Export),
+            Step::Export => None,
+        }
+    }
+}
 
 /// Was unter dem Mauszeiger liegt.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -73,20 +109,27 @@ pub enum Drag {
     },
 }
 
-/// Reiter der Seitenleiste.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub enum Tab {
-    Wand,
-    #[default]
-    Anordnung,
-    Auswahl,
+/// Offenes Popup.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Popup {
+    /// Menü oben links
+    Menu,
+    /// Fotos für die Wand
+    Photos,
+    /// Wände wechseln
+    Walls,
+    /// Größe eines Fotos (Leiste am Foto)
+    Size(usize),
+    /// „Mehr“ an einem Foto (Leiste am Foto oder Rechtsklick)
+    More(usize),
 }
 
 /// Bedienzustand der Fotowand (nicht gespeichert).
 #[derive(Default)]
 pub struct WallUi {
+    pub step: Step,
     pub drag: Option<Drag>,
-    /// Modus „Hindernis zeichnen“
+    /// Modus „Hindernis zeichnen“ (nur im Schritt Wand)
     pub draw: bool,
     /// ausgewählter Platz (bei Mehrfachauswahl der zuletzt gewählte)
     pub sel: Option<usize>,
@@ -94,12 +137,14 @@ pub struct WallUi {
     pub multi: Vec<usize>,
     /// Bildausschnitt wird gerade an diesem Platz verschoben (Doppelklick)
     pub focus: Option<usize>,
-    /// ausgewähltes Hindernis
+    /// „Tauschen“: dieses Foto wartet auf den Klick auf ein zweites
+    pub swap_from: Option<usize>,
+    /// ausgewähltes Hindernis (Schritt Wand)
     pub sel_obstacle: Option<usize>,
     /// Rechtsklick-Menü: worauf und wo
     pub menu: Option<(Hit, Pos2)>,
-    /// offenes Popup an der Leiste: 1 Fotos, 2 Wände, mit Anker
-    pub popup: Option<(u8, Rect)>,
+    /// offenes Popup mit Anker
+    pub popup: Option<(Popup, Rect)>,
     /// „Wand entfernen“ wurde einmal geklickt
     pub confirm_delete: bool,
     /// in der Seitenleiste wird gerade geändert (ein Rückgängig-Schritt pro Änderung)
@@ -110,19 +155,20 @@ pub struct WallUi {
     pub strip_rect: Option<Rect>,
     /// Seitenleiste eingeklappt
     pub side_hidden: bool,
-    /// gewählter Reiter (Auswahl öffnet sich von selbst)
-    pub tab: Tab,
-    /// Reiter vor der Auswahl, dahin geht es zurück
-    pub tab_before: Option<Tab>,
     /// Zoom (1 = Wand passt ganz hinein) und Verschiebung in Bildschirmpunkten
     pub zoom: f32,
     pub pan: Vec2,
-    /// Alt gedrückt: beim Ablegen tauschen, auch wo sich Fotos überlappen
+    /// Alt gedrückt: beim Ablegen tauschen
     pub alt: bool,
+    /// zuletzt gespeicherter Ordner mit Druckdateien
+    pub exported: Option<PathBuf>,
+    /// Warnung, zu der zuletzt gesprungen wurde (Leiste unten)
+    pub issue_at: usize,
 }
 
 impl WallUi {
-    /// Esc: erst Menüs und Zeichnen beenden. `false`, wenn nichts offen war.
+    /// Esc: hebt nur auf (Menü, Zeichnen, Tauschen, Ausschnitt, Auswahl) und verlässt die
+    /// Wand nie. `false`, wenn nichts offen war.
     pub fn close_one(&mut self) -> bool {
         if self.menu.take().is_some() || self.popup.take().is_some() {
             return true;
@@ -131,12 +177,14 @@ impl WallUi {
             self.draw = false;
             return true;
         }
-        if self.focus.take().is_some() {
+        if self.swap_from.take().is_some() || self.focus.take().is_some() {
             return true;
         }
+        let had = self.sel.is_some() || self.sel_obstacle.is_some();
         self.sel_obstacle = None;
         self.multi.clear();
-        self.sel.take().is_some()
+        self.sel = None;
+        had
     }
 
     pub fn zoom(&self) -> f32 {
@@ -146,11 +194,28 @@ impl WallUi {
             1.0
         }
     }
+
+    /// Schritt wechseln; was nur im alten Schritt Sinn hat, wird aufgehoben.
+    pub fn go(&mut self, s: Step) {
+        if self.step == s {
+            return;
+        }
+        self.step = s;
+        self.menu = None;
+        self.popup = None;
+        self.draw = false;
+        self.swap_from = None;
+        self.focus = None;
+        self.sel = None;
+        self.multi.clear();
+        self.sel_obstacle = None;
+    }
 }
 
 pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     app.poll_wall_scan();
-    if app.wall_scan.is_some() {
+    app.poll_wall_export();
+    if app.wall_scan.is_some() || app.wall_export.is_some() {
         ui.ctx()
             .request_repaint_after(std::time::Duration::from_millis(100));
     }
@@ -158,11 +223,8 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         app.open_wall();
     }
     app.sync_wall_profiles();
-    side::follow_selection(app);
-    if !top_bar(app, ui, ws) {
-        return;
-    }
-    let top = ws.top() + size::BAR + sp::M;
+    top_bar(app, ui, ws);
+    let top = ws.top() + size::BAR + sp::XS + STATUS_H;
     let main_right = if app.wall_ui.side_hidden {
         let side = Rect::from_min_max(pos2(ws.right() - SIDE_TABS_W, top), ws.max);
         side::folded(app, ui, side);
@@ -172,13 +234,18 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         side::show(app, ui, side);
         side.left() - sp::M
     };
+    let with_strip = app.wall_ui.step == Step::Fotos;
     let strip = Rect::from_min_max(
-        pos2(ws.left(), ws.bottom() - STRIP_H),
+        pos2(
+            ws.left(),
+            ws.bottom() - if with_strip { STRIP_H } else { 0.0 },
+        ),
         pos2(main_right, ws.bottom()),
     );
+    let gap = if with_strip { sp::S } else { 0.0 };
     let calc = Rect::from_min_max(
-        pos2(ws.left(), strip.top() - sp::S - CALC_H),
-        pos2(main_right, strip.top() - sp::S),
+        pos2(ws.left(), strip.top() - gap - CALC_H),
+        pos2(main_right, strip.top() - gap),
     );
     let area = Rect::from_min_max(pos2(ws.left(), top), pos2(main_right, calc.top() - sp::S));
     app.spots.chips_bottom = Some(top);
@@ -186,19 +253,27 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let mut cui = ui.new_child(egui::UiBuilder::new().max_rect(area));
     cui.set_clip_rect(area.intersect(ui.clip_rect()));
     canvas::show(app, &mut cui, area);
-    calc_bar(app, ui, calc);
-    strip::show(app, ui, strip);
+    if app.wall_ui.step == Step::Fotos {
+        photo_bar::show(app, ui, area);
+    }
+    bottom::show(app, ui, calc);
+    if with_strip {
+        strip::show(app, ui, strip);
+    } else {
+        app.wall_ui.strip_rect = None;
+    }
     drag::finish(app, ui);
     menus::show(app, ui);
 }
 
-/// Obere Leiste: Menü links (Zurück, Rückgängig, Hindernis …), Name der Wand in der Mitte.
-fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
+/// Obere Leiste: Menü links mit dem Namen der Wand, in der Mitte die Schrittleiste und
+/// darunter, was gerade gilt (von Hand angeordnet, Zeichnen, Tauschen).
+fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let back = Rect::from_min_size(ws.min, vec2(size::BAR, size::BAR));
-    let open = matches!(app.wall_ui.popup, Some((3, _)));
+    let open = matches!(app.wall_ui.popup, Some((Popup::Menu, _)));
     let resp = kit::secondary(ui, back, icons::LIST, "", true)
-        .on_hover_text("Menü: Zurück, Rückgängig, Hindernis einzeichnen, Fotos");
-    if open || app.wall_ui.draw {
+        .on_hover_text("Menü: Zurück, Rückgängig, Wände, Hindernis, Festpinnen");
+    if open {
         let p = ui.painter();
         p.rect_filled(back, radius::M, panel().to_opaque());
         p.rect_filled(back, radius::M, accent_soft());
@@ -211,267 +286,184 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
         kit::icon(p, back.center(), icons::LIST, 18.0, accent());
     }
     if resp.clicked() {
-        app.wall_ui.popup = if open { None } else { Some((3, back)) };
+        app.wall_ui.popup = if open {
+            None
+        } else {
+            Some((Popup::Menu, back))
+        };
     }
 
-    // Name der Wand mit kleinem Pfeil: öffnet die Liste der Wände
+    let bar = step_bar(app, ui, pos2(ws.center().x, back.center().y));
+
+    // Name der Wand neben dem Menü: Klick öffnet die Liste der Wände
     let name = app.wall().name.clone();
-    let f = font(ts::TITLE, W::Semibold);
-    let tw = kit::text_size(ui, &name, f.clone())
-        .x
-        .min(ws.width() * 0.35);
-    let title = Rect::from_center_size(
-        pos2(ws.center().x, back.center().y),
-        vec2(tw + 20.0 + sp::S + sp::M * 2.0, size::BAR),
-    );
-    let resp = ui
-        .interact(title, ui.make_persistent_id("wall_title"), Sense::click())
-        .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Wände wechseln, neu anlegen, umbenennen");
-    let open = matches!(app.wall_ui.popup, Some((2, _)));
-    let t = kit::anim(ui, resp.id, resp.hovered() || open);
-    let p = ui.painter();
-    if t > 0.0 {
-        p.rect_filled(title, radius::M, glass_hover().gamma_multiply(t));
+    let f = font(ts::BODY, W::Semibold);
+    let max_w = (bar.left() - back.right() - sp::L * 2.0).max(0.0);
+    if max_w > 60.0 {
+        let tw = kit::text_size(ui, &name, f.clone()).x.min(max_w - 30.0);
+        let title = Rect::from_min_size(
+            pos2(back.right() + sp::S, back.top()),
+            vec2(tw + 16.0 + sp::M * 2.0 + sp::XS, size::BAR),
+        );
+        let resp = ui
+            .interact(title, ui.make_persistent_id("wall_title"), Sense::click())
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .on_hover_text("Wände wechseln, neu anlegen, umbenennen");
+        let open = matches!(app.wall_ui.popup, Some((Popup::Walls, _)));
+        let t = kit::anim(ui, resp.id, resp.hovered() || open);
+        let p = ui.painter();
+        if t > 0.0 {
+            p.rect_filled(title, radius::M, glass_hover().gamma_multiply(t));
+        }
+        let shown = kit::fit_text(ui, &name, f.clone(), tw);
+        p.text(
+            pos2(title.left() + sp::M, title.center().y),
+            Align2::LEFT_CENTER,
+            shown,
+            f,
+            text_soft(),
+        );
+        kit::icon(
+            p,
+            pos2(title.right() - sp::M - 6.0, title.center().y),
+            icons::CARET_DOWN,
+            14.0,
+            muted(),
+        );
+        if resp.clicked() {
+            app.wall_ui.popup = if open {
+                None
+            } else {
+                Some((Popup::Walls, title))
+            };
+            app.wall_ui.confirm_delete = false;
+        }
     }
-    let shown = kit::fit_text(ui, &name, f.clone(), tw);
-    p.text(
-        pos2(title.left() + sp::M, title.center().y),
-        Align2::LEFT_CENTER,
-        shown,
-        f,
-        text(),
-    );
-    kit::icon(
-        p,
-        pos2(title.right() - sp::M - 10.0, title.center().y),
-        icons::CARET_DOWN,
-        16.0,
-        muted(),
-    );
-    if resp.clicked() {
-        app.wall_ui.popup = if open { None } else { Some((2, title)) };
-        app.wall_ui.confirm_delete = false;
-    }
-
-    true
+    status_line(app, ui, pos2(ws.center().x, bar.bottom() + sp::XS));
 }
 
-/// Rechner-Leiste unten: Plätze und Fotos, was zu drucken ist, rechts der Zoom.
-fn calc_bar(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
-    let w = app.wall();
-    let sizes = app.sizes();
-    let places = w.pieces.len();
-    let photos = w.photos.iter().filter(|p| !p.off).count();
-    let hung = w.pieces.iter().filter(|p| p.photo.is_some()).count();
-    let (glyph, main, tone) = if let Some(pr) = app.wall_scan_progress() {
-        (
-            icons::IMAGES,
-            format!("Fotos werden gelesen … {} %", (pr * 100.0) as u32),
-            Tone::Accent,
-        )
-    } else if places == 0 {
-        (
-            icons::WARNING,
-            "Kein Platz: Wand zu klein oder Fotos zu groß".to_string(),
-            Tone::Warn,
-        )
-    } else if photos == 0 {
-        (
-            icons::WALL,
-            format!("{places} Plätze · noch keine Fotos"),
-            Tone::Accent,
-        )
-    } else if hung < places {
-        (
-            icons::WALL,
-            format!(
-                "{places} Plätze · {} · {} fehlen",
-                bilder(hung),
-                places - hung
-            ),
-            Tone::Warn,
-        )
-    } else if photos <= places {
-        (
-            icons::CHECK,
-            format!("{places} Plätze · passt genau"),
-            Tone::Keep,
-        )
-    } else {
-        (
-            icons::WALL,
-            format!("{places} Plätze · {} übrig", bilder(photos - hung)),
-            Tone::Accent,
-        )
-    };
-    let list = wl::print_list(w, sizes);
-    let print = if list.is_empty() {
-        "Noch nichts zu drucken".to_string()
-    } else {
-        let l: Vec<String> = list.iter().map(|(n, c)| format!("{c}× {n}")).collect();
-        format!("Drucken: {}", l.join(", "))
-    };
-    let dims = format!("{} × {} cm", fmt_cm(w.w), fmt_cm(w.h));
-
-    let p = ui.painter().clone();
-    let cw = kit::chip_width(ui, glyph, &main);
-    let cr = Rect::from_min_size(r.min, vec2(cw, r.height()));
-    let more = if hung < places {
-        "\nKlick: Fotos wählen oder dafür sortieren."
-    } else {
-        ""
-    };
-    let resp = kit::chip(ui, cr, glyph, false, &main, tone).on_hover_text(format!(
-        "Plätze = so viele Fotos passen mit diesen Einstellungen an die Wand.{more}"
-    ));
-    if resp.clicked() && hung < places {
-        app.wall_ui.popup = Some((1, resp.rect));
-    }
-
-    // Zoom rechts: − 100 % +
-    let b = r.height();
-    let plus = Rect::from_min_size(pos2(r.right() - b, r.top()), vec2(b, b));
-    let pct_w = 64.0;
-    let pct = Rect::from_min_size(pos2(plus.left() - sp::XS - pct_w, r.top()), vec2(pct_w, b));
-    let minus = Rect::from_min_size(pos2(pct.left() - sp::XS - b, r.top()), vec2(b, b));
-    if kit::secondary(ui, minus, icons::MINUS, "", true)
-        .on_hover_text("Verkleinern (Strg −)")
-        .clicked()
-    {
-        zoom::step(app, 1.0 / 1.25);
-    }
-    let label = format!("{} %", (app.wall_ui.zoom() * 100.0).round() as u32);
-    if kit::secondary(ui, pct, "", &label, true)
-        .on_hover_text("Einpassen (Strg 0) · Zoomen auch mit Strg + Mausrad oder zwei Fingern")
-        .clicked()
-    {
-        zoom::fit(app);
-    }
-    if kit::secondary(ui, plus, icons::PLUS, "", true)
-        .on_hover_text("Vergrößern (Strg +)")
-        .clicked()
-    {
-        zoom::step(app, 1.25);
-    }
-
-    // Mitte: Maße und Druckliste, gekürzt, wenn es eng wird
-    let mid = Rect::from_min_max(
-        pos2(cr.right() + sp::L, r.top()),
-        pos2(minus.left() - sp::L, r.bottom()),
-    );
-    if mid.width() > 60.0 {
-        let f = font(ts::SMALL, W::Medium);
-        let s = kit::fit_text(ui, &format!("{dims}  ·  {print}"), f.clone(), mid.width());
-        p.text(mid.left_center(), Align2::LEFT_CENTER, s, f, muted());
-    }
-}
-
-/// Tasten der Fotowand: Entf nimmt ab, P pinnt, Pfeile schieben (Umschalt: 10 cm),
-/// Strg+↑/↓ ändert die Ebene (mit Umschalt: ganz), Strg+A wählt alle Fotos.
-/// Gilt bei Mehrfachauswahl für alle ausgewählten.
-pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
-    use egui::Key;
-    let (k, shift, all, cmd) = ctx.input(|i| {
-        let pressed: Vec<Key> = [
-            Key::Delete,
-            Key::Backspace,
-            Key::P,
-            Key::ArrowLeft,
-            Key::ArrowRight,
-            Key::ArrowUp,
-            Key::ArrowDown,
-            Key::Enter,
-            Key::Tab,
-        ]
-        .into_iter()
-        .filter(|k| i.key_pressed(*k))
+/// Schrittleiste „1 Wand · 2 Fotos · 3 Export“. Erledigte Schritte bekommen einen Haken,
+/// jeder Schritt ist jederzeit anklickbar.
+fn step_bar(app: &mut SwiperApp, ui: &mut Ui, center: Pos2) -> Rect {
+    let f = font(ts::BODY, W::Semibold);
+    let dot = 22.0;
+    let pad = sp::M;
+    let widths: Vec<f32> = Step::ALL
+        .iter()
+        .map(|s| dot + sp::S + kit::text_size(ui, s.label(), f.clone()).x + pad * 2.0)
         .collect();
+    let total: f32 = widths.iter().sum::<f32>() + sp::XS * 4.0;
+    let bar = Rect::from_center_size(center, vec2(total, size::BAR));
+    let p = ui.painter().clone();
+    kit::glass(&p, bar, radius::L);
+    let cur = app.wall_ui.step;
+    let cur_i = Step::ALL.iter().position(|s| *s == cur).unwrap_or(0);
+    let mut x = bar.left() + sp::XS;
+    for (i, s) in Step::ALL.into_iter().enumerate() {
+        let r = Rect::from_min_size(
+            pos2(x, bar.top() + sp::XS),
+            vec2(widths[i], bar.height() - sp::XS * 2.0),
+        );
+        x += widths[i] + sp::XS;
+        let resp = ui
+            .interact(r, ui.make_persistent_id(("wall_step", i)), Sense::click())
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        let on = s == cur;
+        let t = kit::anim(ui, resp.id, resp.hovered() && !on);
+        if on {
+            p.rect_filled(r, radius::M, glass_active());
+        } else if t > 0.0 {
+            p.rect_filled(r, radius::M, glass_hover().gamma_multiply(t));
+        }
+        let c = pos2(r.left() + pad + dot / 2.0, r.center().y);
+        let done = i < cur_i;
+        if on {
+            p.circle_filled(c, dot / 2.0, accent());
+        } else if done {
+            p.circle_filled(c, dot / 2.0, keep());
+        } else {
+            p.circle_stroke(c, dot / 2.0 - 0.75, Stroke::new(1.5, muted()));
+        }
+        if done {
+            kit::icon(&p, c, icons::CHECK, 13.0, bg());
+        } else {
+            p.text(
+                c,
+                Align2::CENTER_CENTER,
+                (i + 1).to_string(),
+                font(ts::SMALL, W::Semibold),
+                if on { bg() } else { muted() },
+            );
+        }
+        p.text(
+            pos2(c.x + dot / 2.0 + sp::S, r.center().y),
+            Align2::LEFT_CENTER,
+            s.label(),
+            f.clone(),
+            if on { text() } else { text_soft() },
+        );
+        if resp.clicked() {
+            app.wall_ui.go(s);
+        }
+    }
+    bar
+}
+
+/// Kleine Zeile unter der Schrittleiste: Zustand mit einer passenden Aktion.
+fn status_line(app: &mut SwiperApp, ui: &mut Ui, top: Pos2) {
+    let u = &app.wall_ui;
+    let (msg, action) = if let Some(pr) = app.wall_export_progress() {
         (
-            pressed,
-            i.modifiers.shift,
-            i.modifiers.command && i.key_pressed(Key::A),
-            i.modifiers.command,
+            format!(
+                "Druckdateien werden gespeichert … {} %",
+                (pr * 100.0) as u32
+            ),
+            None,
         )
-    });
-    if all {
-        let n = app.wall().pieces.len();
-        app.wall_ui.sel_obstacle = None;
-        app.wall_ui.sel = n.checked_sub(1);
-        app.wall_ui.multi = if n >= 2 { (0..n).collect() } else { vec![] };
+    } else if u.draw {
+        (
+            "Hindernis zeichnen: Fläche auf der Wand aufziehen".to_string(),
+            Some("Fertig"),
+        )
+    } else if u.swap_from.is_some() {
+        (
+            "Tauschen: klick auf das zweite Foto".to_string(),
+            Some("Abbrechen"),
+        )
+    } else if u.focus.is_some() {
+        (
+            "Bildausschnitt: zieh das Foto im Rahmen".to_string(),
+            Some("Fertig"),
+        )
+    } else if u.step == Step::Fotos && app.wall().frozen {
+        ("Von Hand angeordnet".to_string(), Some("Neu anordnen"))
+    } else {
         return;
-    }
-    if k.contains(&Key::Enter) {
-        app.wall_ui.focus = None;
-    }
-    if k.contains(&Key::Tab) && !ctx.egui_wants_keyboard_input() {
-        app.wall_ui.side_hidden = !app.wall_ui.side_hidden;
-    }
-    let many = app.wall_selected();
-    if many.is_empty() {
-        if let Some(o) = app.wall_ui.sel_obstacle {
-            if k.contains(&Key::Delete) && o < app.wall().obstacles.len() {
-                app.wall_checkpoint();
-                app.wall_mut().obstacles.remove(o);
-                app.wall_ui.sel_obstacle = None;
-                app.wall_relayout();
-            }
-        }
-        return;
-    }
-    let step = if shift { 10.0 } else { 1.0 };
-    if many.len() >= 2 && cmd {
-        return;
-    }
-    if many.len() >= 2 {
-        let mv = |app: &mut SwiperApp, dx, dy| app.wall_move_many(&many, dx, dy);
-        for key in k {
-            match key {
-                Key::Delete | Key::Backspace => return app.wall_take_off_many(),
-                Key::P => {
-                    let on = !many.iter().all(|i| app.wall().pieces[*i].pinned);
-                    app.wall_pin_many(on);
-                }
-                Key::ArrowLeft => mv(app, -step, 0.0),
-                Key::ArrowRight => mv(app, step, 0.0),
-                Key::ArrowUp => mv(app, 0.0, -step),
-                Key::ArrowDown => mv(app, 0.0, step),
-                _ => {}
-            }
-        }
-        return;
-    }
-    let i = many[0];
-    if cmd {
-        for key in k {
-            match key {
-                Key::ArrowUp => app.wall_layer(i, 1, shift),
-                Key::ArrowDown => app.wall_layer(i, -1, shift),
-                _ => {}
-            }
-        }
-        return;
-    }
-    for key in k {
-        match key {
-            Key::Delete | Key::Backspace => {
-                let p = &app.wall().pieces[i];
-                if p.photo.is_some() {
-                    app.wall_take_off(i);
-                } else {
-                    app.wall_remove_piece(i);
-                }
-                return;
-            }
-            Key::P => {
-                let on = !app.wall().pieces[i].pinned;
-                app.wall_pin(i, on);
-            }
-            Key::ArrowLeft => app.wall_nudge(-step, 0.0),
-            Key::ArrowRight => app.wall_nudge(step, 0.0),
-            Key::ArrowUp => app.wall_nudge(0.0, -step),
-            Key::ArrowDown => app.wall_nudge(0.0, step),
-            _ => {}
+    };
+    let f = font(ts::SMALL, W::Medium);
+    let mw = kit::text_size(ui, &msg, f.clone()).x;
+    let aw = action.map_or(0.0, |a| kit::text_size(ui, a, f.clone()).x + sp::M);
+    let left = top.x - (mw + aw) / 2.0;
+    let p = ui.painter();
+    p.text(pos2(left, top.y), Align2::LEFT_TOP, msg, f.clone(), muted());
+    let Some(a) = action else { return };
+    let r = Rect::from_min_size(pos2(left + mw + sp::M, top.y - 2.0), vec2(aw, 18.0));
+    let resp = ui
+        .interact(r, ui.make_persistent_id("wall_status"), Sense::click())
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    let col = if resp.hovered() { text() } else { accent() };
+    ui.painter()
+        .text(pos2(r.left(), top.y), Align2::LEFT_TOP, a, f, col);
+    if resp.clicked() {
+        let u = &mut app.wall_ui;
+        if u.draw {
+            u.draw = false;
+        } else if u.swap_from.is_some() {
+            u.swap_from = None;
+        } else if u.focus.is_some() {
+            u.focus = None;
+        } else {
+            cmd::run(app, cmd::Cmd::Rearrange);
         }
     }
 }

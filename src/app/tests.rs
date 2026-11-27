@@ -247,6 +247,12 @@ fn wall_moves_freely_swaps_and_takes_off() {
     // festgepinnt bleibt es auch beim Neuanordnen
     let i = at(&app, "w0.jpg").unwrap();
     app.wall_pin(i, true);
+    assert!(
+        !app.wall().pieces[i].pinned,
+        "ohne eingeschaltetes Festpinnen kein Pin"
+    );
+    app.wall_set_pins(true);
+    app.wall_pin(i, true);
     app.wall_rearrange();
     assert!(!app.wall().frozen);
     let p = &app.wall().pieces[at(&app, "w0.jpg").unwrap()];
@@ -271,21 +277,19 @@ fn wall_moves_freely_swaps_and_takes_off() {
     // und wieder zurück
     app.wall_put_back(Path::new("w3.jpg"));
     assert!(at(&app, "w3.jpg").is_some());
-    // von Hand angeordnet: abnehmen lässt den Platz leer, zurückholen füllt ihn wieder
+    // von Hand angeordnet: abnehmen nimmt den Platz mit, es bleibt keine Lücke
     let i = at(&app, "w3.jpg").unwrap();
-    let spot = app.wall().pieces[i].area(app.sizes());
+    let n = app.wall().pieces.len();
     app.wall_freeze();
     app.wall_take_off(i);
-    assert!(app.wall().pieces[i].photo.is_none());
-    app.wall_put_back(Path::new("w3.jpg"));
-    let j = at(&app, "w3.jpg").unwrap();
-    assert_eq!(app.wall().pieces[j].area(app.sizes()), spot);
-    app.wall_undo();
-    app.wall_undo();
-
-    // Rückgängig holt den Stand vor dem Zurückholen
-    app.wall_undo();
+    assert_eq!(app.wall().pieces.len(), n - 1);
     assert!(at(&app, "w3.jpg").is_none());
+    // Rückgängig holt es zurück, Wiederholen nimmt es wieder ab
+    app.wall_undo();
+    assert!(at(&app, "w3.jpg").is_some());
+    app.wall_redo();
+    assert!(at(&app, "w3.jpg").is_none());
+    app.wall_undo();
 
     // alle lösen: nichts ist mehr festgepinnt
     app.wall_unpin_all();
@@ -363,5 +367,82 @@ fn wall_multi_select_aligns_and_hero() {
     app.wall_relayout();
     let f = app.wall().photo(Path::new("m1.jpg")).unwrap().focus;
     assert_eq!(f, (0.5, -1.0));
+    let _ = fs::remove_dir_all(&base);
+}
+
+#[test]
+fn wall_export_writes_prints_and_keeps_originals() {
+    use crate::wall::{Piece, WallPhoto};
+    let (mut app, base, f) = setup("wall_export");
+    app.open_wall();
+    let before: Vec<Vec<u8>> = f.iter().map(|p| fs::read(p).unwrap()).collect();
+    let w = app.wall_mut();
+    w.name = "Flur: oben".into();
+    w.photos = f
+        .iter()
+        .map(|p| WallPhoto {
+            path: p.clone(),
+            ratio: 4.0 / 3.0,
+            px: (400, 300),
+            ..Default::default()
+        })
+        .collect();
+    // zweites Foto liegt halb über dem ersten, drittes frei daneben
+    let pc = |p: &PathBuf, x: f32| Piece {
+        photo: Some(p.clone()),
+        size: "10x15".into(),
+        x,
+        y: 10.0,
+        ..Default::default()
+    };
+    w.pieces = vec![pc(&f[0], 10.0), pc(&f[1], 17.6), pc(&f[2], 60.0)];
+    w.frozen = true;
+    let wait = |app: &mut SwiperApp| {
+        let t0 = Instant::now();
+        while app.wall_export.is_some() {
+            app.poll_wall_export();
+            assert!(t0.elapsed() < Duration::from_secs(60), "Export hängt");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    };
+    app.wall_export();
+    wait(&mut app);
+    let dir = app.wall_export_dir();
+    assert!(dir.ends_with("Fotowand – Flur_ oben"));
+    let prints = dir.join("Druck");
+    let mut names: Vec<String> = fs::read_dir(&prints)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        [
+            "01_10x15_IMG_0.jpg",
+            "02_10x15_IMG_1.jpg",
+            "03_10x15_IMG_2.jpg"
+        ]
+    );
+    // echte Abzugsgröße bei 300 dpi
+    let img = image::open(prints.join(&names[0])).unwrap();
+    assert_eq!((img.width(), img.height()), (1795, 1205));
+    // das untere Foto ist rechts weiß, das obere nicht
+    let px = |i: &image::DynamicImage, x, y| i.to_rgb8().get_pixel(x, y).0;
+    assert_eq!(px(&img, 1700, 600), [255, 255, 255]);
+    let top = image::open(prints.join(&names[1])).unwrap();
+    assert_ne!(px(&top, 1700, 600), [255, 255, 255]);
+    assert!(dir.join("Aufhängeplan.png").is_file());
+    let list = fs::read_to_string(dir.join("Einkaufsliste.txt")).unwrap();
+    assert!(list.contains("3× 10x15"));
+    // Originale unverändert
+    for (p, b) in f.iter().zip(&before) {
+        assert_eq!(&fs::read(p).unwrap(), b);
+    }
+    // nochmal speichern: der alte Stand liegt im Papierkorb, nicht gelöscht
+    app.wall_export();
+    wait(&mut app);
+    assert_eq!(jpgs(&prints), 3);
+    assert!(jpgs(&dir.join(crate::history::TRASH_DIR)) >= 5);
     let _ = fs::remove_dir_all(&base);
 }

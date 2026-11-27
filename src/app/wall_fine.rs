@@ -124,7 +124,7 @@ impl SwiperApp {
     /// Alle ausgewählten festpinnen oder lösen.
     pub fn wall_pin_many(&mut self, on: bool) {
         let idx = self.wall_selected();
-        if idx.is_empty() {
+        if idx.is_empty() || (on && !self.wall().pins) {
             return;
         }
         self.wall_checkpoint();
@@ -149,7 +149,7 @@ impl SwiperApp {
                     ph.off = true;
                 }
             }
-            if p.pinned && !self.wall().frozen {
+            if p.pinned || self.wall().frozen {
                 drop.push(i);
             }
         }

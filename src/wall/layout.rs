@@ -23,20 +23,13 @@ pub enum Arrange {
 }
 
 impl Arrange {
+    #[cfg(test)]
     pub const ALL: [Arrange; 4] = [
         Arrange::Raster,
         Arrange::Reihen,
         Arrange::Collage,
         Arrange::Lueckenlos,
     ];
-    pub fn label(self) -> &'static str {
-        match self {
-            Arrange::Raster => "Raster",
-            Arrange::Reihen => "Reihen",
-            Arrange::Collage => "Collage",
-            Arrange::Lueckenlos => "Lückenlos",
-        }
-    }
     pub fn hint(self) -> &'static str {
         match self {
             Arrange::Raster => "Gleich große Felder in Spalten und Zeilen, sehr ordentlich.",

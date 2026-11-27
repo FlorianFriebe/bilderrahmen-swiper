@@ -15,7 +15,10 @@ const REACH: f32 = 10.0;
 
 /// Ecke des ausgewählten Fotos unter dem Zeiger: (Platz, rechts?, unten?).
 pub(super) fn corner_at(app: &SwiperApp, v: View2, at: Pos2) -> Option<(usize, bool, bool)> {
-    if app.wall_ui.multi.len() >= 2 || app.wall_ui.focus.is_some() {
+    if app.wall_ui.multi.len() >= 2
+        || app.wall_ui.focus.is_some()
+        || app.wall_ui.step != Step::Fotos
+    {
         return None;
     }
     let i = app.wall_ui.sel?;

@@ -29,12 +29,14 @@ pub enum Orient {
 
 mod adjust;
 mod load;
+mod print;
 mod save;
 #[cfg(test)]
 mod tests;
 mod text;
 pub use adjust::*;
 pub use load::*;
+pub use print::*;
 pub use save::*;
 pub use text::*;
 

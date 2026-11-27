@@ -75,7 +75,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
         )
         .clicked()
         {
-            app.wall_ui.popup = Some((1, br));
+            app.wall_ui.popup = Some((Popup::Photos, br));
         }
         return;
     }
@@ -170,6 +170,6 @@ fn add_tile(app: &mut SwiperApp, ui: &mut Ui, th: f32) {
         kit::mix(muted(), accent(), t),
     );
     if resp.clicked() && app.wall_scan.is_none() {
-        app.wall_ui.popup = Some((1, tr));
+        app.wall_ui.popup = Some((Popup::Photos, tr));
     }
 }

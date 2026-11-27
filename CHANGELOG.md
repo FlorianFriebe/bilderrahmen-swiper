@@ -3,6 +3,19 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.19.0
+
+- Die Fotowand führt dich in drei **Schritten**: **Wand**, **Fotos** und **Export**. Die
+  Seitenleiste zeigt nur noch, was zum Schritt gehört; der große Knopf unten führt weiter.
+- **Leiste am Foto**: Ein Klick aufs Foto zeigt darüber Größe, drehen, vorn, hinten,
+  Ausschnitt, tauschen und abnehmen. Bei mehreren Fotos: ausrichten und verteilen.
+- **Warnungen** unten links: *2 unscharf · 8 fast ganz verdeckt*. Ein Klick springt zum Foto.
+- **Export**: Druckdateien in 300 dpi mit Nummer und Größe im Namen, dazu ein **Aufhängeplan**
+  und eine **Einkaufsliste**. Verdeckte Teile druckst du **ganz**, **weiß** oder **weiß mit
+  Schnittkante**; Reserve, Linienart und Farbe gelten für alle Fotos.
+- **Wiederholen** mit Strg+Y. Abnehmen lässt keine Lücke mehr. Festpinnen gibt es nur noch,
+  wenn du es im Menü einschaltest.
+
 ## 3.18.0
 
 - Neue Anordnung **Lückenlos**: die ganze Fläche voller Fotos, die sich überlappen, mit geraden

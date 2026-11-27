@@ -28,6 +28,7 @@ mod tests;
 mod textures;
 mod wall;
 mod wall_edit;
+mod wall_export;
 mod wall_fine;
 mod wall_sort;
 pub use wall::WallScan;
@@ -479,6 +480,10 @@ pub struct SwiperApp {
     pub custom_frame: bool,
     /// Fotowand: frühere Stände für Strg+Z
     pub wall_history: Vec<crate::wall::Wall>,
+    /// Fotowand: zurückgenommene Stände für Strg+Y
+    pub wall_redo: Vec<crate::wall::Wall>,
+    /// Fotowand: Druckdateien werden gerade gespeichert
+    pub wall_export: Option<wall_export::WallExport>,
     /// Fotowand: Fotos werden gerade eingelesen
     pub wall_scan: Option<WallScan>,
     /// Fotowand: Zustand der Bedienung (Ziehen, Menüs)
@@ -576,6 +581,8 @@ impl SwiperApp {
             updater: None,
             custom_frame: false,
             wall_history: vec![],
+            wall_redo: vec![],
+            wall_export: None,
             wall_scan: None,
             wall_ui: Default::default(),
         };

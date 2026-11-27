@@ -307,10 +307,8 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         } else if app.view == View::Gallery && !app.gallery_sel.is_empty() {
             app.gallery_sel.clear();
         } else if app.view == View::Wall {
-            if !app.wall_ui.close_one() {
-                app.wall_ui = Default::default();
-                app.view = View::Home;
-            }
+            // Esc hebt in der Fotowand nur auf, Zurück geht über das Menü
+            app.wall_ui.close_one();
         } else if matches!(app.view, View::Gallery | View::Burst) {
             app.view = if app.view == View::Burst || app.folder.is_some() && app.current().is_some()
             {

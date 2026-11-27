@@ -68,16 +68,19 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 
 **Fotowand planen**
 - Eigene Ansicht ab der Startseite: Wandmaße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
-- Seitenleiste mit den Reitern Wand, Anordnung und Auswahl; jede Änderung wirkt sofort und die Fotos gleiten an ihre Plätze
+- Drei Schritte Wand, Fotos und Export; die Seitenleiste zeigt nur, was zum Schritt gehört, jede Änderung wirkt sofort und die Fotos gleiten an ihre Plätze
+- Leiste am gewählten Foto (Größe, drehen, Ebene, Ausschnitt, tauschen, abnehmen, ⋯), bei mehreren Fotos Ausrichten und Verteilen
+- Ergebnis unten links mit Warnungen (unscharf, fast ganz verdeckt, im Weg); ein Klick springt zum Foto
+- Export: Druckdateien in 300 dpi mit Nummer und Größe im Namen, verdeckte Teile ganz, weiß oder weiß mit Schnittkante (Reserve, Linie gestrichelt oder durchgehend), Aufhängeplan als Bild und Einkaufsliste
 - Anordnung als Raster, Reihen, Collage oder Lückenlos (ganze Fläche voller überlappender Fotos mit Größen-Anteilen, Überlappung von–bis, ordentlich bis wild, Mindest-Sichtbarkeit, bündig abgeschnittenen Kanten), fester Rand zur Kante, gleichmäßige Abstände; quer und hochkant gemischt oder alle gleich
 - Überlappen als Dachziegel, Mauerwerk oder Schachbrett, verdeckter Anteil pro Foto
 - Reihenfolge wie gewählt, nach Datum oder gemischt (Fotos vom selben Tag nicht nebeneinander)
 - Hindernisse (Lichtschalter, Möbel) mit eigenem Rand oder „Fotos dürfen dahinter“
-- Fotos frei verschieben: von Hand angeordnet bleibt alles, wo es ist, bis „Neu anordnen“; Ebenen mit Strg+↑/↓, Größe an der Ecke ziehen (springt auf die nächste Druckgröße), Pins nur auf Wunsch; Zoom mit Strg + Mausrad, zwei Fingern oder Strg + / −
-- Menü oben links (Zurück, Rückgängig, Hindernis, Fotos), „+“ im Band, Seitenleiste mit Tab einklappbar
+- Fotos frei verschieben: von Hand angeordnet bleibt alles, wo es ist, bis „Neu anordnen“; Ebenen mit Strg+↑/↓, Größe an der Ecke ziehen (springt auf die nächste Druckgröße), Pins nur auf Wunsch (im Menü einschalten), Abnehmen ohne Lücke, Rückgängig und Wiederholen (Strg+Z, Strg+Y); Zoom mit Strg + Mausrad, zwei Fingern oder Strg + / −
+- Menü oben links (Zurück, Rückgängig, Wiederholen, Hindernis, Fotos, Festpinnen), „+“ im Band, Seitenleiste mit Tab einklappbar
 - Feinjustieren: mehrere Fotos wählen (Umschalt-Klick, Rechteck, Strg+A), ausrichten und gleichmäßig verteilen, Hilfslinien mit Abständen in cm beim Ziehen
 - Hauptbild groß in der Mitte, Größen-Mix in der Collage, Bildausschnitt direkt an der Wand verschieben, weißer Rand für alle oder einzelne Fotos, Warnung bei zu geringer Auflösung (unter 200 dpi)
-- Rechner unten: Plätze, vorhandene Fotos, was fehlt oder übrig ist, was zu drucken ist
+- Unten: Maße und was zu drucken ist
 - Für die Wand sortieren: eigenes Profil mit Ordner, Zuschnitt im Format des Abzugs, Ziel = Plätze an der Wand; neue Bilder füllen freie Plätze
 - Fotos aus den behaltenen Bildern oder einem Ordner; verschieben mit Einrasten, tauschen, Größe und Ausrichtung pro Foto, Pfeiltasten, mehrere Wände, Rückgängig
 
@@ -137,14 +140,16 @@ src/
                  Nachbearbeiten, Serien, Stick, Tasten, Profile, Fotowand)
   history.rs     Rückgängig: Schritte, Papierkorb, Ganz von vorn
   wall/          Fotowand: Druckgrößen, Anordnen (Raster, Reihen, Collage, Lückenlos), Reihenfolge,
-                 Ausrichten, Hilfslinien, Auflösung, Hindernisse, Pins, Verdeckung, Einrasten
+                 Ausrichten, Hilfslinien, Auflösung, Hindernisse, Pins, Verdeckung, Einrasten,
+                 Warnungen, Druck (Maske, Schnittkante, Dateinamen, Einkaufsliste)
   session.rs     Pausieren und Fortsetzen von Auswahlen (Verlauf)
   daterange.rs   Zeitraum-Filter und Speicher der Aufnahmedaten
   textstyle.rs   Textstile: Voreinstellungen, Export/Import
   update.rs      Ein-Klick-Update unter Windows (mit Prüfsumme)
   report.rs      Fehlerbericht für „Problem melden“
   install.rs     Ablegen im Startmenü/Desktop, Absturz-Hinweis beim nächsten Start
-  imaging/       Laden (EXIF-Drehung), Zuschnitt, Ganz-Rand, Begradigen, Licht, Text, JPEG-Export
+  imaging/       Laden (EXIF-Drehung), Zuschnitt, Ganz-Rand, Begradigen, Licht, Text, JPEG-Export,
+                 Druckdateien und Aufhängeplan der Fotowand
   dupes.rs       Fingerabdrücke (Differenz-Hash) zum Erkennen doppelter Fotos
   workers.rs     Hintergrund-Threads: Vorladen, Speichern, Vorschaubilder, Aufnahmedaten
   folders.rs     Ordnerbaum, natürliche Sortierung, Fortschrittsdatei
