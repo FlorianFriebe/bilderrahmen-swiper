@@ -3,6 +3,20 @@
 Die neueste Version steht oben. Der Abschnitt zur aktuellen Version erscheint automatisch auf der
 Download-Seite. Format: `## <Version>` und darunter kurze Punkte in einfacher Sprache.
 
+## 3.18.0
+
+- Neue Anordnung **Lückenlos**: die ganze Fläche voller Fotos, die sich überlappen, mit geraden
+  Außenkanten, wie bei einer Collage-Wand. Du stellst ein, wie oft jede Größe vorkommt, wie weit
+  sich Fotos überlappen, ob es ordentlich oder wild wirkt, wie viel von jedem Foto sichtbar
+  bleibt und welche oben liegen. **Würfeln** macht eine neue Collage.
+- **Frei verschieben**: Ein gezogenes Foto bleibt einfach, wo du es hinlegst, und wird nicht mehr
+  festgepinnt. Die Wand ordnet sich danach nicht mehr von selbst um, erst mit „Neu anordnen“.
+- **Ebenen**: Strg+↑ und Strg+↓ legen ein Foto nach vorn oder hinten (mit Umschalt ganz).
+- **Größe an der Ecke ziehen**: Das Foto springt auf die nächste Druckgröße.
+- Aufgeräumt: oben links ein **Menü** mit Zurück, Rückgängig und Hindernis einzeichnen, ein
+  **+** vorn im Band für mehr Fotos, und die Seitenleiste klappt per Klick auf den offenen Reiter
+  oder mit **Tab** ein.
+
 ## 3.17.0
 
 - **Mehrere Fotos** an der Fotowand wählen: Umschalt-Klick, Rechteck auf einer freien Stelle

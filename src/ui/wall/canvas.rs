@@ -5,7 +5,7 @@ use egui::{Color32, CursorIcon, Painter, Shape};
 
 use super::piece::{badges, draw_focus, draw_piece, glide, piece_tip};
 use super::*;
-use super::{drag, piece, zoom};
+use super::{drag, piece, resize, zoom};
 use crate::wall::Area;
 
 /// Platz für das Lineal oben und links.
@@ -104,6 +104,8 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     // Ziehen beginnen
     let middle = ui.input(|i| i.pointer.middle_down());
     let shift = ui.input(|i| i.modifiers.shift);
+    app.wall_ui.alt = ui.input(|i| i.modifiers.alt);
+    let corner = hover.and_then(|h| resize::corner_at(app, v, h));
     if (resp.drag_started() || (middle && resp.hovered())) && app.wall_ui.drag.is_none() {
         if let Some(o) = ui.input(|i| i.pointer.press_origin()) {
             let (x, y) = v.cm(o);
@@ -112,6 +114,8 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                 Some(Drag::Pan)
             } else if app.wall_ui.draw {
                 Some(Drag::NewObstacle((x.clamp(0.0, ww), y.clamp(0.0, wh))))
+            } else if let Some((idx, right, bottom)) = resize::corner_at(app, v, o) {
+                Some(Drag::Resize { idx, right, bottom })
             } else {
                 start_drag(app, x, y, shift)
             };
@@ -159,6 +163,14 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         .filter(|o| o.behind)
         .map(|o| o.area)
         .collect();
+    // bündig abgeschnitten: was über den Rand ragt, wird nicht gezeigt (und nicht gedruckt)
+    let warn_at = app.wall().cover_warn();
+    let trim = app.wall().trims().then(|| v.px(app.wall().inner()));
+    let full = p.clone();
+    let p = match trim {
+        Some(t) => p.with_clip_rect(t.intersect(area)),
+        None => p,
+    };
     for i in 0..n {
         let w = app.wall();
         let pc = w.pieces[i].clone();
@@ -172,7 +184,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         let mut ring: Option<Color32> = None;
         if blocked {
             ring = Some(skip());
-        } else if cov >= wl::COVER_WARN && pc.photo.is_some() {
+        } else if cov >= warn_at && pc.photo.is_some() {
             ring = Some(warn());
         }
         let picked = app.wall_ui.sel == Some(i) || app.wall_ui.multi.contains(&i);
@@ -180,10 +192,11 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
             ring = Some(accent());
         }
         if let Some(c) = ring {
-            p.rect_stroke(r, 2, Stroke::new(2.0, c), StrokeKind::Outside);
+            let rr = trim.map_or(r, |t| r.intersect(t));
+            full.rect_stroke(rr, 2, Stroke::new(2.0, c), StrokeKind::Outside);
         }
         badges(app, &p, r, &pc);
-        if cov >= wl::COVER_WARN && pc.photo.is_some() && r.width() > 44.0 {
+        if cov >= warn_at && pc.photo.is_some() && r.width() > 44.0 {
             let label = format!("{} %", (cov * 100.0).round() as u32);
             let cr = Rect::from_min_size(r.min + vec2(3.0, 3.0), vec2(38.0, 16.0));
             p.rect_filled(cr, 4, SCRIM);
@@ -198,6 +211,22 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         if swap == Some(i) {
             p.rect_filled(r, 2, accent_soft());
             kit::icon(&p, r.center(), icons::SWAP, 20.0, text());
+        }
+    }
+    let p = full;
+    if let Some(i) = app
+        .wall_ui
+        .sel
+        .filter(|i| *i < n && app.wall_ui.multi.len() < 2)
+    {
+        if app.wall_ui.drag.is_none() && app.wall_ui.focus.is_none() {
+            let a = glide(
+                ui,
+                &app.wall().pieces[i],
+                i,
+                app.wall().pieces[i].area(&sizes),
+            );
+            resize::handles(&p, v.px(a));
         }
     }
     // Hindernisse, hinter denen Fotos verschwinden dürfen, liegen über den Fotos
@@ -224,6 +253,8 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     if app.wall_ui.drag.is_none() {
         if space && resp.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::Grab);
+        } else if let Some((_, right, bottom)) = corner {
+            ui.ctx().set_cursor_icon(resize_cursor(right, bottom));
         } else if hit.is_some() && hit == app.wall_ui.focus.map(Hit::Piece) {
             ui.ctx().set_cursor_icon(CursorIcon::Move);
         } else if app.wall_ui.draw && resp.hovered() {
@@ -238,6 +269,8 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                 .interact(r, ui.make_persistent_id("wall_tip"), Sense::hover())
                 .on_hover_text(piece_tip(app, i));
         }
+    } else if let Some(Drag::Resize { right, bottom, .. }) = app.wall_ui.drag {
+        ui.ctx().set_cursor_icon(resize_cursor(right, bottom));
     } else {
         ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
     }
@@ -278,6 +311,14 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                 _ => {}
             }
         }
+    }
+}
+
+fn resize_cursor(right: bool, bottom: bool) -> CursorIcon {
+    if right == bottom {
+        CursorIcon::ResizeNwSe
+    } else {
+        CursorIcon::ResizeNeSw
     }
 }
 

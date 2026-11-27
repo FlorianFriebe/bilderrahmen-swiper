@@ -7,12 +7,14 @@ use serde::{Deserialize, Serialize};
 
 mod align;
 mod collage;
+mod fill;
 mod layout;
 mod order;
 #[cfg(test)]
 mod tests;
 
 pub use align::{align, distribute, dpi, guides, Align, Line, Measure, DPI_WARN};
+pub use fill::{Fill, Stack};
 #[cfg(test)]
 pub use layout::capacity;
 pub use layout::{arrange, Arrange, Facing, Pattern};
@@ -233,8 +235,40 @@ pub struct Wall {
     pub mix: Vec<String>,
     /// weißer Rand um jedes Foto im Abzug (cm), einzelne Fotos können abweichen
     pub border: f32,
+    /// Einstellungen für „Lückenlos“
+    pub fill: Fill,
+    /// von Hand angeordnet: nichts ordnet sich mehr von selbst neu, bis „Neu anordnen“
+    pub frozen: bool,
     /// Zielordner, in den für diese Wand sortiert wird (eigenes Profil, leer = noch nie)
     pub target: Option<PathBuf>,
+}
+
+impl Wall {
+    /// Fotos am Rand werden bündig abgeschnitten (Lückenlos mit geraden Außenkanten).
+    pub fn trims(&self) -> bool {
+        self.arrange == Arrange::Lueckenlos && self.fill.trim
+    }
+
+    /// Ab diesem verdeckten Anteil wird ein Foto markiert. Lückenlos überlappt mit Absicht:
+    /// dort erst, wenn weniger sichtbar bleibt als eingestellt.
+    pub fn cover_warn(&self) -> f32 {
+        if self.arrange == Arrange::Lueckenlos {
+            (1.0 - self.fill.min_visible + 0.1).clamp(COVER_WARN, 0.95)
+        } else {
+            COVER_WARN
+        }
+    }
+
+    /// Fläche innerhalb des Rands zur Wandkante (cm).
+    pub fn inner(&self) -> Area {
+        let m = self.margin.clamp(0.0, self.w.min(self.h) / 2.0);
+        Area {
+            x: m,
+            y: m,
+            w: self.w - 2.0 * m,
+            h: self.h - 2.0 * m,
+        }
+    }
 }
 
 impl Default for Wall {
@@ -260,6 +294,8 @@ impl Default for Wall {
             hero_size: "20x30".into(),
             mix: vec![],
             border: 0.0,
+            fill: Fill::default(),
+            frozen: false,
             target: None,
         }
     }
@@ -324,7 +360,8 @@ impl Wall {
 /// Liegt der Platz auf einem Hindernis oder ragt über die Wand hinaus?
 pub fn blocked(wall: &Wall, sizes: &[PrintSize], p: &Piece) -> bool {
     let a = p.area(sizes);
-    let out = a.x < -0.05 || a.y < -0.05 || a.right() > wall.w + 0.05 || a.bottom() > wall.h + 0.05;
+    let out = !wall.trims()
+        && (a.x < -0.05 || a.y < -0.05 || a.right() > wall.w + 0.05 || a.bottom() > wall.h + 0.05);
     out || wall
         .obstacles
         .iter()

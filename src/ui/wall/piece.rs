@@ -91,14 +91,19 @@ pub(super) fn piece_tip(app: &SwiperApp, i: usize) -> String {
         if d < wl::DPI_WARN {
             tip.push_str(&format!(
                 "\nNur {} dpi: wird im Druck unscharf. Nimm eine kleinere Größe.",
-                d.round()
+                d.floor()
             ));
         }
     }
     if wl::blocked(w, sizes, pc) {
         tip.push_str("\nLiegt auf einem Hindernis oder ragt über die Wand.");
     }
-    tip.push_str("\nZiehen: festpinnen und verschieben · auf ein anderes Foto: tauschen");
+    if w.arrange == wl::Arrange::Lueckenlos || w.gap < -0.04 {
+        tip.push_str("\nZiehen: verschieben · mit Alt auf ein anderes Foto: tauschen");
+    } else {
+        tip.push_str("\nZiehen: verschieben · auf ein anderes Foto: tauschen");
+    }
+    tip.push_str("\nEcke ziehen: andere Größe · Strg+↑/↓: Ebene");
     tip.push_str("\nUmschalt-Klick: mehrere wählen · Ins Band unten ziehen: abnehmen");
     if pc.photo.is_some() {
         tip.push_str("\nDoppelklick: Bildausschnitt verschieben · Rechtsklick: mehr");

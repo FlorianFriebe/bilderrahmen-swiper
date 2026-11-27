@@ -1,4 +1,4 @@
-//! Popups der Fotowand: Fotos wählen, Wände wechseln, Rechtsklick-Menü.
+//! Popups der Fotowand: Menü oben links, Fotos wählen, Wände wechseln, Rechtsklick-Menü.
 
 use super::*;
 use crate::ui::popups::{caption, divider_line, field_row, form_popup, menu_row};
@@ -7,6 +7,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui) {
     if let Some((which, anchor)) = app.wall_ui.popup {
         let keep = match which {
             1 => photos(app, ui, anchor),
+            3 => main_menu(app, ui, anchor),
             _ => walls(app, ui, anchor),
         };
         if !keep {
@@ -19,6 +20,86 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui) {
             app.wall_ui.menu = None;
         }
     }
+}
+
+/// Menü oben links: alles, was früher als Knopf in der Leiste stand.
+fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
+    let undo = !app.wall_history.is_empty();
+    let draw = app.wall_ui.draw;
+    let frozen = app.wall().frozen;
+    let hidden = app.wall_ui.side_hidden;
+    let mut act = 0;
+    let keep = form_popup(ui, "wall_menu", anchor, 280.0, false, |ui| {
+        if menu_row(ui, "Zurück zur Startseite", "Esc", false).clicked() {
+            act = 1;
+        }
+        let sub = if undo {
+            "Strg+Z"
+        } else {
+            "Noch nichts zum Rückgängigmachen"
+        };
+        if menu_row(ui, "Rückgängig", sub, false).clicked() && undo {
+            act = 2;
+        }
+        divider_line(ui);
+        if menu_row(
+            ui,
+            "Fotos für die Wand",
+            "Behaltene, Ordner oder dafür sortieren",
+            false,
+        )
+        .clicked()
+        {
+            act = 3;
+        }
+        if menu_row(
+            ui,
+            "Hindernis einzeichnen",
+            "Fläche, die frei bleiben soll",
+            draw,
+        )
+        .clicked()
+        {
+            act = 4;
+        }
+        if frozen
+            && menu_row(
+                ui,
+                "Neu anordnen",
+                "Deine Anordnung von Hand aufgeben",
+                false,
+            )
+            .clicked()
+        {
+            act = 5;
+        }
+        let label = if hidden {
+            "Einstellungen zeigen"
+        } else {
+            "Einstellungen einklappen"
+        };
+        if menu_row(ui, label, "Tab", false).clicked() {
+            act = 6;
+        }
+        act == 0
+    });
+    match act {
+        1 => {
+            app.wall_ui = Default::default();
+            app.view = View::Home;
+        }
+        2 => app.wall_undo(),
+        3 => app.wall_ui.popup = Some((1, anchor)),
+        4 => app.wall_ui.draw = !draw,
+        5 => {
+            app.wall_checkpoint();
+            app.wall_rearrange();
+            app.toast_with_undo("Neu angeordnet".into());
+        }
+        6 => app.wall_ui.side_hidden = !hidden,
+        _ => {}
+    }
+    keep || act == 3
 }
 
 /// Woher kommen die Fotos?
@@ -212,7 +293,10 @@ fn piece_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
         if pc.photo.is_some() && menu_row(ui, "Von der Wand nehmen", "Entf", false).clicked() {
             act = 4;
         }
-        if pc.photo.is_none() && pc.pinned && menu_row(ui, "Platz entfernen", "", false).clicked() {
+        if pc.photo.is_none()
+            && (pc.pinned || app.wall().frozen)
+            && menu_row(ui, "Platz entfernen", "", false).clicked()
+        {
             act = 5;
         }
         act == 0 && size.is_none()

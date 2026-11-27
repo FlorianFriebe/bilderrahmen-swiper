@@ -69,9 +69,65 @@ impl SwiperApp {
         }
     }
 
-    /// Sofort neu anordnen nach den Einstellungen der Wand. Festgepinnte Fotos bleiben,
-    /// die Auswahl bleibt am selben Foto. Vorher `wall_checkpoint()` aufrufen.
+    /// Nach einer Änderung auffrischen. Ordnet die Wand nur dann neu an, wenn sie nicht von
+    /// Hand angeordnet ist (`Wall::frozen`); sonst bleibt jeder Platz, wo er ist.
+    /// Vorher `wall_checkpoint()` aufrufen.
     pub fn wall_relayout(&mut self) {
+        if self.wall().frozen {
+            self.wall_keep();
+            return;
+        }
+        self.wall_arrange_now();
+    }
+
+    /// Neu anordnen, auch wenn von Hand angeordnet war (Knopf „Neu anordnen“, Einstellungen).
+    /// Festgepinnte Fotos bleiben.
+    pub fn wall_rearrange(&mut self) {
+        self.wall_mut().frozen = false;
+        self.wall_arrange_now();
+    }
+
+    /// Ab jetzt von Hand: nichts ordnet sich mehr von selbst neu.
+    pub fn wall_freeze(&mut self) {
+        self.wall_mut().frozen = true;
+    }
+
+    /// Von Hand angeordnet: Plätze bleiben; Fotos, die abgenommen oder nicht mehr da sind,
+    /// verschwinden von ihrem Platz (der Platz bleibt leer).
+    fn wall_keep(&mut self) {
+        let pool: HashSet<PathBuf> = self
+            .wall()
+            .photos
+            .iter()
+            .filter(|p| !p.off)
+            .map(|p| p.path.clone())
+            .collect();
+        for p in &mut self.wall_mut().pieces {
+            if p.photo.as_ref().is_some_and(|f| !pool.contains(f)) {
+                p.photo = None;
+            }
+        }
+    }
+
+    /// Von Hand angeordnet: freie Fotos kommen der Reihe nach auf leere Plätze.
+    pub fn wall_fill_empty(&mut self) {
+        let free: Vec<PathBuf> = wl::unplaced(self.wall())
+            .into_iter()
+            .filter(|p| !p.off)
+            .map(|p| p.path.clone())
+            .collect();
+        let mut free = free.into_iter();
+        for p in &mut self.wall_mut().pieces {
+            if p.photo.is_none() {
+                match free.next() {
+                    Some(f) => p.photo = Some(f),
+                    None => break,
+                }
+            }
+        }
+    }
+
+    fn wall_arrange_now(&mut self) {
         let get = |i: &usize| self.wall().pieces.get(*i).cloned();
         let sel = self.wall_ui.sel.as_ref().and_then(get);
         let multi: Vec<wl::Piece> = self.wall_ui.multi.iter().filter_map(get).collect();
@@ -278,6 +334,9 @@ impl SwiperApp {
             }
         }
         self.wall_relayout();
+        if self.wall().frozen {
+            self.wall_fill_empty();
+        }
         let msg = if first || added == 0 {
             format!("{} für die Wand", crate::ui::bilder(n))
         } else if added == 1 {

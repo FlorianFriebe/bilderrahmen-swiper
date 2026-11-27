@@ -204,7 +204,7 @@ fn sorting_for_a_wall_fills_it() {
 }
 
 #[test]
-fn wall_pins_swaps_and_takes_off() {
+fn wall_moves_freely_swaps_and_takes_off() {
     use crate::wall::WallPhoto;
     let (mut app, base, _) = setup("wall_hand");
     app.open_wall();
@@ -225,13 +225,30 @@ fn wall_pins_swaps_and_takes_off() {
     };
     assert!(at(&app, "w4.jpg").is_some());
 
-    // verschieben pinnt fest; ändert sich die Wand, bleibt das Foto, wo es ist
+    // verschieben pinnt nicht, aber von da an ordnet sich nichts mehr von selbst neu
+    let others: Vec<_> = app.wall().pieces.iter().skip(1).cloned().collect();
     let i = at(&app, "w0.jpg").unwrap();
+    let layer = i;
     app.wall_move(i, 120.0, 70.0);
     let i = at(&app, "w0.jpg").unwrap();
-    assert!(app.wall().pieces[i].pinned);
-    app.wall_mut().gap = 6.0;
+    assert_eq!(i, layer, "bleibt auf seiner Ebene");
+    assert!(!app.wall().pieces[i].pinned);
+    assert!(app.wall().frozen);
     app.wall_relayout();
+    let p = &app.wall().pieces[at(&app, "w0.jpg").unwrap()];
+    assert_eq!((p.x, p.y), (120.0, 70.0));
+    let still: Vec<_> = app.wall().pieces.iter().skip(1).cloned().collect();
+    assert_eq!(still, others);
+    // Ebene: ganz nach vorn und eine zurück
+    app.wall_layer(0, 1, true);
+    assert_eq!(at(&app, "w0.jpg"), Some(app.wall().pieces.len() - 1));
+    app.wall_layer(app.wall().pieces.len() - 1, -1, false);
+    assert_eq!(at(&app, "w0.jpg"), Some(app.wall().pieces.len() - 2));
+    // festgepinnt bleibt es auch beim Neuanordnen
+    let i = at(&app, "w0.jpg").unwrap();
+    app.wall_pin(i, true);
+    app.wall_rearrange();
+    assert!(!app.wall().frozen);
     let p = &app.wall().pieces[at(&app, "w0.jpg").unwrap()];
     assert_eq!((p.x, p.y), (120.0, 70.0));
 
@@ -254,6 +271,17 @@ fn wall_pins_swaps_and_takes_off() {
     // und wieder zurück
     app.wall_put_back(Path::new("w3.jpg"));
     assert!(at(&app, "w3.jpg").is_some());
+    // von Hand angeordnet: abnehmen lässt den Platz leer, zurückholen füllt ihn wieder
+    let i = at(&app, "w3.jpg").unwrap();
+    let spot = app.wall().pieces[i].area(app.sizes());
+    app.wall_freeze();
+    app.wall_take_off(i);
+    assert!(app.wall().pieces[i].photo.is_none());
+    app.wall_put_back(Path::new("w3.jpg"));
+    let j = at(&app, "w3.jpg").unwrap();
+    assert_eq!(app.wall().pieces[j].area(app.sizes()), spot);
+    app.wall_undo();
+    app.wall_undo();
 
     // Rückgängig holt den Stand vor dem Zurückholen
     app.wall_undo();
@@ -291,12 +319,12 @@ fn wall_multi_select_aligns_and_hero() {
         app.wall_select_toggle(i);
     }
     assert_eq!(app.wall_selected().len(), 3);
-    // gemeinsam verschieben: alle festgepinnt, Auswahl bleibt
+    // gemeinsam verschieben: Auswahl bleibt, die Wand ist von Hand angeordnet
     let before = app.wall().pieces[at(&app, "m2.jpg")].clone();
     let sel = app.wall_selected();
     app.wall_move_many(&sel, 3.0, 2.0);
     let after = &app.wall().pieces[at(&app, "m2.jpg")];
-    assert!(after.pinned);
+    assert!(app.wall().frozen && !after.pinned);
     assert!((after.x - before.x - 3.0).abs() < 0.01);
     assert_eq!(app.wall_selected().len(), 3);
     // oben bündig

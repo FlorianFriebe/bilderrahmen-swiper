@@ -39,12 +39,12 @@ src/app/             Zustand SwiperApp + Logik, ein impl-Block pro Thema
   profiles.rs        Profile je Bilderrahmen
   textures.rs        Ergebnisse der Worker abholen (Speichern, Vorschaubilder, Texturen)
   wall.rs            Fotowand: Wände anlegen/wechseln, Fotos einlesen, sofort neu anordnen, Rückgängig
-  wall_edit.rs       Fotowand von Hand: verschieben (pinnt), tauschen, abnehmen, Größe je Foto
+  wall_edit.rs       Fotowand von Hand: verschieben, tauschen, abnehmen, Größe, Ebene je Foto
   wall_fine.rs       Fotowand feinjustieren: Mehrfachauswahl, Ausrichten, Hauptbild, Bildausschnitt
   wall_sort.rs       Für die Wand sortieren: Profil je Wand (Ziel, Zuschnitt), Wand nachladen
   tests.rs           Ablauf-Tests ohne UI (Behalten, Rückgängig, Ganz von vorn, Nachbearbeiten)
 src/wall/            Fotowand ohne UI: Druckgrößen (echte Maße), layout.rs (Raster, Reihen, Muster, Hauptbild),
-                     collage.rs (mit Größen-Mix), order.rs (Reihenfolge), align.rs (Ausrichten,
+                     collage.rs (mit Größen-Mix), fill.rs (Lückenlos), order.rs (Reihenfolge), align.rs (Ausrichten,
                      Hilfslinien, dpi), Hindernisse, Verdeckung, Einrasten
 src/history.rs       Rückgängig: Step-Stapel, Papierkorb `.papierkorb` (14 Tage), Ganz von vorn
 src/folders.rs       Ordnerbaum, natürliche Sortierung, StatusFile (.bilderrahmen_status.json)
@@ -84,8 +84,11 @@ src/ui/
   eigener Stapel (`wall_checkpoint()` vor jeder Änderung, `wall_undo()`), nicht `history`.
   Plätze entstehen immer neu aus `wall::arrange()` (nach jeder Änderung `wall_relayout()`);
   nur festgepinnte (`Piece::pinned`) bleiben, abgenommene Fotos haben `WallPhoto::off`.
+  Von Hand verschoben setzt `Wall::frozen` (`wall_freeze()`): dann lässt `wall_relayout()` alle
+  Plätze stehen; erst `wall_rearrange()` ordnet neu (Einstellungen der Anordnung, „Neu anordnen“).
   UI in `ui/wall/`: canvas (Wand, Klicks), piece (ein Platz: Ausschnitt, Rand, Abzeichen), drag
-  (Ziehen/Ablegen), guides (Hilfslinien), side + side_fine (Seitenleiste), menus, zoom.
+  (Ziehen/Ablegen), resize (Ecke ziehen), guides (Hilfslinien), side + side_fine + side_fill
+  (Seitenleiste), menus (Menü oben links, Popups), strip (Band mit „+“), zoom.
   Werte je Foto (Ausschnitt `focus`, eigener Rand `border`, Pixel `px`) liegen in `WallPhoto`,
   nicht in `Piece`, weil Plätze bei jedem Neuordnen neu entstehen. Mehrfachauswahl: `WallUi::multi`.
   Zum Sortieren bekommt eine Wand ein normales Profil: `Wall::target` = dessen Zielordner,

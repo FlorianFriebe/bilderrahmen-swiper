@@ -1,24 +1,19 @@
-//! Fotowand von Hand: Fotos verschieben (pinnt sie fest), tauschen, abnehmen, zurückholen,
-//! Größe und Ausrichtung einzelner Fotos. Danach ordnet sich der Rest sofort neu.
+//! Fotowand von Hand: Fotos verschieben, tauschen, abnehmen, zurückholen, Größe, Ausrichtung
+//! und Ebene einzelner Fotos. Ab dem ersten Schieben ist die Wand „von Hand angeordnet“:
+//! nichts ordnet sich mehr von selbst neu, bis „Neu anordnen“.
 
 use super::*;
 use crate::wall::{self as wl, Piece, Sequence};
 
 impl SwiperApp {
-    /// Foto an eine Stelle legen: es wird festgepinnt und liegt oben.
+    /// Foto an eine Stelle legen. Es bleibt auf seiner Ebene; der Rest bleibt, wo er ist.
     pub fn wall_move(&mut self, i: usize, x: f32, y: f32) {
         let Some(mut p) = self.wall().pieces.get(i).cloned() else {
             return;
         };
-        self.wall_checkpoint();
         p.x = x;
         p.y = y;
-        p.pinned = true;
-        let w = self.wall_mut();
-        w.pieces.remove(i);
-        w.pieces.push(p.clone());
-        self.wall_ui.sel = Some(self.wall().pieces.len() - 1);
-        self.wall_relayout();
+        self.wall_set_piece(i, p);
     }
 
     /// Feststecken oder lösen.
@@ -59,7 +54,7 @@ impl SwiperApp {
             return self.wall_move(i, b.x, b.y);
         }
         self.wall_checkpoint();
-        if !a.pinned && !b.pinned {
+        if !a.pinned && !b.pinned && !self.wall().frozen {
             if let (Some(fa), Some(fb)) = (&a.photo, &b.photo) {
                 let mut order = wl::ordered(self.wall());
                 let ia = order.iter().position(|p| p == fa);
@@ -87,7 +82,7 @@ impl SwiperApp {
         }
     }
 
-    /// Foto aus dem Band an eine freie Stelle legen (festgepinnt, mittig um `x`, `y`).
+    /// Foto aus dem Band an eine freie Stelle legen (mittig um `x`, `y`, ganz oben).
     pub fn wall_place(&mut self, photo: &Path, x: f32, y: f32) {
         self.wall_checkpoint();
         let hoch = self.photo_hoch(photo);
@@ -97,7 +92,6 @@ impl SwiperApp {
             photo: Some(photo.to_path_buf()),
             size: w.size.clone(),
             hoch,
-            pinned: true,
             ..Default::default()
         };
         let (pw, ph) = p.dims(&self.cfg.print_sizes);
@@ -106,11 +100,12 @@ impl SwiperApp {
         self.set_off(photo, false);
         let w = self.wall_mut();
         w.pieces.push(p);
+        self.wall_freeze();
         self.wall_ui.sel = Some(self.wall().pieces.len() - 1);
         self.wall_relayout();
     }
 
-    /// Foto aus dem Band auf einen Platz legen: der Platz wird damit festgepinnt.
+    /// Foto aus dem Band auf einen Platz legen.
     pub fn wall_put_on(&mut self, j: usize, photo: &Path) {
         if j >= self.wall().pieces.len() {
             return;
@@ -118,11 +113,15 @@ impl SwiperApp {
         self.wall_checkpoint();
         self.set_off(photo, false);
         let w = self.wall_mut();
+        // war es schon an der Wand, bleibt sein alter Platz leer
+        for p in &mut w.pieces {
+            if p.photo.as_deref() == Some(photo) {
+                p.photo = None;
+            }
+        }
         w.pieces[j].photo = Some(photo.to_path_buf());
-        w.pieces[j].pinned = true;
         let keep = w.pieces[j].clone();
-        w.pieces
-            .retain(|p| p == &keep || p.photo.as_deref() != Some(photo));
+        self.wall_freeze();
         self.wall_ui.sel = self.find_piece(&keep);
         self.wall_relayout();
     }
@@ -136,18 +135,26 @@ impl SwiperApp {
         if let Some(f) = &p.photo {
             self.set_off(f, true);
         }
-        if p.pinned {
+        // von Hand angeordnet: der Platz bleibt leer stehen
+        if p.pinned && !self.wall().frozen {
             self.wall_mut().pieces.remove(i);
         }
         self.wall_ui.sel = None;
         self.wall_relayout();
     }
 
-    /// Foto aus dem Band zurück an die Wand (an seinen Platz in der Reihenfolge).
+    /// Foto aus dem Band zurück an die Wand: an seinen Platz in der Reihenfolge oder, von Hand
+    /// angeordnet, auf den ersten leeren Platz.
     pub fn wall_put_back(&mut self, photo: &Path) {
         self.wall_checkpoint();
         self.set_off(photo, false);
         self.wall_relayout();
+        if self.wall().frozen {
+            let w = self.wall_mut();
+            if let Some(p) = w.pieces.iter_mut().find(|p| p.photo.is_none()) {
+                p.photo = Some(photo.to_path_buf());
+            }
+        }
         if !self
             .wall()
             .pieces
@@ -158,7 +165,7 @@ impl SwiperApp {
         }
     }
 
-    /// Festgepinnten leeren Platz an einer Stelle anlegen.
+    /// Leeren Platz an einer Stelle anlegen (festgepinnt, damit er beim Neuordnen bleibt).
     pub fn wall_add_empty(&mut self, x: f32, y: f32) {
         self.wall_checkpoint();
         let w = self.wall();
@@ -172,11 +179,12 @@ impl SwiperApp {
         p.x = x - pw / 2.0;
         p.y = y - ph / 2.0;
         self.wall_mut().pieces.push(p);
+        self.wall_freeze();
         self.wall_ui.sel = Some(self.wall().pieces.len() - 1);
         self.wall_relayout();
     }
 
-    /// Größe oder Ausrichtung eines Fotos ändern (Mitte bleibt); pinnt es fest.
+    /// Größe oder Ausrichtung eines Fotos ändern (Mitte bleibt, Ebene auch).
     pub fn wall_reshape(&mut self, i: usize, size: Option<String>, hoch: Option<bool>) {
         let Some(mut p) = self.wall().pieces.get(i).cloned() else {
             return;
@@ -192,40 +200,58 @@ impl SwiperApp {
         let (nw, nh) = p.dims(self.sizes());
         p.x += (ow - nw) / 2.0;
         p.y += (oh - nh) / 2.0;
-        p.pinned = true;
-        let w = self.wall_mut();
-        w.pieces.remove(i);
-        w.pieces.push(p);
-        self.wall_ui.sel = Some(self.wall().pieces.len() - 1);
+        self.wall_set_piece(i, p);
+    }
+
+    /// Platz `i` durch `p` ersetzen (Größe von Hand, Ecke ziehen): von Hand angeordnet.
+    pub fn wall_set_piece(&mut self, i: usize, p: Piece) {
+        if self.wall().pieces.get(i).is_none_or(|q| *q == p) {
+            return;
+        }
+        self.wall_checkpoint();
+        self.wall_mut().pieces[i] = p;
+        self.wall_freeze();
+        self.wall_ui.sel = Some(i);
         self.wall_relayout();
     }
 
-    /// Festgepinnten Platz ganz nach vorn oder hinten (unter den festgepinnten).
-    pub fn wall_restack(&mut self, i: usize, front: bool) {
-        let Some(p) = self.wall().pieces.get(i).cloned() else {
+    /// Ebene ändern: `step` Ebenen nach vorn (positiv) oder hinten; `all` = ganz nach vorn
+    /// oder ganz nach hinten. Das Hauptbild bleibt immer obenauf.
+    pub fn wall_layer(&mut self, i: usize, step: i32, all: bool) {
+        let n = self.wall().pieces.len();
+        if i >= n || step == 0 {
             return;
+        }
+        let to = if all {
+            if step > 0 {
+                n - 1
+            } else {
+                0
+            }
+        } else {
+            (i as i64 + step as i64).clamp(0, n as i64 - 1) as usize
         };
-        if !p.pinned {
+        if to == i {
             return;
         }
         self.wall_checkpoint();
         let w = self.wall_mut();
-        w.pieces.remove(i);
-        let at = if front {
-            w.pieces.len()
-        } else {
-            w.pieces
-                .iter()
-                .position(|q| q.pinned)
-                .unwrap_or(w.pieces.len())
-        };
-        w.pieces.insert(at, p);
-        self.wall_ui.sel = Some(at);
+        let p = w.pieces.remove(i);
+        w.pieces.insert(to, p);
+        self.wall_freeze();
+        self.wall_ui.sel = Some(to);
+        self.wall_ui.multi.clear();
     }
 
-    /// Festgepinnten leeren Platz entfernen.
+    /// Leeren Platz entfernen (von Hand angeordnet oder festgepinnt).
     pub fn wall_remove_piece(&mut self, i: usize) {
-        if self.wall().pieces.get(i).is_none_or(|p| !p.pinned) {
+        let frozen = self.wall().frozen;
+        if self
+            .wall()
+            .pieces
+            .get(i)
+            .is_none_or(|p| p.photo.is_some() || !(p.pinned || frozen))
+        {
             return;
         }
         self.wall_checkpoint();
@@ -234,7 +260,7 @@ impl SwiperApp {
         self.wall_relayout();
     }
 
-    /// Ausgewähltes Foto mit den Pfeiltasten schieben (pinnt es fest).
+    /// Ausgewähltes Foto mit den Pfeiltasten schieben.
     pub fn wall_nudge(&mut self, dx: f32, dy: f32) {
         let Some(i) = self.wall_ui.sel else { return };
         let Some(p) = self.wall().pieces.get(i) else {

@@ -1,6 +1,7 @@
 //! Seitenleiste der Fotowand mit drei Reitern: Wand (Maße, Rand, Hindernisse, Druckmaße),
 //! Anordnung (Art, Größe, Abstand, Muster, Reihenfolge, Pins) und Auswahl (das angeklickte
 //! Foto oder Hindernis). Jede Änderung wirkt sofort; ein Rückgängig-Schritt pro Änderung.
+//! Der Reiter Auswahl für ein Foto steht in `side_fine`, Lückenlos in `side_fill`.
 
 use super::*;
 use crate::ui::popups::{caption, divider_line, field_row, menu_row};
@@ -30,7 +31,8 @@ pub(super) enum Act {
     ResetSizes,
     Pin(usize, bool),
     Reshape(usize, Option<String>, Option<bool>),
-    Restack(usize, bool),
+    Layer(usize, i32, bool),
+    Rearrange,
     TakeOff(usize),
     Remove(usize),
     Reedit(PathBuf),
@@ -44,6 +46,50 @@ pub(super) enum Act {
     Hero(Option<PathBuf>),
     Focus(usize),
     FocusReset(PathBuf),
+}
+
+/// Eingeklappt: die drei Reiter senkrecht am Rand. Ein Klick klappt mit diesem Reiter auf.
+pub(super) fn folded(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
+    let p = ui.painter().clone();
+    kit::glass(&p, r, radius::L);
+    let f = font(ts::BODY, W::Medium);
+    let tabs = [
+        (Tab::Wand, "Wand"),
+        (Tab::Anordnung, "Anordnung"),
+        (Tab::Auswahl, "Auswahl"),
+    ];
+    let mut y = r.top() + sp::S;
+    for (tab, label) in tabs {
+        let g = p.layout_no_wrap(label.into(), f.clone(), text_soft());
+        let h = g.size().x + sp::L * 2.0;
+        let tr = Rect::from_min_size(pos2(r.left() + 2.0, y), vec2(r.width() - 4.0, h));
+        y += h + sp::XS;
+        let resp = ui
+            .interact(
+                tr,
+                ui.make_persistent_id(("wall_fold", label)),
+                Sense::click(),
+            )
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .on_hover_text("Einstellungen aufklappen (Tab)");
+        let t = kit::anim(ui, resp.id, resp.hovered());
+        if t > 0.0 {
+            p.rect_filled(tr, radius::M, glass_hover().gamma_multiply(t));
+        }
+        let col = if app.wall_ui.tab == tab {
+            text()
+        } else {
+            text_soft()
+        };
+        // von unten nach oben lesbar, wie Reiter an einem Ordner
+        let at = pos2(tr.center().x - g.size().y / 2.0, tr.bottom() - sp::L);
+        p.add(egui::epaint::TextShape::new(at, g, col).with_angle(-std::f32::consts::FRAC_PI_2));
+        if resp.clicked() {
+            app.wall_ui.tab = tab;
+            app.wall_ui.tab_before = None;
+            app.wall_ui.side_hidden = false;
+        }
+    }
 }
 
 pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
@@ -60,9 +106,17 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
         Tab::Auswahl => 2,
     };
     if let Some(i) = kit::segmented_bare(ui, tr.shrink(2.0), &tabs, Some(cur)) {
+        if i == cur {
+            // offener Reiter noch einmal: Leiste einklappen
+            app.wall_ui.side_hidden = true;
+            return;
+        }
         app.wall_ui.tab = [Tab::Wand, Tab::Anordnung, Tab::Auswahl][i];
         app.wall_ui.tab_before = None;
     }
+    let _ = ui
+        .interact(tr, ui.make_persistent_id("wall_tabs_tip"), Sense::hover())
+        .on_hover_text("Klick auf den offenen Reiter klappt die Leiste ein (Tab)");
 
     let body = Rect::from_min_max(pos2(inner.left(), tr.bottom() + sp::S), inner.max);
     let before = app.wall().clone();
@@ -98,9 +152,17 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
                 std::mem::swap(&mut s.short, &mut s.long);
             }
         }
+        let layout = sizes != sizes_before || layout_changed(&before, &w);
         app.cfg.print_sizes = sizes;
         *app.wall_mut() = w;
-        app.wall_relayout();
+        if layout && before.frozen {
+            app.wall_rearrange();
+            app.toast_with_undo("Neu angeordnet. Rückgängig holt deine Anordnung zurück.".into());
+        } else if layout {
+            app.wall_rearrange();
+        } else {
+            app.wall_relayout();
+        }
     } else if !ui.input(|i| i.pointer.any_down()) && !ui.ctx().egui_wants_keyboard_input() {
         app.wall_ui.editing = false;
     }
@@ -109,14 +171,31 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
     }
 }
 
+/// Ändert sich etwas, das die Anordnung bestimmt? Rand, Name, Maße und Hindernisse nicht:
+/// von Hand angeordnet bleibt dann alles, wo es ist.
+fn layout_changed(a: &Wall, b: &Wall) -> bool {
+    a.gap != b.gap
+        || a.size != b.size
+        || a.margin != b.margin
+        || a.arrange != b.arrange
+        || a.pattern != b.pattern
+        || a.facing != b.facing
+        || a.sequence != b.sequence
+        || a.hero_size != b.hero_size
+        || a.mix != b.mix
+        || a.fill != b.fill
+}
+
 fn run(app: &mut SwiperApp, a: Act) {
     match a {
         Act::Shuffle => {
             app.wall_checkpoint();
             let w = app.wall_mut();
             w.seed = w.seed.wrapping_add(1);
-            w.sequence = Sequence::Gemischt;
-            app.wall_relayout();
+            if w.arrange != Arrange::Lueckenlos {
+                w.sequence = Sequence::Gemischt;
+            }
+            app.wall_rearrange();
             app.toast_with_undo("Neu gemischt".into());
         }
         Act::UnpinAll => app.wall_unpin_all(),
@@ -127,7 +206,12 @@ fn run(app: &mut SwiperApp, a: Act) {
         }
         Act::Pin(i, on) => app.wall_pin(i, on),
         Act::Reshape(i, s, h) => app.wall_reshape(i, s, h),
-        Act::Restack(i, front) => app.wall_restack(i, front),
+        Act::Layer(i, step, all) => app.wall_layer(i, step, all),
+        Act::Rearrange => {
+            app.wall_checkpoint();
+            app.wall_rearrange();
+            app.toast_with_undo("Neu angeordnet".into());
+        }
         Act::TakeOff(i) => app.wall_take_off(i),
         Act::Remove(i) => app.wall_remove_piece(i),
         Act::Reedit(f) => app.wall_reedit(&f),
@@ -304,6 +388,20 @@ fn wall_tab(ui: &mut Ui, w: &mut Wall, sizes: &mut [PrintSize], acts: &mut Vec<A
 }
 
 fn arrange_tab(ui: &mut Ui, w: &mut Wall, sizes: &[PrintSize], acts: &mut Vec<Act>) {
+    if w.frozen {
+        caption(ui, "Von Hand angeordnet");
+        if menu_row(
+            ui,
+            "Neu anordnen",
+            "Alles ordnet sich wieder von selbst",
+            false,
+        )
+        .clicked()
+        {
+            acts.push(Act::Rearrange);
+        }
+        divider_line(ui);
+    }
     caption(ui, "Anordnung");
     let labels = Arrange::ALL.map(|a| a.label());
     let cur = Arrange::ALL
@@ -315,9 +413,12 @@ fn arrange_tab(ui: &mut Ui, w: &mut Wall, sizes: &[PrintSize], acts: &mut Vec<Ac
     }
     hint(ui, w.arrange.hint(), sp::M);
     ui.add_space(sp::XS);
-    field_row(ui, "Fotogröße", |ui| {
-        size_combo(ui, "wall_side_size", sizes, &mut w.size);
-    });
+    let gapless = w.arrange == Arrange::Lueckenlos;
+    if !gapless || w.fill.shares.is_empty() {
+        field_row(ui, "Fotogröße", |ui| {
+            size_combo(ui, "wall_side_size", sizes, &mut w.size);
+        });
+    }
     field_row(ui, "Ausrichtung", |ui| {
         egui::ComboBox::from_id_salt("wall_side_facing")
             .width(150.0)
@@ -328,6 +429,16 @@ fn arrange_tab(ui: &mut Ui, w: &mut Wall, sizes: &[PrintSize], acts: &mut Vec<Ac
                 }
             });
     });
+    if gapless {
+        super::side_fill::fill_settings(ui, w, sizes);
+        divider_line(ui);
+        caption(ui, "Reihenfolge");
+        if menu_row(ui, "Würfeln", "Eine neue zufällige Collage", false).clicked() {
+            acts.push(Act::Shuffle);
+        }
+        pinned_row(ui, w, acts);
+        return super::side_fine::arrange_extras(ui, w, sizes, acts);
+    }
     field_row(ui, "Abstand", |ui| {
         ui.spacing_mut().slider_width = 150.0;
         ui.add(
@@ -372,6 +483,12 @@ fn arrange_tab(ui: &mut Ui, w: &mut Wall, sizes: &[PrintSize], acts: &mut Vec<Ac
     if menu_row(ui, "Mischen", "Neue zufällige Reihenfolge", false).clicked() {
         acts.push(Act::Shuffle);
     }
+    pinned_row(ui, w, acts);
+    super::side_fine::arrange_extras(ui, w, sizes, acts);
+}
+
+/// „Festgepinnt: Alle lösen“, wenn es Pins gibt.
+fn pinned_row(ui: &mut Ui, w: &Wall, acts: &mut Vec<Act>) {
     let pins = w.pieces.iter().filter(|p| p.pinned).count();
     if pins > 0 {
         divider_line(ui);
@@ -385,7 +502,6 @@ fn arrange_tab(ui: &mut Ui, w: &mut Wall, sizes: &[PrintSize], acts: &mut Vec<Ac
             acts.push(Act::UnpinAll);
         }
     }
-    super::side_fine::arrange_extras(ui, w, sizes, acts);
 }
 
 fn selection_tab(
@@ -401,7 +517,7 @@ fn selection_tab(
         return super::side_fine::multi_tab(ui, many.len(), pinned, acts);
     }
     if let Some(i) = app.wall_ui.sel.filter(|i| *i < w.pieces.len()) {
-        return piece_tab(app, ui, w, i, sizes, acts);
+        return super::side_fine::piece_tab(app, ui, w, i, sizes, acts);
     }
     if let Some(i) = app.wall_ui.sel_obstacle.filter(|i| *i < w.obstacles.len()) {
         return obstacle_tab(ui, w, i, acts);
@@ -412,91 +528,6 @@ fn selection_tab(
         "Klick auf ein Foto oder ein Hindernis, dann kannst du es hier einstellen.",
         sp::M,
     );
-}
-
-fn piece_tab(
-    app: &SwiperApp,
-    ui: &mut Ui,
-    w: &mut Wall,
-    i: usize,
-    sizes: &[PrintSize],
-    acts: &mut Vec<Act>,
-) {
-    let pc = w.pieces[i].clone();
-    let name = pc
-        .photo
-        .as_deref()
-        .map(crate::folders::file_name)
-        .unwrap_or_else(|| "Leerer Platz".into());
-    caption(ui, "Foto");
-    ui.horizontal(|ui| {
-        ui.add_space(sp::M);
-        let f = font(ts::BODY, W::Semibold);
-        let s = kit::fit_text(ui, &name, f.clone(), ui.available_width() - sp::M);
-        ui.label(egui::RichText::new(s).font(f).color(text()));
-    });
-    ui.add_space(sp::XS);
-    let mut size = pc.size.clone();
-    field_row(ui, "Größe", |ui| {
-        if size_combo(ui, "wall_side_piece_size", sizes, &mut size) {
-            acts.push(Act::Reshape(i, Some(size.clone()), None));
-        }
-    });
-    let cur = usize::from(pc.hoch);
-    if let Some(k) = seg(ui, &["Quer", "Hochkant"], cur) {
-        if k != cur {
-            acts.push(Act::Reshape(i, None, Some(k == 1)));
-        }
-    }
-    ui.add_space(sp::XS);
-    let (mut x, mut y) = (pc.x, pc.y);
-    let mut moved = false;
-    field_row(ui, "Links", |ui| {
-        moved |= ui.add(cm(&mut x, -100.0..=w.w, 0.1)).changed();
-    });
-    field_row(ui, "Oben", |ui| {
-        moved |= ui.add(cm(&mut y, -100.0..=w.h, 0.1)).changed();
-    });
-    if moved {
-        // direkt ändern: ein Rückgängig-Schritt, solange am Feld gezogen wird
-        let q = &mut w.pieces[i];
-        q.x = x;
-        q.y = y;
-        q.pinned = true;
-    }
-    divider_line(ui);
-    let (pin_label, pin_sub) = if pc.pinned {
-        ("Festgepinnt", "Bleibt hier. Klick löst es (P).")
-    } else {
-        ("Festpinnen", "Bleibt hier, wenn sich alles neu ordnet (P)")
-    };
-    if menu_row(ui, pin_label, pin_sub, pc.pinned).clicked() {
-        acts.push(Act::Pin(i, !pc.pinned));
-    }
-    if pc.pinned {
-        if menu_row(ui, "Nach vorn", "Liegt über den anderen", false).clicked() {
-            acts.push(Act::Restack(i, true));
-        }
-        if menu_row(ui, "Nach hinten", "Liegt unter den anderen", false).clicked() {
-            acts.push(Act::Restack(i, false));
-        }
-    }
-    super::side_fine::piece_extras(app, ui, w, i, &pc, acts);
-    divider_line(ui);
-    if pc.photo.is_some() {
-        if menu_row(
-            ui,
-            "Von der Wand nehmen",
-            "Kommt ins Band unten (Entf)",
-            false,
-        )
-        .clicked()
-        {
-            acts.push(Act::TakeOff(i));
-        }
-    } else if pc.pinned && menu_row(ui, "Platz entfernen", "", false).clicked() {
-        acts.push(Act::Remove(i));
-    }
 }
 
 fn obstacle_tab(ui: &mut Ui, w: &mut Wall, i: usize, acts: &mut Vec<Act>) {

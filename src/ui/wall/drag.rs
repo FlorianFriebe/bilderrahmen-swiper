@@ -4,9 +4,9 @@
 use egui::Painter;
 
 use super::canvas::{drawn_obstacle, hit_test, view_of, View2};
-use super::guides;
 use super::piece::draw_piece;
 use super::*;
+use super::{guides, resize};
 use crate::wall::{Area, Obstacle, Piece};
 
 /// Einrasten in Bildschirmpunkten (wird in cm umgerechnet).
@@ -26,7 +26,7 @@ fn piece_target(app: &SwiperApp, v: View2, idx: usize, grab: (f32, f32), at: Pos
 pub(super) fn moving(app: &SwiperApp) -> Vec<usize> {
     match &app.wall_ui.drag {
         Some(Drag::Piece { idx, .. }) if app.wall_ui.multi.contains(idx) => app.wall_selected(),
-        Some(Drag::Piece { idx, .. }) => vec![*idx],
+        Some(Drag::Piece { idx, .. } | Drag::Resize { idx, .. }) => vec![*idx],
         _ => vec![],
     }
 }
@@ -34,7 +34,7 @@ pub(super) fn moving(app: &SwiperApp) -> Vec<usize> {
 /// Platz, mit dem beim Loslassen getauscht würde (Zeiger im inneren Bereich eines anderen).
 /// Bei Mehrfachauswahl wird nie getauscht.
 fn swap_target(app: &SwiperApp, v: View2, idx: usize, at: Pos2) -> Option<usize> {
-    if app.wall_ui.multi.contains(&idx) {
+    if app.wall_ui.multi.contains(&idx) || !swaps(app) {
         return None;
     }
     let (x, y) = v.cm(at);
@@ -53,15 +53,29 @@ fn swap_target(app: &SwiperApp, v: View2, idx: usize, at: Pos2) -> Option<usize>
     }
 }
 
+/// Tauscht das Ablegen auf einem Foto? Wo sich Fotos überlappen, liegt man fast immer auf
+/// einem anderen; dort wird nur mit Alt getauscht, sonst frei verschoben.
+fn swaps(app: &SwiperApp) -> bool {
+    let w = app.wall();
+    let overlapping = w.arrange == wl::Arrange::Lueckenlos || w.gap < -0.04;
+    !overlapping || app.wall_ui.alt
+}
+
+/// Foto aus dem Band, das auf Platz `j` gelegt würde: leere Plätze immer, sonst wie `swaps`.
+fn put_target(app: &SwiperApp, v: View2, at: Pos2) -> Option<usize> {
+    let (x, y) = v.cm(at);
+    match hit_test(app, x, y, None) {
+        Some(Hit::Piece(j)) if swaps(app) || app.wall().pieces[j].photo.is_none() => Some(j),
+        _ => None,
+    }
+}
+
 /// Platz, der beim Loslassen getauscht oder belegt würde (für die Markierung).
 pub(super) fn swap_hint(app: &SwiperApp, v: View2, pointer: Option<Pos2>) -> Option<usize> {
     let at = pointer?;
     match &app.wall_ui.drag {
         Some(Drag::Piece { idx, .. }) => swap_target(app, v, *idx, at),
-        Some(Drag::Photo(_)) => match hit_test(app, v.cm(at).0, v.cm(at).1, None) {
-            Some(Hit::Piece(j)) => Some(j),
-            _ => None,
-        },
+        Some(Drag::Photo(_)) => put_target(app, v, at),
         _ => None,
     }
 }
@@ -152,6 +166,13 @@ pub(super) fn preview(
             p.rect_stroke(v.px(na), 2, Stroke::new(2.0, accent()), StrokeKind::Inside);
         }
         Drag::NewObstacle(start) => drawn_obstacle(p, v, drawn_area(start, v.cm(at), ww, wh)),
+        Drag::Resize { idx, right, bottom } => {
+            if let Some(pc) = app.wall().pieces.get(idx) {
+                let (x, y) = v.cm(at);
+                let q = resize::resized(pc, sizes, right, bottom, x, y);
+                resize::preview(app, p, v, &q);
+            }
+        }
         _ => {}
     }
 }
@@ -206,6 +227,13 @@ pub(super) fn finish(app: &mut SwiperApp, ui: &Ui) {
     let (ww, wh) = (app.wall().w, app.wall().h);
     match drag {
         Drag::Pan | Drag::Focus(_) => {}
+        Drag::Resize { idx, right, bottom } => {
+            if let Some(pc) = app.wall().pieces.get(idx).cloned() {
+                let (x, y) = v.cm(at);
+                let q = resize::resized(&pc, app.sizes(), right, bottom, x, y);
+                app.wall_set_piece(idx, q);
+            }
+        }
         Drag::Band(start, add) => {
             let a = drawn_area(start, v.cm(at), ww, wh);
             if a.w > 0.5 || a.h > 0.5 {
@@ -245,9 +273,9 @@ pub(super) fn finish(app: &mut SwiperApp, ui: &Ui) {
                 return;
             }
             let (x, y) = v.cm(at);
-            match hit_test(app, x, y, None) {
-                Some(Hit::Piece(j)) => app.wall_put_on(j, &path),
-                _ => app.wall_place(&path, x, y),
+            match put_target(app, v, at) {
+                Some(j) => app.wall_put_on(j, &path),
+                None => app.wall_place(&path, x, y),
             }
         }
         Drag::Obstacle { idx, grab } => {

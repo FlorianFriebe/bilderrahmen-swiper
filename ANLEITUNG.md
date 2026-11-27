@@ -231,30 +231,45 @@ Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Profil.
 Der **Wand-Knopf** oben auf der Startseite öffnet die Fotowand. Dort planst du eine Wand voller
 gedruckter Fotos:
 
-Rechts sitzt eine **Seitenleiste** mit drei Reitern (oben rechts ein- und ausblenden). Jede
-Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
+Rechts sitzt eine **Seitenleiste** mit drei Reitern. Ein Klick auf den offenen Reiter (oder die
+**Tab**-Taste) klappt sie ein, dann stehen nur noch die Reiter senkrecht am Rand. Jede Änderung
+wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
+
+Oben links öffnet das **Menü**: zurück zur Startseite, Rückgängig, Fotos für die Wand, Hindernis
+einzeichnen, Neu anordnen und Einstellungen ein- oder ausklappen.
 
 1. **Wand**: Breite und Höhe in cm und der **Rand** zur Wandkante. Darunter deine Hindernisse
    und die *Echten Druckmaße*.
-2. **Fotos wählen** (Bilder-Knopf oben): deine behaltenen Bilder, ein Ordner mit fertigen Fotos
-   oder **Dafür sortieren** (siehe unten).
+2. **Fotos wählen** (das **+** vorn im Band unten oder im Menü): deine behaltenen Bilder, ein
+   Ordner mit fertigen Fotos oder **Dafür sortieren** (siehe unten).
 3. **Anordnung**:
    - **Raster**: gleich große Felder, sehr ordentlich. **Reihen**: Reihe für Reihe, quer und
-     hochkant gemischt. **Collage**: dicht gepackt und bunt gemischt.
+     hochkant gemischt. **Collage**: dicht gepackt und bunt gemischt. **Lückenlos**: die ganze
+     Fläche voller Fotos, die sich überlappen, mit geraden Außenkanten (siehe unten).
    - **Fotogröße** und **Ausrichtung** (wie das Foto, alle quer oder alle hochkant).
    - **Abstand**: die Fotos verteilen sich gleichmäßig zwischen den Rändern. Ganz nach links
      geschoben überlappen sie sich, dann wählst du das **Muster**: Dachziegel, Mauerwerk
      (jede zweite Reihe versetzt) oder Schachbrett (abwechselnd vorn und hinten).
    - **Reihenfolge**: wie gewählt, nach Datum (älteste oben links) oder gemischt (Fotos vom
      selben Tag hängen nicht nebeneinander). **Mischen** würfelt neu.
-4. **Hindernisse** (gestrichelter Knopf oben): Fläche aufziehen, die frei bleiben soll, z. B.
+4. **Hindernisse** (Menü oben links, „Hindernis einzeichnen“): Fläche aufziehen, die frei bleiben soll, z. B.
    Lichtschalter oder Sofa. Anklicken zeigt sie unter **Auswahl**: Name, Maße, wie viel **Rand**
    frei bleibt, oder ob Fotos **dahinter** verschwinden dürfen (z. B. hinter dem Sofa).
-5. **Von Hand**: Ein Foto ziehen legt es dorthin und **pinnt** es fest (kleiner Pin). Alle
-   anderen ordnen sich drumherum neu. Auf ein anderes Foto ziehen tauscht die beiden, ins Band
-   unten ziehen nimmt es ab (Doppelklick im Band hängt es wieder auf). Ein angeklicktes Foto
-   stellst du unter **Auswahl** ein: Größe, quer oder hochkant, genaue Lage in cm, Pin lösen.
-   „Alle lösen“ unter Anordnung gibt alle Fotos wieder frei.
+5. **Von Hand**: Zieh ein Foto, wohin du willst. Ab dann ist die Wand **von Hand angeordnet**:
+   Nichts ordnet sich mehr von selbst um, auch nicht beim Ändern von Rand oder Hindernissen.
+   Erst **Neu anordnen** (Anordnung oder Menü) oder eine Einstellung der Anordnung ordnet alles
+   neu; Strg+Z holt deine Anordnung zurück.
+   - Auf ein anderes Foto ziehen tauscht die beiden. Wo sich Fotos überlappen (Lückenlos oder
+     negativer Abstand), tauscht das nur mit gedrückter **Alt**-Taste, sonst wird verschoben.
+   - **Größe**: Ein angeklicktes Foto hat kleine Griffe an den Ecken. Zieh daran, dann springt
+     es auf die nächste Druckgröße; die Ecke gegenüber bleibt stehen.
+   - **Ebene**: Strg+↑ und Strg+↓ legen das Foto eine Ebene nach vorn oder hinten, mit Umschalt
+     ganz nach vorn oder hinten. Die Knöpfe dazu stehen auch unter Auswahl.
+   - Ins Band unten ziehen nimmt es ab, der Platz bleibt leer (Doppelklick im Band oder auf den
+     leeren Platz hängt wieder eins auf).
+   - **Festpinnen** (P oder Rechtsklick): Das Foto bleibt auch beim Neu anordnen, wo es ist.
+     „Alle lösen“ unter Anordnung gibt alle wieder frei.
+   - Unter **Auswahl**: Größe, quer oder hochkant, genaue Lage in cm, Ebene, Pin.
 6. **Feinjustieren**:
    - **Mehrere Fotos**: Umschalt-Klick nimmt Fotos dazu, Ziehen auf einer freien Stelle zieht
      ein Rechteck auf, Strg+A wählt alle. Zieh eins davon, dann wandern alle mit. Unter
@@ -278,9 +293,27 @@ Rechts sitzt eine **Seitenleiste** mit drei Reitern (oben rechts ein- und ausble
    mit gedrückter Leertaste oder mittlerer Maustaste.
 8. Unten steht, wie viele **Plätze** die Wand hat, wie viele Fotos **fehlen** oder **übrig**
    sind und was zu drucken ist.
-9. **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **P** pinnt oder
-   löst, **Entf** nimmt sie ab, **Strg+A** wählt alle, **Strg+Z** nimmt jeden Schritt zurück. Alles wird automatisch
-   gespeichert, auch mehrere Wände (Klick auf den Namen der Wand).
+9. **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **Strg+↑/↓**
+   ändert die Ebene, **P** pinnt oder löst, **Entf** nimmt sie ab, **Strg+A** wählt alle,
+   **Tab** klappt die Seitenleiste ein und aus, **Strg+Z** nimmt jeden Schritt zurück. Alles wird
+   automatisch gespeichert, auch mehrere Wände (Klick auf den Namen der Wand).
+
+### Lückenlose Collage
+
+Wie die Wände aus vielen sich überlappenden Abzügen: Die Fläche innerhalb des Rands wird ganz mit
+Fotos gefüllt, ohne Lücken. Unter Anordnung stellst du ein:
+
+- **Größen**: wie oft jede Druckgröße vorkommt, z. B. 70 % 10x15, 25 % 13x18 und 5 % 20x30.
+- **Überlappen** mindestens und höchstens (cm). Mehr Spielraum füllt die Fläche leichter,
+  verdeckt aber mehr.
+- **Wirkung**: von *ordentlich* (fast in Reihen) bis *wild* (kreuz und quer).
+- **Sichtbar**: Von jedem Foto bleibt mindestens so viel zu sehen (z. B. 60 %).
+- **Außenkanten**: *Bündig* schneidet Fotos am Rand gerade ab (zum Zuschneiden nach dem
+  Aufkleben), *Ganze Fotos* lässt sie ganz.
+- **Obenauf**: zufällig, große unten oder neue oben.
+- **Würfeln**: eine neue zufällige Collage mit denselben Einstellungen.
+
+Die Wand nimmt so viele Fotos, wie sie zum Füllen braucht; fehlen welche, bleiben leere Plätze.
 
 ### Für die Wand sortieren
 
@@ -297,7 +330,8 @@ Hast du die Fotos noch nicht ausgesucht, plane erst die Wand und wähle dann im 
   über das Profil in der Leiste.
 
 Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über die Wand. Gelbe Umrandung mit
-Prozentzahl: mehr als die Hälfte vom Foto ist verdeckt. Die App rechnet mit den echten Maßen der Abzüge
+Prozentzahl: mehr als die Hälfte vom Foto ist verdeckt (bei Lückenlos: weniger sichtbar als
+eingestellt). Die App rechnet mit den echten Maßen der Abzüge
 (10x15 ist meist 10,2 × 15,2 cm); weichen deine ab, änderst du sie unter *Echte Druckmaße*.
 
 ## Text aufs Bild

@@ -103,7 +103,8 @@ fn obstacles_keep_their_margin_in_every_mode() {
         let keep = w.obstacles[0].keep_out().unwrap();
         for p in &left {
             assert!(keep.overlap(&p.area(&s)) <= 0.0, "{mode:?} {p:?}");
-            assert!(inside(&w, &s, p), "{mode:?} {p:?}");
+            // bündig abgeschnitten darf über den Rand ragen
+            assert!(w.trims() || inside(&w, &s, p), "{mode:?} {p:?}");
         }
     }
 }
@@ -389,4 +390,89 @@ fn border_and_dpi_per_piece() {
     w.photos[0].border = Some(0.0);
     assert_eq!(w.border_of(&s, pc), 0.0);
     assert!(w.dpi_of(&s, pc).unwrap() < with);
+}
+
+/// Liegt der Punkt (x, y) unter irgendeinem Platz?
+fn covered_at(p: &[Piece], s: &[PrintSize], x: f32, y: f32) -> bool {
+    p.iter().any(|q| q.area(s).contains(x, y))
+}
+
+fn gapless_wall() -> Wall {
+    let mut w = wall(150.0, 100.0, 0.0);
+    w.arrange = Arrange::Lueckenlos;
+    w.margin = 0.0;
+    w.photos = (0..120)
+        .map(|i| photo(&format!("f{i}.jpg"), if i % 3 == 0 { 0.66 } else { 1.5 }))
+        .collect();
+    w
+}
+
+#[test]
+fn lueckenlos_covers_everything() {
+    let s = default_sizes();
+    for (trim, wild) in [(true, 0.0), (true, 1.0), (false, 0.5)] {
+        let mut w = gapless_wall();
+        w.fill.trim = trim;
+        w.fill.wild = wild;
+        let p = arrange(&w, &s);
+        assert!(p.len() > 20);
+        // feines Raster aus Prüfpunkten: nirgends eine Lücke
+        let mut y = 0.3;
+        while y < w.h {
+            let mut x = 0.3;
+            while x < w.w {
+                assert!(
+                    covered_at(&p, &s, x, y),
+                    "Lücke bei {x},{y} ({trim},{wild})"
+                );
+                x += 1.7;
+            }
+            y += 1.7;
+        }
+        if !trim {
+            for q in &p {
+                assert!(inside(&w, &s, q));
+            }
+        }
+    }
+}
+
+#[test]
+fn lueckenlos_mixes_sizes_and_keeps_photos_visible() {
+    let s = default_sizes();
+    let w = gapless_wall();
+    let p = arrange(&w, &s);
+    let n = |size: &str| p.iter().filter(|q| q.size == size).count();
+    assert!(n("10x15") > n("13x18"), "{} {}", n("10x15"), n("13x18"));
+    assert!(n("13x18") > 0);
+    // die meisten Fotos bleiben zu mehr als der Hälfte sichtbar
+    let bad = (0..p.len())
+        .filter(|i| p[*i].photo.is_some() && covered(&p, &s, *i) > 0.5)
+        .count();
+    assert!(bad * 10 <= p.len(), "{bad} von {}", p.len());
+    // gleiche Wand = gleiche Collage, Würfeln ändert sie
+    assert_eq!(p, arrange(&w, &s));
+    let mut w2 = w.clone();
+    w2.seed += 1;
+    assert_ne!(p, arrange(&w2, &s));
+}
+
+#[test]
+fn lueckenlos_keeps_obstacles_free() {
+    let s = default_sizes();
+    let mut w = gapless_wall();
+    w.obstacles.push(Obstacle {
+        area: Area {
+            x: 60.0,
+            y: 40.0,
+            w: 10.0,
+            h: 10.0,
+        },
+        margin: 2.0,
+        ..Default::default()
+    });
+    let keep = w.obstacles[0].keep_out().unwrap();
+    for q in arrange(&w, &s) {
+        assert!(q.area(&s).overlap(&keep) <= 0.0);
+    }
 }
