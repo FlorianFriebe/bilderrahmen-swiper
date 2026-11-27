@@ -231,72 +231,94 @@ Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Profil.
 Der **Wand-Knopf** oben auf der Startseite öffnet die Fotowand. Dort planst du eine Wand voller
 gedruckter Fotos:
 
-Rechts sitzt eine **Seitenleiste** mit drei Reitern. Ein Klick auf den offenen Reiter (oder die
-**Tab**-Taste) klappt sie ein, dann stehen nur noch die Reiter senkrecht am Rand. Jede Änderung
-wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
+Oben in der Mitte führen dich drei **Schritte**: **Wand**, **Fotos** und **Export**. Ein Klick
+auf einen Schritt springt hin, der große Knopf unten in der Seitenleiste führt zum nächsten. Die
+Seitenleiste zeigt nur, was zum Schritt gehört. Ein Klick auf ihren Rand (oder die **Tab**-Taste)
+klappt sie ein. Jede Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
 
-Oben links öffnet das **Menü**: zurück zur Startseite, Rückgängig, Fotos für die Wand, Hindernis
-einzeichnen, Neu anordnen und Einstellungen ein- oder ausklappen.
+Oben links öffnet das **Menü**: zurück zur Startseite, Rückgängig und Wiederholen, Fotos für die
+Wand, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 
-1. **Wand**: Breite und Höhe in cm und der **Rand** zur Wandkante. Darunter deine Hindernisse
-   und die *Echten Druckmaße*.
-2. **Fotos wählen** (das **+** vorn im Band unten oder im Menü): deine behaltenen Bilder, ein
-   Ordner mit fertigen Fotos oder **Dafür sortieren** (siehe unten).
-3. **Anordnung**:
-   - **Raster**: gleich große Felder, sehr ordentlich. **Reihen**: Reihe für Reihe, quer und
-     hochkant gemischt. **Collage**: dicht gepackt und bunt gemischt. **Lückenlos**: die ganze
-     Fläche voller Fotos, die sich überlappen, mit geraden Außenkanten (siehe unten).
-   - **Fotogröße** und **Ausrichtung** (wie das Foto, alle quer oder alle hochkant).
-   - **Abstand**: die Fotos verteilen sich gleichmäßig zwischen den Rändern. Ganz nach links
-     geschoben überlappen sie sich, dann wählst du das **Muster**: Dachziegel, Mauerwerk
-     (jede zweite Reihe versetzt) oder Schachbrett (abwechselnd vorn und hinten).
-   - **Reihenfolge**: wie gewählt, nach Datum (älteste oben links) oder gemischt (Fotos vom
-     selben Tag hängen nicht nebeneinander). **Mischen** würfelt neu.
-4. **Hindernisse** (Menü oben links, „Hindernis einzeichnen“): Fläche aufziehen, die frei bleiben soll, z. B.
-   Lichtschalter oder Sofa. Anklicken zeigt sie unter **Auswahl**: Name, Maße, wie viel **Rand**
-   frei bleibt, oder ob Fotos **dahinter** verschwinden dürfen (z. B. hinter dem Sofa).
-5. **Von Hand**: Zieh ein Foto, wohin du willst. Ab dann ist die Wand **von Hand angeordnet**:
-   Nichts ordnet sich mehr von selbst um, auch nicht beim Ändern von Rand oder Hindernissen.
-   Erst **Neu anordnen** (Anordnung oder Menü) oder eine Einstellung der Anordnung ordnet alles
-   neu; Strg+Z holt deine Anordnung zurück.
-   - Auf ein anderes Foto ziehen tauscht die beiden. Wo sich Fotos überlappen (Lückenlos oder
-     negativer Abstand), tauscht das nur mit gedrückter **Alt**-Taste, sonst wird verschoben.
-   - **Größe**: Ein angeklicktes Foto hat kleine Griffe an den Ecken. Zieh daran, dann springt
-     es auf die nächste Druckgröße; die Ecke gegenüber bleibt stehen.
-   - **Ebene**: Strg+↑ und Strg+↓ legen das Foto eine Ebene nach vorn oder hinten, mit Umschalt
-     ganz nach vorn oder hinten. Die Knöpfe dazu stehen auch unter Auswahl.
-   - Ins Band unten ziehen nimmt es ab, der Platz bleibt leer (Doppelklick im Band oder auf den
-     leeren Platz hängt wieder eins auf).
-   - **Festpinnen** (P oder Rechtsklick): Das Foto bleibt auch beim Neu anordnen, wo es ist.
-     „Alle lösen“ unter Anordnung gibt alle wieder frei.
-   - Unter **Auswahl**: Größe, quer oder hochkant, genaue Lage in cm, Ebene, Pin.
-6. **Feinjustieren**:
-   - **Mehrere Fotos**: Umschalt-Klick nimmt Fotos dazu, Ziehen auf einer freien Stelle zieht
-     ein Rechteck auf, Strg+A wählt alle. Zieh eins davon, dann wandern alle mit. Unter
-     **Auswahl** richtest du sie aus (links, mittig, rechts, oben, mittig, unten) oder
-     **verteilst** sie mit gleichen Abständen (ab drei Fotos).
-   - **Hilfslinien**: Beim Ziehen zeigen blaue Linien, was bündig liegt, und Maße in cm den
-     Abstand zu den Nachbarn und zur Wandkante.
-   - **Bildausschnitt**: Doppelklick auf ein Foto, dann verschiebst du das Bild im Rahmen. Der
-     Rest vom Foto erscheint blass drumherum. Klick daneben oder Enter: fertig. „Wieder
-     mittig“ unter Auswahl setzt ihn zurück; „Zuschnitt ändern“ öffnet das Foto zum Zuschneiden.
-   - **Hauptbild**: Rechtsklick auf ein Foto, „Als Hauptbild“. Es hängt groß in der Mitte
-     (Größe unter Anordnung, z. B. 20x30), alles andere ordnet sich drumherum.
-   - **Größen mischen**: Bei der Collage wählst du weitere Größen. Etwa jedes dritte Foto
-     bekommt eine davon.
-   - **Weißer Rand**: unter Anordnung für alle Fotos, unter Auswahl für ein einzelnes Foto
-     („Eigener“). Das Bild wird um den Rand kleiner, wie bei einem Sofortbild.
-   - **Auflösung**: Ein gelbes Warnzeichen unten rechts heißt, das Foto hat für diese Größe zu
-     wenige Pixel (unter 200 dpi) und wird im Druck unscharf. Unter Auswahl steht der Wert.
-7. **Zoom**: Strg + Mausrad, zwei Finger auf dem Touchpad, Strg + / − oder die Knöpfe unten
-   rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Wand. Verschieben
-   mit gedrückter Leertaste oder mittlerer Maustaste.
-8. Unten steht, wie viele **Plätze** die Wand hat, wie viele Fotos **fehlen** oder **übrig**
-   sind und was zu drucken ist.
-9. **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **Strg+↑/↓**
-   ändert die Ebene, **P** pinnt oder löst, **Entf** nimmt sie ab, **Strg+A** wählt alle,
-   **Tab** klappt die Seitenleiste ein und aus, **Strg+Z** nimmt jeden Schritt zurück. Alles wird
-   automatisch gespeichert, auch mehrere Wände (Klick auf den Namen der Wand).
+### 1. Wand
+
+- **Fläche**: Breite und Höhe in cm und der **Rand** zur Wandkante.
+- **Hindernisse** (hier oder im Menü „Hindernis einzeichnen“): Fläche aufziehen, die frei
+  bleiben soll, z. B. Lichtschalter oder Sofa. In der Liste änderst du Name, Lage, Maße, wie
+  viel **Rand** frei bleibt, oder ob Fotos **dahinter** verschwinden dürfen (z. B. hinter dem Sofa).
+
+### 2. Fotos
+
+- **Fotos wählen** (das **+** vorn im Band unten oder im Menü): deine behaltenen Bilder, ein
+  Ordner mit fertigen Fotos oder **Dafür sortieren** (siehe unten).
+- **Art**: **Raster** (gleich große Felder), **Reihen** (quer und hochkant gemischt),
+  **Lückenlos** (die ganze Fläche voller Fotos, die sich überlappen, siehe unten) oder
+  **Lücken erlaubt** (dicht gepackt wie eine Collage).
+- **Größe**, **Reihenfolge** (wie gewählt, nach Datum oder gemischt; **Mischen** würfelt neu),
+  **Abstand** oder **Überlappen** mit **Muster** (Dachziegel, Mauerwerk, Schachbrett).
+- Unter **Mehr**: Ausrichtung (wie das Foto, alle quer, alle hochkant), **Hauptbild** groß in der
+  Mitte, **weißer Rand** für alle Fotos und die *Echten Druckmaße*.
+
+**Ein Foto anklicken** zeigt darüber eine kleine **Leiste**: Größe, drehen, nach vorn, nach
+hinten, Bildausschnitt, tauschen, abnehmen und **⋯** für den Rest (Hauptbild, Zuschnitt ändern,
+genaue Lage, eigener Rand). Der Rechtsklick zeigt dasselbe Menü.
+
+- **Von Hand**: Zieh ein Foto, wohin du willst. Ab dann ist die Wand **von Hand angeordnet**:
+  Nichts ordnet sich mehr von selbst um. Erst **Neu anordnen** (oben unter den Schritten oder im
+  Menü) oder eine Einstellung der Anordnung ordnet alles neu; Strg+Z holt deine Anordnung zurück.
+- Auf ein anderes Foto ziehen tauscht die beiden. Wo sich Fotos überlappen, tauscht das nur mit
+  gedrückter **Alt**-Taste, sonst wird verschoben.
+- **Größe**: An den Ecken eines gewählten Fotos ziehen, es springt auf die nächste Druckgröße.
+- **Ebene**: Strg+↑ und Strg+↓ legen das Foto nach vorn oder hinten, mit Umschalt ganz.
+- **Abnehmen** (Entf oder ins Band unten ziehen): Das nächste Foto rückt nach, es bleibt keine
+  Lücke.
+- **Mehrere Fotos**: Umschalt-Klick, Rechteck auf einer freien Stelle aufziehen oder Strg+A. Die
+  Leiste zeigt dann Ausrichten (links, mittig, rechts, oben, mittig, unten) und **Verteilen**.
+- **Hilfslinien**: Beim Ziehen zeigen blaue Linien, was bündig liegt, und Maße in cm den Abstand
+  zu den Nachbarn und zur Wandkante.
+- **Bildausschnitt**: Doppelklick auf ein Foto, dann verschiebst du das Bild im Rahmen. Klick
+  daneben oder Enter: fertig.
+- **Festpinnen** gibt es nur, wenn du es im Menü einschaltest. Dann bleibt ein Foto mit **P**
+  auch beim Neu anordnen, wo es ist.
+
+Unten links steht das Ergebnis, z. B. *72 Bilder an der Wand · 2 unscharf*. Ein Klick darauf
+springt zum nächsten betroffenen Foto. **Unscharf** heißt: zu wenige Pixel für diese Größe
+(unter 200 dpi). **Fast ganz verdeckt** heißt: von einem Foto ist kaum noch etwas zu sehen.
+**Im Weg** heißt: Das Foto liegt auf einem Hindernis oder ragt über die Wand.
+
+### 3. Export
+
+- **Druckliste**: welche Größe wie oft.
+- **Vor dem Druck ansehen**: die Warnungen von oben. Ein Klick zeigt das Foto, noch ein Klick
+  das nächste.
+- **Verdeckte Teile im Druck**:
+  - **Ganz**: Das ganze Foto wird gedruckt, auch was später unter dem Nachbarn liegt.
+  - **Weiß**: Was verdeckt wird, bleibt weiß. Das spart Tinte und zeigt beim Aufhängen, wohin
+    der Nachbar kommt.
+  - **Weiß + Linie**: wie Weiß, dazu eine feine Schnittkante.
+- **Schnittkante** (gilt für alle Fotos): **Reserve** (so viel Bild bleibt unter dem Nachbarn,
+  damit keine Lücke blitzt), gestrichelt oder durchgehend, **dunkle Linie** und **Linie auch
+  bei „Ganz“**.
+- **Nummer auf dem Abzug**: winzig oben links, dieselbe wie im Aufhängeplan.
+
+**Druckdateien speichern** legt neben deinem Zielordner einen Ordner *Fotowand – <Name>* an:
+- `Druck/` mit einer Datei je Abzug in 300 dpi, mit Nummer und Größe im Namen
+  (z. B. `07_10x15_Strand.jpg`).
+- `Aufhängeplan.png`: die Wand mit allen Nummern.
+- `Einkaufsliste.txt`: was du bestellen musst und wo jedes Foto hängt (cm ab links oben).
+
+Speicherst du noch einmal, wandern die alten Dateien in den `.papierkorb` in diesem Ordner. Die
+Originale bleiben, wie sie sind.
+
+### Ansicht und Tasten
+
+- **Zoom**: Strg + Mausrad, zwei Finger auf dem Touchpad, Strg + / − oder die Knöpfe unten
+  rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Wand. Verschieben
+  mit gedrückter Leertaste oder mittlerer Maustaste.
+- **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **Strg+↑/↓**
+  ändert die Ebene, **Entf** nimmt sie ab, **Strg+A** wählt alle, **Esc** hebt die Auswahl auf,
+  **Tab** klappt die Seitenleiste ein und aus, **Strg+Z** nimmt jeden Schritt zurück, **Strg+Y**
+  holt ihn wieder. Alles wird automatisch gespeichert, auch mehrere Wände (Klick auf den Namen
+  der Wand).
 
 ### Lückenlose Collage
 

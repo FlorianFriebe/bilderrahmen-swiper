@@ -8,17 +8,24 @@ use serde::{Deserialize, Serialize};
 mod align;
 mod collage;
 mod fill;
+mod issues;
 mod layout;
 mod order;
+mod print;
 #[cfg(test)]
 mod tests;
 
 pub use align::{align, distribute, dpi, guides, Align, Line, Measure, DPI_WARN};
 pub use fill::{Fill, Stack};
+pub use issues::{issue_counts, issues};
 #[cfg(test)]
 pub use layout::capacity;
 pub use layout::{arrange, Arrange, Facing, Pattern};
 pub use order::{ordered, Sequence};
+pub use print::{
+    file_name, mask, numbers, px_of, shopping_list, visible_spot, Cut, Export, LineStyle, Mask,
+    PRINT_DPI,
+};
 
 /// Druckgröße mit echten Maßen (Abzüge sind meist etwas größer als ihr Name).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -241,6 +248,10 @@ pub struct Wall {
     pub frozen: bool,
     /// Zielordner, in den für diese Wand sortiert wird (eigenes Profil, leer = noch nie)
     pub target: Option<PathBuf>,
+    /// Fotos festpinnen ist eingeschaltet (Menü); sonst gibt es keine Pins
+    pub pins: bool,
+    /// Einstellungen für die Druckdateien (Schritt 3)
+    pub export: Export,
 }
 
 impl Wall {
@@ -297,6 +308,8 @@ impl Default for Wall {
             fill: Fill::default(),
             frozen: false,
             target: None,
+            pins: false,
+            export: Export::default(),
         }
     }
 }

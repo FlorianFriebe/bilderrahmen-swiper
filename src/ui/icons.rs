@@ -51,6 +51,4 @@ pub const ALIGN_CENTER_Y: &str = "\u{E50C}";
 pub const ALIGN_BOTTOM: &str = "\u{E506}";
 pub const COLUMNS: &str = "\u{E546}";
 pub const ROWS: &str = "\u{E5A2}";
-pub const CARET_DOUBLE_UP: &str = "\u{E12C}";
-pub const CARET_DOUBLE_DOWN: &str = "\u{E126}";
 pub const LIST: &str = "\u{E2F0}";

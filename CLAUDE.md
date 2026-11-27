@@ -42,16 +42,19 @@ src/app/             Zustand SwiperApp + Logik, ein impl-Block pro Thema
   wall_edit.rs       Fotowand von Hand: verschieben, tauschen, abnehmen, Größe, Ebene je Foto
   wall_fine.rs       Fotowand feinjustieren: Mehrfachauswahl, Ausrichten, Hauptbild, Bildausschnitt
   wall_sort.rs       Für die Wand sortieren: Profil je Wand (Ziel, Zuschnitt), Wand nachladen
+  wall_export.rs     Fotowand drucken: Druckdateien, Aufhängeplan, Einkaufsliste im Hintergrund
   tests.rs           Ablauf-Tests ohne UI (Behalten, Rückgängig, Ganz von vorn, Nachbearbeiten)
 src/wall/            Fotowand ohne UI: Druckgrößen (echte Maße), layout.rs (Raster, Reihen, Muster, Hauptbild),
                      collage.rs (mit Größen-Mix), fill.rs (Lückenlos), order.rs (Reihenfolge), align.rs (Ausrichten,
-                     Hilfslinien, dpi), Hindernisse, Verdeckung, Einrasten
+                     Hilfslinien, dpi), issues.rs (Warnungen), print.rs (Export-Einstellungen,
+                     Maske, Nummern, Dateinamen, Einkaufsliste), Hindernisse, Verdeckung, Einrasten
 src/history.rs       Rückgängig: Step-Stapel, Papierkorb `.papierkorb` (14 Tage), Ganz von vorn
 src/folders.rs       Ordnerbaum, natürliche Sortierung, StatusFile (.bilderrahmen_status.json)
 src/session.rs       Weitermachen: Auswahlen pausieren/fortsetzen
 src/imaging/         Bildverarbeitung ohne UI
   mod.rs             Edit, Orient, OutputSettings, Overlay, Zuschnitt-Mathe
   load.rs  save.rs  adjust.rs  text.rs  tests.rs
+  print.rs           Druckdatei der Fotowand (weiß, Schnittkante, Nummer) und Aufhängeplan
 src/workers.rs       Hintergrund-Threads: Loader (Vorladen), Saver, ThumbLoader, DateScan
 src/system.rs        Protokoll, Vorschau-Cache, Laufwerke, Stick-Abgleich (copy_plan), Update-Abfrage
 src/install.rs       Startmenü/Desktop-Verknüpfung, Absturz-Merker für den nächsten Start
@@ -80,15 +83,17 @@ src/ui/
 - **`current()`** liefert nur offene Fotos, außer beim Nachbearbeiten oder wenn `look_at` gesetzt ist
   (Klick im Bilderband auf ein schon entschiedenes Foto).
 - **Fotowand**: `cfg.walls` (Wände mit Plätzen, Hindernissen, Fotoliste), Maße in cm. Rechnen nur in
-  `src/wall/`, Bedienzustand in `ui::wall::WallUi`. Sie legt keine Dateien an; ihr Rückgängig ist ein
-  eigener Stapel (`wall_checkpoint()` vor jeder Änderung, `wall_undo()`), nicht `history`.
+  `src/wall/`, Bedienzustand in `ui::wall::WallUi`. Dateien legt sie nur beim Export an (eigener Ordner,
+  alte Dateien über `history::trash_file`); ihr Rückgängig ist ein eigener Stapel (`wall_checkpoint()` vor jeder Änderung, `wall_undo()`), nicht `history`.
   Plätze entstehen immer neu aus `wall::arrange()` (nach jeder Änderung `wall_relayout()`);
   nur festgepinnte (`Piece::pinned`) bleiben, abgenommene Fotos haben `WallPhoto::off`.
   Von Hand verschoben setzt `Wall::frozen` (`wall_freeze()`): dann lässt `wall_relayout()` alle
   Plätze stehen; erst `wall_rearrange()` ordnet neu (Einstellungen der Anordnung, „Neu anordnen“).
-  UI in `ui/wall/`: canvas (Wand, Klicks), piece (ein Platz: Ausschnitt, Rand, Abzeichen), drag
-  (Ziehen/Ablegen), resize (Ecke ziehen), guides (Hilfslinien), side + side_fine + side_fill
-  (Seitenleiste), menus (Menü oben links, Popups), strip (Band mit „+“), zoom.
+  UI in `ui/wall/`: drei Schritte (`Step`: Wand, Fotos, Export) in mod.rs, Seitenleiste side.rs
+  mit side_wall / side_photos / side_export, Befehle als `Cmd` (cmd.rs), photo_bar (Leiste am
+  Foto), bottom (Ergebnis, Zoom), keys (Tasten), canvas, piece, drag, resize, guides, menus
+  (Menü, Popups `Popup`), strip (Band mit „+“), zoom. Festpinnen nur mit `Wall::pins`;
+  Wiederholen über `wall_redo()`.
   Werte je Foto (Ausschnitt `focus`, eigener Rand `border`, Pixel `px`) liegen in `WallPhoto`,
   nicht in `Piece`, weil Plätze bei jedem Neuordnen neu entstehen. Mehrfachauswahl: `WallUi::multi`.
   Zum Sortieren bekommt eine Wand ein normales Profil: `Wall::target` = dessen Zielordner,

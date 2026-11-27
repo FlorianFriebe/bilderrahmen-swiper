@@ -53,12 +53,10 @@ fn swap_target(app: &SwiperApp, v: View2, idx: usize, at: Pos2) -> Option<usize>
     }
 }
 
-/// Tauscht das Ablegen auf einem Foto? Wo sich Fotos überlappen, liegt man fast immer auf
-/// einem anderen; dort wird nur mit Alt getauscht, sonst frei verschoben.
+/// Tauscht das Ablegen auf einem Foto? Überall gleich: nur mit Alt (sonst wird verschoben).
+/// Ohne Alt tauscht „Tauschen“ in der Leiste am Foto.
 fn swaps(app: &SwiperApp) -> bool {
-    let w = app.wall();
-    let overlapping = w.arrange == wl::Arrange::Lueckenlos || w.gap < -0.04;
-    !overlapping || app.wall_ui.alt
+    app.wall_ui.alt
 }
 
 /// Foto aus dem Band, das auf Platz `j` gelegt würde: leere Plätze immer, sonst wie `swaps`.

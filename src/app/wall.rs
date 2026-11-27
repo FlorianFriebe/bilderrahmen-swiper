@@ -22,7 +22,16 @@ impl SwiperApp {
         }
         self.cfg.wall = self.cfg.wall.min(self.cfg.walls.len() - 1);
         self.wall_history.clear();
+        self.wall_redo.clear();
         self.wall_ui = Default::default();
+        // mit Fotos geht es gleich bei Schritt 2 weiter
+        if !self.wall().photos.is_empty() {
+            self.wall_ui.step = crate::ui::wall::Step::Fotos;
+        }
+        // Wände aus 3.18 mit Pins: Pins bleiben eingeschaltet
+        if self.wall().pieces.iter().any(|p| p.pinned) {
+            self.wall_mut().pins = true;
+        }
         self.view = View::Wall;
         self.wall_relayout();
         self.wall_refresh();
@@ -51,6 +60,7 @@ impl SwiperApp {
         let w = self.wall().clone();
         if self.wall_history.last() != Some(&w) {
             self.wall_history.push(w);
+            self.wall_redo.clear();
         }
         if self.wall_history.len() > WALL_UNDO {
             self.wall_history.remove(0);
@@ -60,12 +70,29 @@ impl SwiperApp {
     pub fn wall_undo(&mut self) {
         match self.wall_history.pop() {
             Some(w) => {
-                *self.wall_mut() = w;
+                let now = std::mem::replace(self.wall_mut(), w);
+                self.wall_redo.push(now);
                 self.wall_ui.sel = None;
+                self.wall_ui.multi.clear();
                 self.wall_ui.menu = None;
                 self.toast("Rückgängig gemacht".into());
             }
             None => self.toast("Hier gibt es noch nichts rückgängig zu machen.".into()),
+        }
+    }
+
+    /// Strg+Y: zurückgenommenen Schritt wiederholen.
+    pub fn wall_redo(&mut self) {
+        match self.wall_redo.pop() {
+            Some(w) => {
+                let now = std::mem::replace(self.wall_mut(), w);
+                self.wall_history.push(now);
+                self.wall_ui.sel = None;
+                self.wall_ui.multi.clear();
+                self.wall_ui.menu = None;
+                self.toast("Wiederholt".into());
+            }
+            None => self.toast("Nichts zum Wiederholen.".into()),
         }
     }
 
@@ -162,6 +189,7 @@ impl SwiperApp {
         self.cfg.walls.push(w);
         self.cfg.wall = self.cfg.walls.len() - 1;
         self.wall_history.clear();
+        self.wall_redo.clear();
         self.wall_ui.sel = None;
         self.wall_relayout();
     }
@@ -170,6 +198,7 @@ impl SwiperApp {
         if i < self.cfg.walls.len() && i != self.cfg.wall {
             self.cfg.wall = i;
             self.wall_history.clear();
+            self.wall_redo.clear();
             self.wall_ui.sel = None;
             self.wall_relayout();
             self.wall_refresh();
@@ -186,6 +215,7 @@ impl SwiperApp {
             self.cfg.walls[0] = Wall::default();
         }
         self.wall_history.clear();
+        self.wall_redo.clear();
         self.wall_ui.sel = None;
         self.wall_relayout();
         self.toast(format!("„{name}“ entfernt"));

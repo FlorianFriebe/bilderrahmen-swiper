@@ -1,5 +1,6 @@
 //! Ein Platz an der Wand: Foto mit Bildausschnitt und weißem Rand, leere Plätze, Pin,
-//! Hauptbild-Stern, Warnung bei zu geringer Auflösung, Tooltip und sanftes Gleiten.
+//! Hauptbild-Stern, Warnung bei zu geringer Auflösung, Nummer im Export, kurzer Tooltip
+//! und sanftes Gleiten.
 
 use egui::{Color32, Painter, Shape};
 
@@ -45,9 +46,11 @@ fn pin_badge(p: &Painter, r: Rect) {
     kit::icon_filled(p, c, icons::PIN, 11.0, Color32::WHITE);
 }
 
-/// Abzeichen für Pin, Hauptbild und zu geringe Auflösung.
-pub(super) fn badges(app: &SwiperApp, p: &Painter, r: Rect, pc: &Piece) {
-    if pc.pinned && r.width() > 22.0 {
+/// Abzeichen: Pin (nur wenn Festpinnen an ist), Hauptbild-Stern und, wenn `warn`, ein kleiner
+/// Punkt bei zu geringer Auflösung. Sonst bleiben die Fotos ruhig.
+pub(super) fn badges(app: &SwiperApp, p: &Painter, r: Rect, pc: &Piece, warn_now: bool) {
+    let w = app.wall();
+    if w.pins && pc.pinned && r.width() > 22.0 {
         pin_badge(p, r);
     }
     if app.wall_is_hero(pc) && r.width() > 44.0 {
@@ -55,14 +58,29 @@ pub(super) fn badges(app: &SwiperApp, p: &Painter, r: Rect, pc: &Piece) {
         p.circle_filled(c, 9.0, SCRIM);
         kit::icon_filled(p, c, icons::STAR, 12.0, Color32::WHITE);
     }
-    let w = app.wall();
-    if w.dpi_of(app.sizes(), pc).is_some_and(|d| d < wl::DPI_WARN) && r.width() > 30.0 {
+    if warn_now && w.dpi_of(app.sizes(), pc).is_some_and(|d| d < wl::DPI_WARN) && r.width() > 30.0 {
         let c = pos2(r.right() - 10.0, r.bottom() - 10.0);
         p.circle_filled(c, 9.0, SCRIM);
         kit::icon_filled(p, c, icons::WARNING, 12.0, warn());
     }
 }
 
+/// Nummer im Export: kleiner Kreis an der Stelle `at` (linke obere Ecke des sichtbaren Teils).
+pub(super) fn number(p: &Painter, at: Pos2, n: usize) {
+    let rad = if n >= 100 { 11.0 } else { 9.0 };
+    let c = at + vec2(rad + 2.0, rad + 2.0);
+    p.circle_filled(c, rad, SCRIM_STRONG);
+    p.circle_stroke(c, rad, Stroke::new(1.0, Color32::WHITE.gamma_multiply(0.7)));
+    p.text(
+        c,
+        Align2::CENTER_CENTER,
+        n.to_string(),
+        font(ts::CAPTION, W::Semibold),
+        Color32::WHITE,
+    );
+}
+
+/// Kurzer Tooltip: Name, Größe und, falls nötig, eine Warnung.
 pub(super) fn piece_tip(app: &SwiperApp, i: usize) -> String {
     let w = app.wall();
     let sizes = app.sizes();
@@ -72,41 +90,24 @@ pub(super) fn piece_tip(app: &SwiperApp, i: usize) -> String {
         .as_deref()
         .map(crate::folders::file_name)
         .unwrap_or_else(|| "Leerer Platz".into());
-    let cov = wl::covered(&w.pieces, sizes, i);
     let mut tip = format!(
-        "{name}\n{} {}",
+        "{name} · {} {}",
         pc.size,
         if pc.hoch { "hochkant" } else { "quer" }
     );
     if app.wall_is_hero(pc) {
         tip.push_str(" · Hauptbild");
     }
-    if pc.pinned {
-        tip.push_str(" · festgepinnt (P löst)");
-    }
-    if cov > 0.01 {
-        tip.push_str(&format!(" · {} % verdeckt", (cov * 100.0).round()));
-    }
-    if let Some(d) = w.dpi_of(sizes, pc) {
-        if d < wl::DPI_WARN {
-            tip.push_str(&format!(
-                "\nNur {} dpi: wird im Druck unscharf. Nimm eine kleinere Größe.",
-                d.floor()
-            ));
-        }
-    }
-    if wl::blocked(w, sizes, pc) {
-        tip.push_str("\nLiegt auf einem Hindernis oder ragt über die Wand.");
-    }
-    if w.arrange == wl::Arrange::Lueckenlos || w.gap < -0.04 {
-        tip.push_str("\nZiehen: verschieben · mit Alt auf ein anderes Foto: tauschen");
-    } else {
-        tip.push_str("\nZiehen: verschieben · auf ein anderes Foto: tauschen");
-    }
-    tip.push_str("\nEcke ziehen: andere Größe · Strg+↑/↓: Ebene");
-    tip.push_str("\nUmschalt-Klick: mehrere wählen · Ins Band unten ziehen: abnehmen");
-    if pc.photo.is_some() {
-        tip.push_str("\nDoppelklick: Bildausschnitt verschieben · Rechtsklick: mehr");
+    let warn: Vec<&str> = wl::issues(w, sizes)
+        .iter()
+        .filter(|x| x.idx == i)
+        .map(|x| x.kind.hint())
+        .collect();
+    if let Some(h) = warn.first() {
+        tip.push('\n');
+        tip.push_str(h);
+    } else if pc.photo.is_some() && app.wall_ui.step == Step::Fotos {
+        tip.push_str("\nZiehen: verschieben · Alt: tauschen · Rechtsklick: mehr");
     }
     tip
 }

@@ -16,8 +16,27 @@ impl SwiperApp {
         self.wall_set_piece(i, p);
     }
 
-    /// Feststecken oder lösen.
+    /// Fotos festpinnen ein- oder ausschalten (Menü). Aus: alle Pins lösen.
+    pub fn wall_set_pins(&mut self, on: bool) {
+        if self.wall().pins == on {
+            return;
+        }
+        if !on {
+            self.wall_unpin_all();
+        }
+        self.wall_mut().pins = on;
+        self.toast(if on {
+            "Festpinnen ist an: P pinnt das ausgewählte Foto.".into()
+        } else {
+            "Festpinnen ist aus, alle Pins sind gelöst.".into()
+        });
+    }
+
+    /// Feststecken oder lösen (nur, wenn Festpinnen eingeschaltet ist).
     pub fn wall_pin(&mut self, i: usize, on: bool) {
+        if on && !self.wall().pins {
+            return;
+        }
         if self.wall().pieces.get(i).is_none_or(|p| p.pinned == on) {
             return;
         }
@@ -135,8 +154,8 @@ impl SwiperApp {
         if let Some(f) = &p.photo {
             self.set_off(f, true);
         }
-        // von Hand angeordnet: der Platz bleibt leer stehen
-        if p.pinned && !self.wall().frozen {
+        // festgepinnt oder von Hand angeordnet: der Platz geht mit, es bleibt keine Lücke
+        if p.pinned || self.wall().frozen {
             self.wall_mut().pieces.remove(i);
         }
         self.wall_ui.sel = None;
@@ -163,25 +182,6 @@ impl SwiperApp {
         {
             self.toast("Kein Platz mehr frei. Zieh das Foto an eine Stelle der Wand.".into());
         }
-    }
-
-    /// Leeren Platz an einer Stelle anlegen (festgepinnt, damit er beim Neuordnen bleibt).
-    pub fn wall_add_empty(&mut self, x: f32, y: f32) {
-        self.wall_checkpoint();
-        let w = self.wall();
-        let mut p = Piece {
-            size: w.size.clone(),
-            hoch: w.pieces.last().is_some_and(|p| p.hoch),
-            pinned: true,
-            ..Default::default()
-        };
-        let (pw, ph) = p.dims(self.sizes());
-        p.x = x - pw / 2.0;
-        p.y = y - ph / 2.0;
-        self.wall_mut().pieces.push(p);
-        self.wall_freeze();
-        self.wall_ui.sel = Some(self.wall().pieces.len() - 1);
-        self.wall_relayout();
     }
 
     /// Größe oder Ausrichtung eines Fotos ändern (Mitte bleibt, Ebene auch).
