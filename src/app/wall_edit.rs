@@ -6,14 +6,25 @@ use super::*;
 use crate::wall::{self as wl, Piece, Sequence};
 
 impl SwiperApp {
-    /// Foto an eine Stelle legen. Es bleibt auf seiner Ebene; der Rest bleibt, wo er ist.
+    /// Foto genau dorthin legen, wo es losgelassen wurde. Es bleibt auf seiner Ebene, alle
+    /// anderen Fotos bleiben, wo sie sind; leere Plätze darunter fallen weg.
     pub fn wall_move(&mut self, i: usize, x: f32, y: f32) {
         let Some(mut p) = self.wall().pieces.get(i).cloned() else {
             return;
         };
+        if (p.x - x).abs() < 0.01 && (p.y - y).abs() < 0.01 {
+            return;
+        }
+        self.wall_checkpoint();
         p.x = x;
         p.y = y;
-        self.wall_set_piece(i, p);
+        self.wall_mut().pieces[i] = p;
+        self.wall_freeze();
+        let sizes = self.sizes().to_vec();
+        let now = wl::clear_empty_under(&mut self.wall_mut().pieces, &sizes, &[i]);
+        self.wall_ui.multi.clear();
+        self.wall_ui.sel = now.first().copied();
+        self.wall_relayout();
     }
 
     /// Fotos festpinnen ein- oder ausschalten (Menü). Aus: alle Pins lösen.

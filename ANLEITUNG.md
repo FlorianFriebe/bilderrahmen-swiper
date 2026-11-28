@@ -285,7 +285,8 @@ Collage, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 hinten, Bildausschnitt, tauschen, abnehmen und **⋯** für den Rest (Hauptbild, Zuschnitt ändern,
 genaue Lage, eigener Rand). Der Rechtsklick zeigt dasselbe Menü.
 
-- **Von Hand**: Zieh ein Foto, wohin du willst. Ab dann ist die Collage **von Hand angeordnet**:
+- **Von Hand**: Zieh ein Foto, wohin du willst. Es liegt sofort genau da, wo du es loslässt, die
+  anderen Fotos bleiben stehen, und leere Plätze darunter verschwinden. Ab dann ist die Collage **von Hand angeordnet**:
   Nichts ordnet sich mehr von selbst um. Erst **Neu anordnen** (oben unter den Schritten oder im
   Menü) oder eine Einstellung der Anordnung ordnet alles neu; Strg+Z holt deine Anordnung zurück.
 - Auf ein anderes Foto ziehen tauscht die beiden. Wo sich Fotos überlappen, tauscht das nur mit

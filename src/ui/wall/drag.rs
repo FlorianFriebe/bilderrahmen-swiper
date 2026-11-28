@@ -219,6 +219,7 @@ pub(super) fn finish(app: &mut SwiperApp, ui: &Ui) {
     let Some(drag) = app.wall_ui.drag.take() else {
         return;
     };
+    app.wall_ui.jump = matches!(drag, Drag::Piece { .. } | Drag::Photo(_));
     let (Some(v), Some(at)) = (view_of(app), at) else {
         return;
     };

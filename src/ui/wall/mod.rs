@@ -164,6 +164,8 @@ pub struct WallUi {
     pub exported: Option<PathBuf>,
     /// Warnung, zu der zuletzt gesprungen wurde (Leiste unten)
     pub issue_at: usize,
+    /// eben von Hand abgelegt: im nächsten Frame ohne Gleiten direkt an der neuen Stelle
+    pub jump: bool,
 }
 
 impl WallUi {

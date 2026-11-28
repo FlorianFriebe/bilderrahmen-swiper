@@ -10,13 +10,14 @@ use crate::ui::cover_uv;
 use crate::wall::{Area, Piece};
 
 /// Lage eines Platzes mit kurzem Gleiten zur neuen Stelle (gleiches Foto = gleiche Kennung).
-pub(super) fn glide(ui: &Ui, pc: &Piece, i: usize, a: Area) -> Area {
+pub(super) fn glide(ui: &Ui, pc: &Piece, i: usize, a: Area, jump: bool) -> Area {
     let id = match &pc.photo {
         Some(f) => ui.make_persistent_id(("wall_glide", f)),
         None => ui.make_persistent_id(("wall_glide_empty", i)),
     };
     let ctx = ui.ctx();
-    let t = motion::FAST + 0.08;
+    // von Hand abgelegt: sofort dort, kein Gleiten vom alten Platz
+    let t = if jump { 1e-4 } else { motion::FAST + 0.08 };
     Area {
         x: ctx.animate_value_with_time(id.with("x"), a.x, t),
         y: ctx.animate_value_with_time(id.with("y"), a.y, t),

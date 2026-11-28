@@ -488,3 +488,30 @@ fn old_default_names_become_collage() {
     assert_eq!(renamed_default("Fotowand Flur"), None);
     assert_eq!(renamed_default("Wohnzimmer"), None);
 }
+
+#[test]
+fn moved_photo_clears_empty_places_below_only() {
+    let sizes = default_sizes();
+    let at = |x: f32, y: f32, photo: bool| Piece {
+        photo: photo.then(|| std::path::PathBuf::from(format!("{x}.jpg"))),
+        size: "10x15".into(),
+        x,
+        y,
+        ..Default::default()
+    };
+    // 0 = verschobenes Foto, liegt genau auf dem leeren Platz 1; 2 = Foto daneben, 3 = leer weit weg
+    let mut pieces = vec![
+        at(50.0, 50.0, true),
+        at(50.0, 50.0, false),
+        at(51.0, 51.0, true),
+        at(0.0, 0.0, false),
+    ];
+    let now = clear_empty_under(&mut pieces, &sizes, &[0]);
+    assert_eq!(pieces.len(), 3, "nur der leere Platz darunter fällt weg");
+    assert_eq!(now, vec![0]);
+    assert!(pieces.iter().any(|p| p.x == 51.0), "andere Fotos bleiben");
+    assert!(
+        pieces.iter().any(|p| p.x == 0.0 && p.photo.is_none()),
+        "freie Plätze woanders bleiben"
+    );
+}

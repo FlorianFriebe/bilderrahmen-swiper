@@ -37,6 +37,13 @@ pub(super) fn view_of(app: &SwiperApp) -> Option<View2> {
     app.wall_ui.wall_rect.map(|(wr, s)| View2 { wr, s })
 }
 
+/// Reihenfolge beim Zeichnen: leere Plätze immer unten, Fotos darüber in ihrer Ebene.
+pub(super) fn draw_order(pieces: &[crate::wall::Piece]) -> Vec<usize> {
+    let (empty, photos): (Vec<usize>, Vec<usize>) =
+        (0..pieces.len()).partition(|&i| pieces[i].photo.is_none());
+    empty.into_iter().chain(photos).collect()
+}
+
 /// Was unter dem Punkt (cm) liegt: im Schritt Wand Hindernisse, sonst der oberste Platz;
 /// danach die freie Wand.
 pub(super) fn hit_test(app: &SwiperApp, x: f32, y: f32, skip: Option<usize>) -> Option<Hit> {
@@ -46,7 +53,8 @@ pub(super) fn hit_test(app: &SwiperApp, x: f32, y: f32, skip: Option<usize>) -> 
         if let Some(i) = w.obstacles.iter().rposition(|o| o.area.contains(x, y)) {
             return Some(Hit::Obstacle(i));
         }
-    } else if let Some(i) = (0..w.pieces.len())
+    } else if let Some(i) = draw_order(&w.pieces)
+        .into_iter()
         .rev()
         .filter(|i| Some(*i) != skip)
         .find(|i| w.pieces[*i].area(sizes).contains(x, y))
@@ -167,6 +175,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         vec![]
     };
     let moving = drag::moving(app);
+    let jump = std::mem::take(&mut app.wall_ui.jump);
     let pointer = ui.input(|i| i.pointer.latest_pos());
     let swap = drag::swap_hint(app, v, pointer);
     let behind: Vec<Area> = app
@@ -184,11 +193,16 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         Some(t) => p.with_clip_rect(t.intersect(area)),
         None => p,
     };
-    for i in 0..n {
+    let order = if n == 0 {
+        vec![]
+    } else {
+        draw_order(&app.wall().pieces)
+    };
+    for i in order {
         let w = app.wall();
         let pc = w.pieces[i].clone();
         let target = pc.area(&sizes);
-        let a = glide(ui, &pc, i, target);
+        let a = glide(ui, &pc, i, target, jump);
         let r = v.px(a);
         let cov = wl::covered(&w.pieces, &sizes, i);
         let blocked = wl::blocked(w, &sizes, &pc);
@@ -240,6 +254,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                 &app.wall().pieces[i],
                 i,
                 app.wall().pieces[i].area(&sizes),
+                jump,
             );
             resize::handles(&p, v.px(a));
         }
