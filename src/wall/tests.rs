@@ -515,3 +515,48 @@ fn moved_photo_clears_empty_places_below_only() {
         "freie Plätze woanders bleiben"
     );
 }
+
+#[test]
+fn nearest_empty_and_next_spot() {
+    let sizes = default_sizes();
+    let at = |x: f32, photo: bool| Piece {
+        photo: photo.then(|| std::path::PathBuf::from(format!("{x}.jpg"))),
+        size: "10x15".into(),
+        x,
+        y: 10.0,
+        ..Default::default()
+    };
+    let pieces = vec![at(0.0, false), at(40.0, true), at(80.0, false)];
+    assert_eq!(nearest_empty(&pieces, &sizes, (75.0, 15.0), &[]), Some(2));
+    assert_eq!(nearest_empty(&pieces, &sizes, (75.0, 15.0), &[2]), Some(0));
+    assert_eq!(nearest_empty(&pieces, &sizes, (75.0, 15.0), &[0, 2]), None);
+    let w = Wall {
+        w: 100.0,
+        gap: 2.0,
+        margin: 0.0,
+        ..Default::default()
+    };
+    let a = pieces[1].area(&sizes);
+    assert_eq!(next_spot(&w, a, 0.0, 15.0), (a.right() + 2.0, 10.0));
+    let far = pieces[2].area(&sizes);
+    assert_eq!(next_spot(&w, far, 0.0, 15.0), (0.0, far.bottom() + 2.0));
+}
+
+#[test]
+fn photos_snap_to_own_guides() {
+    let sizes = default_sizes();
+    let mut w = Wall {
+        w: 200.0,
+        h: 100.0,
+        ..Default::default()
+    };
+    w.pieces = vec![Piece {
+        size: "10x15".into(),
+        x: 50.0,
+        y: 50.0,
+        ..Default::default()
+    }];
+    w.guides.x = vec![100.0];
+    let (x, _) = snap(&w, &sizes, 0, 99.0, 50.0, 2.0);
+    assert_eq!(x, 100.0, "linke Kante rastet an der Linie ein");
+}

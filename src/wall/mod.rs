@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 mod align;
 mod collage;
 mod fill;
+mod hand;
 mod issues;
 mod layout;
 mod order;
@@ -17,6 +18,7 @@ mod tests;
 
 pub use align::{align, distribute, dpi, guides, Align, Line, Measure, DPI_WARN};
 pub use fill::{Fill, Stack};
+pub use hand::{clear_empty_under, nearest_empty, next_spot, round_mm, Guides};
 pub use issues::{issue_counts, issues};
 #[cfg(test)]
 pub use layout::capacity;
@@ -252,6 +254,8 @@ pub struct Wall {
     pub pins: bool,
     /// Einstellungen für die Druckdateien (Schritt 3)
     pub export: Export,
+    /// eigene Hilfslinien aus dem Lineal (cm), Fotos rasten daran ein
+    pub guides: Guides,
 }
 
 impl Wall {
@@ -310,6 +314,7 @@ impl Default for Wall {
             target: None,
             pins: false,
             export: Export::default(),
+            guides: Guides::default(),
         }
     }
 }
@@ -436,6 +441,13 @@ pub fn snap(wall: &Wall, sizes: &[PrintSize], idx: usize, x: f32, y: f32, tol: f
             a.y + (a.h - h) / 2.0,
         ]);
     }
+    // eigene Hilfslinien: Kante oder Mitte des Fotos darauf
+    for g in &wall.guides.x {
+        xs.extend([*g, g - w, g - w / 2.0]);
+    }
+    for g in &wall.guides.y {
+        ys.extend([*g, g - h, g - h / 2.0]);
+    }
     let pick = |v: f32, c: &[f32]| {
         c.iter()
             .copied()
@@ -502,50 +514,4 @@ pub fn renamed_default(name: &str) -> Option<String> {
     }
     let n = name.strip_prefix("Fotowand ")?;
     (!n.is_empty() && n.chars().all(|c| c.is_ascii_digit())).then(|| format!("Collage {n}"))
-}
-
-/// Nach dem Verschieben von Hand: leere Plätze, die zur Hälfte oder mehr unter einem
-/// verschobenen Foto liegen, fallen weg (sonst lägen sie darüber und verdeckten es).
-/// Fotos und festgepinnte Plätze bleiben, wo sie sind. Gibt die neuen Stellen von `moved` zurück.
-pub fn clear_empty_under(
-    pieces: &mut Vec<Piece>,
-    sizes: &[PrintSize],
-    moved: &[usize],
-) -> Vec<usize> {
-    let areas: Vec<Area> = moved
-        .iter()
-        .filter_map(|&i| pieces.get(i))
-        .filter(|p| p.photo.is_some())
-        .map(|p| p.area(sizes))
-        .collect();
-    let gone: Vec<bool> = pieces
-        .iter()
-        .enumerate()
-        .map(|(j, p)| {
-            if moved.contains(&j) || p.photo.is_some() || p.pinned {
-                return false;
-            }
-            let a = p.area(sizes);
-            let own = (a.w * a.h).max(0.01);
-            areas.iter().any(|m| m.overlap(&a) >= own * 0.5)
-        })
-        .collect();
-    let mut map = vec![None; pieces.len()];
-    let mut k = 0;
-    for (j, g) in gone.iter().enumerate() {
-        if !g {
-            map[j] = Some(k);
-            k += 1;
-        }
-    }
-    let mut j = 0;
-    pieces.retain(|_| {
-        let keep = !gone[j];
-        j += 1;
-        keep
-    });
-    moved
-        .iter()
-        .filter_map(|&i| map.get(i).copied().flatten())
-        .collect()
 }

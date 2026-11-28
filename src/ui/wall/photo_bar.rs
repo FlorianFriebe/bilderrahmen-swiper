@@ -89,8 +89,8 @@ fn single(app: &SwiperApp, ui: &mut Ui, area: Rect, target: Rect, i: usize, cmds
     let f = font(ts::SMALL, W::Semibold);
     let sw = kit::text_size(ui, &size_label, f.clone()).x + 16.0 + sp::M * 2.0;
     let pins = w.pins;
-    // Größe, drehen, vorn, hinten, Ausschnitt, tauschen, Pin?, abnehmen, ⋯
-    let mut widths = vec![sw, B, B, B, B, B];
+    // Größe, Lage, drehen, vorn, hinten, Ausschnitt, tauschen, Pin?, abnehmen, ⋯
+    let mut widths = vec![sw, B, B, B, B, B, B];
     if pins {
         widths.push(B);
     }
@@ -127,7 +127,18 @@ fn single(app: &SwiperApp, ui: &mut Ui, area: Rect, target: Rect, i: usize, cmds
     if resp.clicked() {
         cmds.push(Cmd::OpenSize(i, s[0]));
     }
-    let mut k = 1;
+    let pr = s[1];
+    if kit::icon_button(ui, pr, icons::CROSSHAIR, true)
+        .on_hover_text(format!(
+            "Lage in cm: links {}, oben {} (Pfeile: 1 cm, Umschalt 5 cm, Alt 1 mm)",
+            fmt_cm(pc.x),
+            fmt_cm(pc.y)
+        ))
+        .clicked()
+    {
+        cmds.push(Cmd::OpenPos(i, pr));
+    }
+    let mut k = 2;
     let mut btn = |glyph: &str, tip: &str, on: bool, c: Cmd, cmds: &mut Vec<Cmd>| {
         let r = s[k];
         k += 1;
@@ -204,7 +215,7 @@ fn single(app: &SwiperApp, ui: &mut Ui, area: Rect, target: Rect, i: usize, cmds
     btn(glyph, tip, true, c, cmds);
     let r = s[k];
     if kit::icon_button(ui, r, icons::DOTS, true)
-        .on_hover_text("Mehr: Hauptbild, Zuschnitt, Lage, eigener Rand (auch Rechtsklick)")
+        .on_hover_text("Mehr: Hauptbild, Zuschnitt, eigener Rand (Rechtsklick: alle Aktionen)")
         .clicked()
     {
         cmds.push(Cmd::OpenMore(i, r));
@@ -301,8 +312,8 @@ pub(super) fn size_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) ->
     keep && !done
 }
 
-/// „⋯“ am Foto und Rechtsklick: Hauptbild, Ausschnitt, Zuschnitt, Ebene ganz, Lage in cm,
-/// eigener Rand, Auflösung, Pin, abnehmen.
+/// „⋯“ am Foto: Hauptbild, Ausschnitt, Zuschnitt, Ebene ganz, eigener Rand, Auflösung, Pin,
+/// abnehmen. Die Lage in cm hat ein eigenes Popup (context::pos).
 pub(super) fn more(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
     let Some(pc) = app.wall().pieces.get(i).cloned() else {
         return false;
@@ -325,7 +336,6 @@ pub(super) fn more(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool
     let dpi = w.dpi_of(&sizes, &pc);
     let pins = w.pins;
     let n = w.pieces.len();
-    let (mut x, mut y) = (pc.x, pc.y);
     let mut border = border_own;
     let mut cmds: Vec<Cmd> = vec![];
     let name = photo
@@ -363,14 +373,6 @@ pub(super) fn more(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool
                 cmds.push(Cmd::Pin(i, !pc.pinned));
             }
         }
-        divider_line(ui);
-        caption(ui, "Lage");
-        field_row(ui, "Links", |ui| {
-            ui.add(super::side::cm(&mut x, -100.0..=2000.0, 0.1));
-        });
-        field_row(ui, "Oben", |ui| {
-            ui.add(super::side::cm(&mut y, -100.0..=1000.0, 0.1));
-        });
         if photo.is_some() {
             divider_line(ui);
             caption(ui, "Weißer Rand");
@@ -411,9 +413,6 @@ pub(super) fn more(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool
         }
         cmds.is_empty()
     });
-    if (x, y) != (pc.x, pc.y) {
-        app.wall_move(i, x, y);
-    }
     if border != border_own {
         if let Some(f) = &photo {
             if !app.wall_ui.editing {

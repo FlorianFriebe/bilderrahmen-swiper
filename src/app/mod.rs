@@ -31,9 +31,11 @@ mod wall;
 mod wall_edit;
 mod wall_export;
 mod wall_fine;
+mod wall_hand;
 mod wall_sort;
 pub use areas::WallStage;
 pub use wall::WallScan;
+pub use wall_hand::StyleClip;
 
 pub const QUER_FORMATS: &[&str] = &["16:9", "16:10", "4:3", "3:2", "5:4", "1:1"];
 pub const HOCH_FORMATS: &[&str] = &["9:16", "10:16", "3:4", "2:3", "4:5", "1:1"];

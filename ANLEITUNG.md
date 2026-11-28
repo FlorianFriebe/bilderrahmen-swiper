@@ -258,8 +258,12 @@ auf einen Schritt springt hin, der große Knopf unten in der Seitenleiste führt
 Seitenleiste zeigt nur, was zum Schritt gehört. Ein Klick auf ihren Rand (oder die **Tab**-Taste)
 klappt sie ein. Jede Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
 
-Oben links öffnet das **Menü**: zur Startseite, alle Collagen, Rückgängig und Wiederholen, Fotos für die
-Collage, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
+Links neben der Collage steht eine schmale **Symbolleiste**: Rückgängig, Wiederholen, Hindernis
+zeichnen, Neu anordnen, ganze Collage zeigen, auf die Auswahl zoomen, Hilfslinien entfernen und
+Einstellungen ein- oder ausklappen. Der Name und die Taste stehen im Tooltip.
+
+Oben links öffnet das **Menü**: zur Startseite, alle Collagen, Collagen wechseln, Fotos für die
+Collage und „Fotos festpinnen“.
 
 ### 1. Maße
 
@@ -281,16 +285,25 @@ Collage, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 - Unter **Mehr**: Ausrichtung (wie das Foto, alle quer, alle hochkant), **Hauptbild** groß in der
   Mitte, **weißer Rand** für alle Fotos und die *Echten Druckmaße*.
 
-**Ein Foto anklicken** zeigt darüber eine kleine **Leiste**: Größe, drehen, nach vorn, nach
-hinten, Bildausschnitt, tauschen, abnehmen und **⋯** für den Rest (Hauptbild, Zuschnitt ändern,
-genaue Lage, eigener Rand). Der Rechtsklick zeigt dasselbe Menü.
+**Ein Foto anklicken** zeigt darüber eine kleine **Leiste**: Größe, **Lage in cm** (Links und
+Oben zum Eintippen, dazu Breite und Höhe), drehen, nach vorn, nach hinten, Bildausschnitt,
+tauschen, abnehmen und **⋯** für den Rest (Hauptbild, Zuschnitt ändern, eigener Rand).
+Der **Rechtsklick** zeigt alle Aktionen mit ihren Tasten: an einem Foto, an mehreren gewählten
+(ausrichten, verteilen) und an einer freien Stelle (nächstes Foto hierher, Hilfslinie hier).
 
 - **Von Hand**: Zieh ein Foto, wohin du willst. Es liegt sofort genau da, wo du es loslässt, die
   anderen Fotos bleiben stehen, und leere Plätze darunter verschwinden. Ab dann ist die Collage **von Hand angeordnet**:
-  Nichts ordnet sich mehr von selbst um. Erst **Neu anordnen** (oben unter den Schritten oder im
-  Menü) oder eine Einstellung der Anordnung ordnet alles neu; Strg+Z holt deine Anordnung zurück.
-- Auf ein anderes Foto ziehen tauscht die beiden. Wo sich Fotos überlappen, tauscht das nur mit
-  gedrückter **Alt**-Taste, sonst wird verschoben.
+  Nichts ordnet sich mehr von selbst um. Erst **Neu anordnen** (oben unter den Schritten oder in der
+  Symbolleiste links) oder eine Einstellung der Anordnung ordnet alles neu; Strg+Z holt deine Anordnung zurück.
+- **Tauschen**: Zieh ein Foto auf ein anderes und halte kurz still (oder halte **Alt** gedrückt),
+  dann tauschen die beiden. Ohne Halten wird nur verschoben.
+- **Einrasten**: Beim Ziehen rastet das Foto sanft an Kanten, Nachbarn und Hilfslinien ein. Mit
+  gedrückter **Strg**-Taste liegt es frei, ohne Einrasten.
+- **Aus dem Band**: Strg-Klick wählt mehrere Fotos im Band unten, die du zusammen auf die
+  Collage ziehst. Das erste liegt, wo du loslässt, die anderen füllen freie Plätze daneben.
+- **Doppelklick auf eine freie Stelle** legt das nächste Foto aus dem Band genau dorthin.
+- **Strg+C** merkt sich Größe und Rand des gewählten Fotos, **Strg+V** überträgt sie auf die
+  gewählten Fotos.
 - **Größe**: An den Ecken eines gewählten Fotos ziehen, es springt auf die nächste Druckgröße.
 - **Ebene**: Strg+↑ und Strg+↓ legen das Foto nach vorn oder hinten, mit Umschalt ganz.
 - **Abnehmen** (Entf oder ins Band unten ziehen): Das nächste Foto rückt nach, es bleibt keine
@@ -298,7 +311,9 @@ genaue Lage, eigener Rand). Der Rechtsklick zeigt dasselbe Menü.
 - **Mehrere Fotos**: Umschalt-Klick, Rechteck auf einer freien Stelle aufziehen oder Strg+A. Die
   Leiste zeigt dann Ausrichten (links, mittig, rechts, oben, mittig, unten) und **Verteilen**.
 - **Hilfslinien**: Beim Ziehen zeigen blaue Linien, was bündig liegt, und Maße in cm den Abstand
-  zu den Nachbarn und zur Kante.
+  zu den Nachbarn und zur Kante. **Eigene Hilfslinien** ziehst du aus dem Lineal oben oder links
+  (oder Rechtsklick auf eine freie Stelle). Fotos rasten daran ein. Eine Linie zurück ins Lineal
+  ziehen entfernt sie, die Symbolleiste entfernt alle.
 - **Bildausschnitt**: Doppelklick auf ein Foto, dann verschiebst du das Bild im Rahmen. Klick
   daneben oder Enter: fertig.
 - **Festpinnen** gibt es nur, wenn du es im Menü einschaltest. Dann bleibt ein Foto mit **P**
@@ -338,7 +353,8 @@ Originale bleiben, wie sie sind.
 - **Zoom**: Strg + Mausrad, zwei Finger auf dem Touchpad, Strg + / − oder die Knöpfe unten
   rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Collage. Verschieben
   mit gedrückter Leertaste oder mittlerer Maustaste.
-- **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **Strg+↑/↓**
+- **Z** zoomt auf die gewählten Fotos.
+- **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 5 cm, mit Alt 1 mm), **Strg+↑/↓**
   ändert die Ebene, **Entf** nimmt sie ab, **Strg+A** wählt alle, **Esc** hebt die Auswahl auf,
   **Tab** klappt die Seitenleiste ein und aus, **Strg+Z** nimmt jeden Schritt zurück, **Strg+Y**
   holt ihn wieder. Alles wird automatisch gespeichert, auch mehrere Collagen (Klick auf den Namen

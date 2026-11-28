@@ -16,6 +16,7 @@ use crate::wall::{self as wl, fmt_cm};
 mod bottom;
 mod canvas;
 mod cmd;
+mod context;
 mod drag;
 mod guides;
 mod keys;
@@ -23,11 +24,13 @@ mod menus;
 mod photo_bar;
 mod piece;
 mod resize;
+mod rulers;
 mod side;
 mod side_export;
 mod side_photos;
 mod side_wall;
 mod strip;
+mod tools;
 pub mod zoom;
 
 pub use keys::keys;
@@ -87,8 +90,10 @@ pub enum Drag {
         idx: usize,
         grab: (f32, f32),
     },
-    /// Foto aus dem Band unten
-    Photo(PathBuf),
+    /// Fotos aus dem Band unten (eins oder mehrere ausgewählte)
+    Photo(Vec<PathBuf>),
+    /// eigene Hilfslinie: senkrecht?, Nummer (`None` = neu aus dem Lineal)
+    Guide(bool, Option<usize>),
     Obstacle {
         idx: usize,
         grab: (f32, f32),
@@ -122,6 +127,8 @@ pub enum Popup {
     Size(usize),
     /// „Mehr“ an einem Foto (Leiste am Foto oder Rechtsklick)
     More(usize),
+    /// Lage eines Fotos in cm
+    Pos(usize),
 }
 
 /// Bedienzustand der Fotowand (nicht gespeichert).
@@ -160,12 +167,22 @@ pub struct WallUi {
     pub pan: Vec2,
     /// Alt gedrückt: beim Ablegen tauschen
     pub alt: bool,
+    /// Strg gedrückt: beim Ziehen nicht einrasten
+    pub ctrl: bool,
+    /// Fläche, in die die Collage bei Zoom 1 passt (für „Zoom auf Auswahl“)
+    pub avail: Option<Rect>,
     /// zuletzt gespeicherter Ordner mit Druckdateien
     pub exported: Option<PathBuf>,
     /// Warnung, zu der zuletzt gesprungen wurde (Leiste unten)
     pub issue_at: usize,
     /// eben von Hand abgelegt: im nächsten Frame ohne Gleiten direkt an der neuen Stelle
     pub jump: bool,
+    /// Strg+C: gemerkte Größe, Lage und Rand
+    pub clip: Option<crate::app::StyleClip>,
+    /// Ziehen auf ein anderes Foto: über welchem Foto seit wann (zum Tauschen durch Halten)
+    pub hold: Option<(usize, f64)>,
+    /// im Band ausgewählte Fotos (Strg- oder Umschalt-Klick), werden zusammen gezogen
+    pub strip_sel: Vec<PathBuf>,
 }
 
 impl WallUi {
@@ -249,7 +266,15 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         pos2(ws.left(), strip.top() - gap - CALC_H),
         pos2(main_right, strip.top() - gap),
     );
-    let area = Rect::from_min_max(pos2(ws.left(), top), pos2(main_right, calc.top() - sp::S));
+    let tools_r = Rect::from_min_max(
+        pos2(ws.left(), top),
+        pos2(ws.left() + tools::W, calc.top() - sp::S),
+    );
+    tools::show(app, ui, tools_r);
+    let area = Rect::from_min_max(
+        pos2(tools_r.right() + sp::S, top),
+        pos2(main_right, calc.top() - sp::S),
+    );
     app.spots.chips_bottom = Some(top);
     // die Wand bleibt beim Zoomen in ihrer Fläche
     let mut cui = ui.new_child(egui::UiBuilder::new().max_rect(area));
@@ -274,7 +299,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let back = Rect::from_min_size(ws.min, vec2(size::BAR, size::BAR));
     let open = matches!(app.wall_ui.popup, Some((Popup::Menu, _)));
     let resp = kit::secondary(ui, back, icons::LIST, "", true)
-        .on_hover_text("Menü: Zurück, Rückgängig, Collagen, Hindernis, Festpinnen");
+        .on_hover_text("Menü: Startseite, Collagen, Fotos, Festpinnen");
     if open {
         let p = ui.painter();
         p.rect_filled(back, radius::M, panel().to_opaque());

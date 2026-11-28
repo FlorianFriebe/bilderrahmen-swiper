@@ -41,7 +41,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
     } else {
         (
             format!("{} frei", bilder(free.len())),
-            "In die Collage ziehen".to_string(),
+            "Ziehen · Strg-Klick: mehrere".to_string(),
         )
     };
     p.text(
@@ -106,7 +106,8 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
                             ui.painter().rect_filled(tr, radius::S / 2, control());
                         }
                     }
-                    let t = kit::anim(ui, resp.id, resp.hovered());
+                    let picked = app.wall_ui.strip_sel.contains(path);
+                    let t = kit::anim(ui, resp.id, resp.hovered() || picked);
                     if t > 0.0 {
                         ui.painter().rect_stroke(
                             tr,
@@ -115,14 +116,43 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
                             StrokeKind::Outside,
                         );
                     }
+                    if picked {
+                        let c = tr.right_top() + vec2(-11.0, 11.0);
+                        ui.painter().circle_filled(c, 8.0, accent());
+                        kit::icon(ui.painter(), c, icons::CHECK, 11.0, bg());
+                    }
                     let resp = resp
                         .on_hover_cursor(egui::CursorIcon::Grab)
                         .on_hover_text(format!(
-                            "{}\nIn die Collage ziehen · Doppelklick: zurück in die Collage",
+                            "{}\nIn die Collage ziehen · Doppelklick: zurück in die Collage\nStrg-Klick: mehrere wählen und zusammen ziehen",
                             crate::folders::file_name(path)
                         ));
+                    if resp.clicked() {
+                        let add = ui.input(|i| i.modifiers.command || i.modifiers.shift);
+                        let sel = &mut app.wall_ui.strip_sel;
+                        if add {
+                            match sel.iter().position(|p| p == path) {
+                                Some(k) => {
+                                    sel.remove(k);
+                                }
+                                None => sel.push(path.clone()),
+                            }
+                        } else {
+                            sel.clear();
+                        }
+                    }
                     if resp.drag_started() {
-                        app.wall_ui.drag = Some(Drag::Photo(path.clone()));
+                        // ausgewählte Fotos kommen zusammen mit, in der Reihenfolge des Bands
+                        let sel = &app.wall_ui.strip_sel;
+                        let paths: Vec<PathBuf> = if sel.contains(path) && sel.len() > 1 {
+                            free.iter()
+                                .filter(|(p, _)| sel.contains(p))
+                                .map(|(p, _)| p.clone())
+                                .collect()
+                        } else {
+                            vec![path.clone()]
+                        };
+                        app.wall_ui.drag = Some(Drag::Photo(paths));
                         app.wall_ui.menu = None;
                     }
                     if resp.double_clicked() {
@@ -132,9 +162,9 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
             });
         });
     // Foto beim Ziehen unter dem Zeiger zeigen
-    if let (Some(Drag::Photo(path)), Some(at)) = (&app.wall_ui.drag, hover) {
+    if let (Some(Drag::Photo(paths)), Some(at)) = (&app.wall_ui.drag, hover) {
         let over_wall = app.wall_ui.wall_rect.is_some_and(|(w, _)| w.contains(at));
-        if !over_wall {
+        if let (false, Some(path)) = (over_wall, paths.first()) {
             if let Some((tex, size)) = app.thumb(path) {
                 let h = 72.0;
                 let w = h * size.x / size.y.max(1.0);

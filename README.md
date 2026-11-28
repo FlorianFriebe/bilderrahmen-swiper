@@ -77,7 +77,9 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Reihenfolge wie gewählt, nach Datum oder gemischt (Fotos vom selben Tag nicht nebeneinander)
 - Hindernisse (Lichtschalter, Möbel) mit eigenem Rand oder „Fotos dürfen dahinter“
 - Fotos frei verschieben: von Hand angeordnet bleibt alles, wo es ist, bis „Neu anordnen“; Ebenen mit Strg+↑/↓, Größe an der Ecke ziehen (springt auf die nächste Druckgröße), Pins nur auf Wunsch (im Menü einschalten), Abnehmen ohne Lücke, Rückgängig und Wiederholen (Strg+Z, Strg+Y); Zoom mit Strg + Mausrad, zwei Fingern oder Strg + / −
-- Menü oben links (Zurück, Rückgängig, Wiederholen, Hindernis, Fotos, Festpinnen), „+“ im Band, Seitenleiste mit Tab einklappbar
+- Symbolleiste links (Rückgängig, Wiederholen, Hindernis, Neu anordnen, Ansicht, Hilfslinien, Seitenleiste), Menü oben links (Startseite, Collagen, Fotos, Festpinnen), „+“ im Band, Seitenleiste mit Tab einklappbar
+- Genau arbeiten: Pfeile 1 cm / Umschalt 5 cm / Alt 1 mm, Lage in cm zum Eintippen, eigene Hilfslinien aus dem Lineal, Strg ohne Einrasten, Z zoomt auf die Auswahl, Rechtsklick-Menü mit allen Aktionen und Tasten
+- Schneller: auf ein Foto ziehen und halten tauscht, mehrere Fotos aus dem Band auf einmal ziehen (Strg-Klick), Doppelklick auf eine freie Stelle legt das nächste Foto hin, Strg+C / Strg+V für Größe und Rand
 - Feinjustieren: mehrere Fotos wählen (Umschalt-Klick, Rechteck, Strg+A), ausrichten und gleichmäßig verteilen, Hilfslinien mit Abständen in cm beim Ziehen
 - Hauptbild groß in der Mitte, Größen-Mix in der Collage, Bildausschnitt direkt in der Collage verschieben, weißer Rand für alle oder einzelne Fotos, Warnung bei zu geringer Auflösung (unter 200 dpi)
 - Unten: Maße und was zu drucken ist

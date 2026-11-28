@@ -11,6 +11,8 @@ use crate::wall::{Area, Obstacle, Piece};
 
 /// Einrasten in Bildschirmpunkten (wird in cm umgerechnet).
 const SNAP_PX: f32 = 8.0;
+/// So lange (Sekunden) über einem anderen Foto halten, dann wird getauscht.
+const HOLD_S: f64 = 0.6;
 
 /// Zielposition (cm, linke obere Ecke) für einen gezogenen Platz.
 fn piece_target(app: &SwiperApp, v: View2, idx: usize, grab: (f32, f32), at: Pos2) -> (f32, f32) {
@@ -19,7 +21,9 @@ fn piece_target(app: &SwiperApp, v: View2, idx: usize, grab: (f32, f32), at: Pos
     let (pw, ph) = w.pieces[idx].dims(app.sizes());
     let x = (cx - grab.0).clamp(-pw * 0.5, w.w - pw * 0.5);
     let y = (cy - grab.1).clamp(-ph * 0.5, w.h - ph * 0.5);
-    wl::snap(w, app.sizes(), idx, x, y, SNAP_PX / v.s)
+    // mit Strg ganz frei, sonst sanft an Kanten, Mitten und Hilfslinien einrasten
+    let tol = if app.wall_ui.ctrl { 0.0 } else { SNAP_PX / v.s };
+    wl::snap(w, app.sizes(), idx, x, y, tol)
 }
 
 /// Plätze, die gerade mitgezogen werden (bei Mehrfachauswahl alle ausgewählten).
@@ -31,15 +35,11 @@ pub(super) fn moving(app: &SwiperApp) -> Vec<usize> {
     }
 }
 
-/// Platz, mit dem beim Loslassen getauscht würde (Zeiger im inneren Bereich eines anderen).
-/// Bei Mehrfachauswahl wird nie getauscht.
-fn swap_target(app: &SwiperApp, v: View2, idx: usize, at: Pos2) -> Option<usize> {
-    if app.wall_ui.multi.contains(&idx) || !swaps(app) {
-        return None;
-    }
+/// Foto unter dem Zeiger im inneren Bereich (die Mitte), außer `idx`.
+fn inner_hit(app: &SwiperApp, v: View2, idx: usize, at: Pos2) -> Option<usize> {
     let (x, y) = v.cm(at);
     match hit_test(app, x, y, Some(idx))? {
-        Hit::Piece(j) => {
+        Hit::Piece(j) if app.wall().pieces[j].photo.is_some() => {
             let a = app.wall().pieces[j].area(app.sizes());
             let inner = Area {
                 x: a.x + a.w * 0.25,
@@ -53,8 +53,36 @@ fn swap_target(app: &SwiperApp, v: View2, idx: usize, at: Pos2) -> Option<usize>
     }
 }
 
-/// Tauscht das Ablegen auf einem Foto? Überall gleich: nur mit Alt (sonst wird verschoben).
-/// Ohne Alt tauscht „Tauschen“ in der Leiste am Foto.
+/// Beim Ziehen merken, über welchem Foto der Zeiger seit wann steht (Tauschen durch Halten).
+pub(super) fn update_hold(app: &mut SwiperApp, v: View2, at: Option<Pos2>, now: f64) {
+    let over = match (&app.wall_ui.drag, at) {
+        (Some(Drag::Piece { idx, .. }), Some(at)) if !app.wall_ui.multi.contains(idx) => {
+            inner_hit(app, v, *idx, at)
+        }
+        _ => None,
+    };
+    app.wall_ui.hold = match (over, app.wall_ui.hold) {
+        (Some(j), Some((k, t))) if j == k => Some((k, t)),
+        (Some(j), _) => Some((j, now)),
+        _ => None,
+    };
+}
+
+/// Platz, mit dem beim Loslassen getauscht würde: mit Alt sofort, sonst nach kurzem Halten
+/// über der Mitte eines anderen Fotos. Bei Mehrfachauswahl wird nie getauscht.
+fn swap_target(app: &SwiperApp, v: View2, idx: usize, at: Pos2, now: f64) -> Option<usize> {
+    if app.wall_ui.multi.contains(&idx) {
+        return None;
+    }
+    let j = inner_hit(app, v, idx, at)?;
+    let held = app
+        .wall_ui
+        .hold
+        .is_some_and(|(k, t)| k == j && now - t >= HOLD_S);
+    (swaps(app) || held).then_some(j)
+}
+
+/// Tauscht das Ablegen auf einem Foto sofort? Nur mit Alt (sonst erst nach kurzem Halten).
 fn swaps(app: &SwiperApp) -> bool {
     app.wall_ui.alt
 }
@@ -69,11 +97,16 @@ fn put_target(app: &SwiperApp, v: View2, at: Pos2) -> Option<usize> {
 }
 
 /// Platz, der beim Loslassen getauscht oder belegt würde (für die Markierung).
-pub(super) fn swap_hint(app: &SwiperApp, v: View2, pointer: Option<Pos2>) -> Option<usize> {
+pub(super) fn swap_hint(
+    app: &SwiperApp,
+    v: View2,
+    pointer: Option<Pos2>,
+    now: f64,
+) -> Option<usize> {
     let at = pointer?;
     match &app.wall_ui.drag {
-        Some(Drag::Piece { idx, .. }) => swap_target(app, v, *idx, at),
-        Some(Drag::Photo(_)) => put_target(app, v, at),
+        Some(Drag::Piece { idx, .. }) => swap_target(app, v, *idx, at, now),
+        Some(Drag::Photo(paths)) if paths.len() == 1 => put_target(app, v, at),
         _ => None,
     }
 }
@@ -147,11 +180,28 @@ pub(super) fn preview(
             p.rect_filled(r, 2, accent_soft());
             p.rect_stroke(r, 2, Stroke::new(1.0, accent()), StrokeKind::Inside);
         }
-        Drag::Photo(path) if swap.is_none() && v.wr.contains(at) => {
-            let pc = new_piece(app, v, &path, at);
+        Drag::Photo(paths) if swap.is_none() && v.wr.contains(at) && !paths.is_empty() => {
+            let pc = new_piece(app, v, &paths[0], at);
             let r = v.px(pc.area(sizes));
             draw_piece(app, p, r, &pc, false, true);
             p.rect_stroke(r, 2, Stroke::new(2.0, accent()), StrokeKind::Outside);
+            if paths.len() > 1 {
+                // wie viele mitkommen
+                let label = format!("+{}", paths.len() - 1);
+                let c = r.right_top();
+                p.circle_filled(c, 12.0, accent());
+                p.text(
+                    c,
+                    Align2::CENTER_CENTER,
+                    label,
+                    font(ts::CAPTION, W::Bold),
+                    bg(),
+                );
+            }
+        }
+        Drag::Guide(upright, _) => {
+            let (x, y) = v.cm(at);
+            super::rulers::draw_one(p, v, upright, if upright { x } else { y }, true);
         }
         Drag::Obstacle { idx, grab } => {
             let (x, y) = v.cm(at);
@@ -206,11 +256,12 @@ pub(super) fn finish(app: &mut SwiperApp, ui: &Ui) {
     if app.wall_ui.drag.is_none() {
         return;
     }
-    let (released, down, at) = ui.input(|i| {
+    let (released, down, at, now) = ui.input(|i| {
         (
             i.pointer.any_released(),
             i.pointer.primary_down() || i.pointer.middle_down(),
             i.pointer.latest_pos(),
+            i.time,
         )
     });
     if !released && down {
@@ -256,7 +307,7 @@ pub(super) fn finish(app: &mut SwiperApp, ui: &Ui) {
                 let (dx, dy) = (x - pc.x, y - pc.y);
                 let all = app.wall_selected();
                 app.wall_move_many(&all, dx, dy);
-            } else if let Some(j) = swap_target(app, v, idx, at) {
+            } else if let Some(j) = swap_target(app, v, idx, at, now) {
                 app.wall_swap(idx, j);
             } else {
                 let (x, y) = piece_target(app, v, idx, grab, at);
@@ -267,14 +318,28 @@ pub(super) fn finish(app: &mut SwiperApp, ui: &Ui) {
                 app.wall_move(idx, x, y);
             }
         }
-        Drag::Photo(path) => {
-            if !v.wr.contains(at) {
+        Drag::Photo(paths) => {
+            if !v.wr.contains(at) || paths.is_empty() {
                 return;
             }
+            app.wall_ui.strip_sel.clear();
             let (x, y) = v.cm(at);
-            match put_target(app, v, at) {
-                Some(j) => app.wall_put_on(j, &path),
-                None => app.wall_place(&path, x, y),
+            match put_target(app, v, at).filter(|_| paths.len() == 1) {
+                Some(j) => app.wall_put_on(j, &paths[0]),
+                None => app.wall_place_many(&paths, (x, y)),
+            }
+        }
+        Drag::Guide(upright, k) => {
+            let (x, y) = v.cm(at);
+            let val = if upright { x } else { y };
+            let max = if upright { ww } else { wh };
+            // zurück aufs Lineal oder aus der Fläche gezogen: Linie weg
+            let inside = (0.0..=max).contains(&val) && v.wr.contains(at);
+            match (k, inside) {
+                (None, true) => app.wall_add_guide(upright, wl::round_mm(val)),
+                (Some(k), true) => app.wall_set_guide(upright, k, Some(wl::round_mm(val))),
+                (Some(k), false) => app.wall_set_guide(upright, k, None),
+                (None, false) => {}
             }
         }
         Drag::Obstacle { idx, grab } => {

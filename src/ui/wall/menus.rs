@@ -1,4 +1,5 @@
-//! Popups der Fotowand: Menü oben links, Fotos wählen, Wände wechseln, Rechtsklick-Menü.
+//! Popups der Collage: Menü oben links, Fotos wählen, Collagen wechseln; das Rechtsklick-Menü
+//! steht in context.rs.
 
 use super::cmd::{run, Cmd};
 use super::*;
@@ -12,6 +13,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui) {
             Popup::Walls => walls(app, ui, anchor),
             Popup::Size(i) => super::photo_bar::size_menu(app, ui, i, anchor),
             Popup::More(i) => super::photo_bar::more(app, ui, i, anchor),
+            Popup::Pos(i) => super::context::pos(app, ui, i, anchor),
         };
         // ein Befehl darf ein neues Popup öffnen (z. B. Menü → Wände)
         if !keep && app.wall_ui.popup.map(|p| p.0) == Some(which) {
@@ -20,20 +22,16 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui) {
         }
     }
     if let Some((hit, at)) = app.wall_ui.menu {
-        if !context(app, ui, hit, at) {
+        if !super::context::show(app, ui, hit, at) {
             app.wall_ui.menu = None;
         }
     }
 }
 
-/// Menü oben links: alles, was die App und die ganze Wand betrifft.
+/// Menü oben links: was die App und die ganze Collage betrifft. Rückgängig, Hindernis, Neu
+/// anordnen und Ansicht stehen in der Symbolleiste links (tools.rs).
 fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
-    let undo = !app.wall_history.is_empty();
-    let redo = !app.wall_redo.is_empty();
-    let draw = app.wall_ui.draw;
-    let frozen = app.wall().frozen;
     let pins = app.wall().pins;
-    let hidden = app.wall_ui.side_hidden;
     let n = app.cfg.walls.len();
     let mut act = 0;
     let keep = form_popup(ui, "wall_menu", anchor, 300.0, false, |ui| {
@@ -42,17 +40,6 @@ fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         }
         if menu_row(ui, "Alle Collagen", "", false).clicked() {
             act = 10;
-        }
-        let sub = if undo {
-            "Strg+Z"
-        } else {
-            "Noch nichts zum Rückgängigmachen"
-        };
-        if menu_row(ui, "Rückgängig", sub, false).clicked() && undo {
-            act = 2;
-        }
-        if redo && menu_row(ui, "Wiederholen", "Strg+Y", false).clicked() {
-            act = 9;
         }
         divider_line(ui);
         let sub = if n == 1 {
@@ -73,27 +60,6 @@ fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         {
             act = 3;
         }
-        if menu_row(
-            ui,
-            "Hindernis zeichnen",
-            "Fläche, die frei bleiben soll",
-            draw,
-        )
-        .clicked()
-        {
-            act = 4;
-        }
-        if frozen
-            && menu_row(
-                ui,
-                "Neu anordnen",
-                "Deine Anordnung von Hand aufgeben",
-                false,
-            )
-            .clicked()
-        {
-            act = 5;
-        }
         divider_line(ui);
         let sub = if pins {
             "An: P pinnt ein Foto, es bleibt bei „Neu anordnen“"
@@ -103,29 +69,16 @@ fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         if menu_row(ui, "Fotos festpinnen", sub, pins).clicked() {
             act = 7;
         }
-        let label = if hidden {
-            "Einstellungen zeigen"
-        } else {
-            "Einstellungen einklappen"
-        };
-        if menu_row(ui, label, "Tab", false).clicked() {
-            act = 6;
-        }
         act == 0
     });
     match act {
         1 => app.go_start(),
         10 => app.open_walls(),
-        2 => app.wall_undo(),
-        9 => app.wall_redo(),
         3 => app.wall_ui.popup = Some((Popup::Photos, anchor)),
         8 => {
             app.wall_ui.popup = Some((Popup::Walls, anchor));
             app.wall_ui.confirm_delete = false;
         }
-        4 => run(app, Cmd::Draw),
-        5 => run(app, Cmd::Rearrange),
-        6 => app.wall_ui.side_hidden = !hidden,
         7 => run(app, Cmd::Pins(!pins)),
         _ => {}
     }
@@ -247,30 +200,6 @@ fn walls(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
             return false;
         }
         app.wall_ui.confirm_delete = true;
-    }
-    keep
-}
-
-/// Rechtsklick: auf ein Foto dasselbe Menü wie „⋯“ in der Leiste am Foto, auf ein Hindernis
-/// (Schritt Wand) „Entfernen“.
-fn context(app: &mut SwiperApp, ui: &Ui, hit: Hit, at: Pos2) -> bool {
-    let anchor = Rect::from_center_size(at, vec2(2.0, 2.0));
-    match hit {
-        Hit::Piece(i) if i < app.wall().pieces.len() => super::photo_bar::more(app, ui, i, anchor),
-        Hit::Obstacle(i) if i < app.wall().obstacles.len() => obstacle_menu(app, ui, i, anchor),
-        _ => false,
-    }
-}
-
-fn obstacle_menu(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool {
-    let mut remove = false;
-    let keep = form_popup(ui, "wall_ctx", anchor, 240.0, false, |ui| {
-        caption(ui, "Hindernis");
-        remove = menu_row(ui, "Hindernis entfernen", "Entf", false).clicked();
-        !remove
-    });
-    if remove {
-        run(app, Cmd::RemoveObstacle(i));
     }
     keep
 }
