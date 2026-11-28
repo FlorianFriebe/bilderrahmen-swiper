@@ -59,6 +59,16 @@ impl SwiperApp {
         self.open_wall();
     }
 
+    /// Gehört das Profil zu einer Collage (Zielordner einer Wand)?
+    pub fn is_wall_profile(&self, i: usize) -> bool {
+        self.cfg.profiles.get(i).is_some_and(|p| {
+            self.cfg
+                .walls
+                .iter()
+                .any(|w| w.target.as_ref() == Some(&p.target))
+        })
+    }
+
     /// Profil, das zu keiner Wand gehört (der eigentliche Bilderrahmen).
     pub fn frame_profile(&self) -> Option<usize> {
         let is_wall = |t: &PathBuf| self.cfg.walls.iter().any(|w| w.target.as_ref() == Some(t));
@@ -78,7 +88,7 @@ impl SwiperApp {
             None => {
                 // nur Wand-Profile da: einen Rahmen mit dem Standard-Zielordner anlegen
                 let target = Config::default().target;
-                let mut p = self.profile_snapshot("Mein Rahmen".into());
+                let mut p = self.profile_snapshot("Format".into());
                 p.target = target;
                 p.goal = 0;
                 self.cfg.profiles.push(p);

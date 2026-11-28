@@ -20,12 +20,12 @@ pub(super) fn header_lines(app: &SwiperApp) -> Header {
         if let Some(name) = &wall {
             return if left == 0 {
                 format!(
-                    "Genug für die Wand „{name}“: {} · zur Wand",
+                    "Genug für die Collage „{name}“: {} · zur Collage",
                     bilder(app.total_kept)
                 )
             } else {
                 format!(
-                    "Für die Wand „{name}“: {} von {}, noch {} · zur Wand",
+                    "Collage „{name}“: {} von {}, noch {} · zur Collage",
                     fmt_int(app.total_kept),
                     bilder(goal),
                     fmt_int(left)

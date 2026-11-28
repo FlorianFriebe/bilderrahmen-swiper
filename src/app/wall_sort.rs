@@ -80,11 +80,12 @@ impl SwiperApp {
             self.cfg.profiles.iter().any(|p| &p.target == t)
                 || self.cfg.walls.iter().any(|w| w.target.as_ref() == Some(t))
         };
-        // „Flur“ → „Fotowand Flur“, „Meine Fotowand“ bleibt, wie es ist
-        let stem = if clean.to_lowercase().contains("wand") {
+        // „Flur“ → „Collage Flur“, „Meine Collage“ bleibt, wie es ist
+        let l = clean.to_lowercase();
+        let stem = if l.contains("wand") || l.contains("collage") {
             clean
         } else {
-            format!("Fotowand {clean}")
+            format!("Collage {clean}")
         };
         let mut t = base.join(&stem);
         let mut n = 2;

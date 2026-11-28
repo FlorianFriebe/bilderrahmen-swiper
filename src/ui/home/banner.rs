@@ -32,14 +32,14 @@ pub(super) fn wall_banner(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, top: f32) 
         vec2(size::CONTROL, size::CONTROL),
     );
     if kit::icon_button(ui, close, icons::X, true)
-        .on_hover_text("Aussuchen für die Wand beenden: wieder Fotos für den Rahmen")
+        .on_hover_text("Aussuchen für die Collage beenden: wieder Fotos für den Rahmen")
         .clicked()
     {
         app.leave_wall_sort();
         app.toast("Du suchst wieder Fotos für den Rahmen aus.".into());
         return;
     }
-    let label = "Zurück zur Wand";
+    let label = "Zurück zur Collage";
     let bw = kit::secondary_width(ui, icons::WALL, label);
     let back = Rect::from_min_size(
         pos2(
@@ -49,7 +49,7 @@ pub(super) fn wall_banner(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, top: f32) 
         vec2(bw, size::CONTROL),
     );
     if kit::secondary(ui, back, icons::WALL, label, true)
-        .on_hover_text("Sehen, wie die Bilder an der Wand hängen")
+        .on_hover_text("Sehen, wie die Bilder in der Collage liegen")
         .clicked()
     {
         app.open_sorting_wall();
@@ -60,7 +60,7 @@ pub(super) fn wall_banner(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, top: f32) 
     let tw = back.left() - sp::M - tx;
     let goal = app.cfg.goal as usize;
     let have = app.total_kept.min(goal);
-    let title = format!("Aussuchen für die Wand „{}“", w.name);
+    let title = format!("Aussuchen für die Collage „{}“", w.name);
     p.text(
         pos2(tx, inner.top() + 10.0),
         Align2::LEFT_CENTER,

@@ -285,7 +285,7 @@ impl Wall {
 impl Default for Wall {
     fn default() -> Self {
         Self {
-            name: "Meine Fotowand".into(),
+            name: "Meine Collage".into(),
             w: 200.0,
             h: 120.0,
             gap: 3.0,
@@ -488,8 +488,18 @@ pub fn safe_name(name: &str) -> String {
         .collect();
     let s = s.trim_end_matches(['.', ' ']).to_string();
     if s.is_empty() {
-        "Fotowand".into()
+        "Collage".into()
     } else {
         s
     }
+}
+
+/// Neuer Name für einen alten Standardnamen: „Meine Fotowand“ → „Meine Collage“,
+/// „Fotowand 3“ → „Collage 3“. Eigene Namen bleiben (`None`).
+pub fn renamed_default(name: &str) -> Option<String> {
+    if name == "Meine Fotowand" {
+        return Some("Meine Collage".into());
+    }
+    let n = name.strip_prefix("Fotowand ")?;
+    (!n.is_empty() && n.chars().all(|c| c.is_ascii_digit())).then(|| format!("Collage {n}"))
 }

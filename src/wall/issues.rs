@@ -31,7 +31,7 @@ impl IssueKind {
         match self {
             IssueKind::Unscharf => "Zu wenig Pixel für diese Größe. Nimm eine kleinere Größe.",
             IssueKind::Verdeckt => "Von diesem Foto sieht man kaum etwas.",
-            IssueKind::Blockiert => "Liegt auf einem Hindernis oder ragt über die Wand.",
+            IssueKind::Blockiert => "Liegt auf einem Hindernis oder ragt über den Rand.",
         }
     }
 }

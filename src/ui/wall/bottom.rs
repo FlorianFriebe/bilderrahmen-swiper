@@ -44,13 +44,13 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
             .collect();
         (
             icons::WARNING,
-            format!("{} an der Wand · {}", bilder(hung), parts.join(" · ")),
+            format!("{} in der Collage · {}", bilder(hung), parts.join(" · ")),
             Tone::Warn,
         )
     } else if empty > 0 && w.arrange != wl::Arrange::Lueckenlos {
         (
             icons::WALL,
-            format!("{} an der Wand · {empty} Plätze frei", bilder(hung)),
+            format!("{} in der Collage · {empty} Plätze frei", bilder(hung)),
             Tone::Warn,
         )
     } else {
@@ -61,7 +61,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
         };
         (
             icons::CHECK,
-            format!("{} an der Wand{more}", bilder(hung)),
+            format!("{} in der Collage{more}", bilder(hung)),
             Tone::Keep,
         )
     };

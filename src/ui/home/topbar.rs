@@ -15,11 +15,11 @@ pub(super) fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             area: kit::Area::Wand,
             step: Some(1),
             tips: [
-                "Zurück zur Wand: Maße und Hindernisse",
-                "Zurück zur Wand: Fotos anordnen",
-                "Zurück zur Wand: Druckdateien und Aufhängeplan",
+                "Zurück zur Collage: Maße und Hindernisse",
+                "Zurück zur Collage: Fotos anordnen",
+                "Zurück zur Collage: Druckdateien und Aufhängeplan",
             ],
-            area_tip: "Aussuchen beenden und alle Wände zeigen",
+            area_tip: "Aussuchen beenden und alle Collagen zeigen",
             counter: None,
         }
     } else {
@@ -31,7 +31,7 @@ pub(super) fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
                 "Mit den gewählten Ordnern loslegen (Enter)",
                 "Galerie: behaltene Bilder ansehen und auf Stick oder SD-Karte bringen",
             ],
-            area_tip: "Bilderrahmen füllen: Ordner wählen",
+            area_tip: "Sortieren und zuschneiden: Ordner wählen",
             counter: kept.as_deref().map(|k| (k, tip.as_str())),
         }
     };

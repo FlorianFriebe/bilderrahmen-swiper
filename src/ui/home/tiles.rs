@@ -176,7 +176,9 @@ pub(super) fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option
     } else {
         1.0
     };
-    let th = Rect::from_min_size(r.min + vec2(sp::L, (r.height() - THUMB.y) / 2.0), THUMB);
+    // wie die Kachel einer Collage: Vorschau oben, darunter Name, Ordner, Stand, Balken
+    let inner = r.shrink(sp::L);
+    let th = Rect::from_min_size(inner.min, vec2(inner.width(), kit::CARD_THUMB_H));
     match f.first.as_ref().and_then(|first| app.thumb(first)) {
         Some((id, size)) => image_cover(
             ui,
@@ -191,13 +193,13 @@ pub(super) fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option
             kit::icon(p, th.center(), icons::IMAGE, 24.0, dim());
         }
     }
-    let tx = th.right() + sp::L;
-    let right = r.right() - sp::L;
-    let top = th.top() - 1.0;
+    let tx = inner.left();
+    let right = inner.right();
+    let top = th.bottom() + sp::M + 2.0;
     let cb = Rect::from_min_size(pos2(tx, top), vec2(18.0, 18.0));
     kit::checkmark(p, cb, sel);
     let name_x = cb.right() + sp::S;
-    let name_w = right - name_x - if resp.hovered() { 28.0 } else { 0.0 };
+    let name_w = right - name_x;
     // eigentlicher Ordnername vollständig, übergeordnete Ordner klein darunter
     let (parent, leaf) = match f.label.rsplit_once(" › ") {
         Some((a, b)) => (a.to_string(), b.to_string()),
@@ -218,7 +220,7 @@ pub(super) fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option
         parent
     };
     p.text(
-        pos2(tx, cb.bottom() + 9.0),
+        pos2(tx, cb.bottom() + 12.0),
         Align2::LEFT_CENTER,
         fit_start(ui, &parent, sf.clone(), right - tx),
         sf,
@@ -253,13 +255,16 @@ pub(super) fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option
     };
     let inf = font(ts::SMALL, W::Regular);
     p.text(
-        pos2(tx, cb.bottom() + 28.0),
+        pos2(tx, cb.bottom() + 32.0),
         Align2::LEFT_CENTER,
         fit_end(ui, &info, inf.clone(), right - tx),
         inf,
         text_soft().gamma_multiply(alpha),
     );
-    let bar = Rect::from_min_max(pos2(tx, th.bottom() - 5.0), pos2(right, th.bottom() - 1.0));
+    let bar = Rect::from_min_size(
+        pos2(inner.left(), inner.bottom() - 4.0),
+        vec2(inner.width(), 4.0),
+    );
     let frac = if f.total > 0 {
         f.done as f32 / f.total as f32
     } else {
@@ -269,13 +274,14 @@ pub(super) fn folder_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> Option
 
     let menu_open = app.folder_menu.as_ref().map(|m| &m.0) == Some(&f.path);
     if resp.hovered() || resp.contains_pointer() || menu_open {
-        let xr = Rect::from_center_size(pos2(r.right() - 22.0, r.top() + 22.0), vec2(28.0, 28.0));
+        let xr = Rect::from_center_size(pos2(th.right() - 20.0, th.top() + 20.0), vec2(28.0, 28.0));
         let x = ui
             .interact(xr, ui.make_persistent_id(("menu", &f.path)), Sense::click())
             .on_hover_text(
                 "Mehr: exportieren, Aussortierte nochmal zeigen, von vorn beginnen, entfernen",
             );
         let on = x.hovered() || menu_open;
+        p.rect_filled(xr, radius::S, panel().to_opaque());
         if on {
             p.rect_filled(xr, radius::S, glass_hover());
         }

@@ -53,7 +53,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Licht: automatische Tonwertkorrektur, Helligkeit und Kontrast
 - Alternativ das ganze Foto statt Zuschnitt, frei zoom- und verschiebbar; Rand unscharf (Stärke einstellbar), in Fotofarbe, schwarz oder weiß
 - Geräte-Vorlagen (z. B. 1280 × 800) setzen Seitenverhältnis und Auflösung automatisch
-- Mehrere Profile mit eigenem Format, eigener Größe und eigenem Zielordner; dasselbe Foto kann für jedes Profil behalten werden
+- Mehrere Formate mit eigenem Seitenverhältnis, eigener Größe und eigenem Zielordner; dasselbe Foto kann für jedes Format behalten werden
 - Optionale Begrenzung der Dateigröße (die JPEG-Qualität wird angepasst)
 - Optional Text aufs Bild: Datum, Ort (pro Ordner), Notiz (pro Bild)
 - Stil-Editor mit Vorschau am echten Foto: vier Schriften, Größe, Farbe, Deckkraft, Hintergrund (Schatten, Band, Glas), neun Positionen und Randabstand; sieben mitgelieferte Stile, eigene Stile speichern, pro Ordner festlegen, als Datei exportieren und importieren
@@ -67,7 +67,7 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Reihenfolge auf dem Rahmen: nach Datum, zufällig oder nach Ordner (über eine vierstellige Nummer vor dem Dateinamen; beim erneuten Kopieren werden vorhandene Dateien nur umbenannt)
 
 **Fotowand planen**
-- Eigener Bereich ab der Startseite (zwei Karten: Bilderrahmen füllen, Fotowand planen), Übersicht aller Wände als Kacheln; Wandmaße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
+- Eigener Bereich ab der Startseite (zwei Karten: Sortieren und zuschneiden, Collage planen), Übersicht aller Collagen als Kacheln; Maße in cm, Druckgrößen 9x13 bis 20x30 (auch quadratisch) mit echten, anpassbaren Maßen
 - Drei Schritte Maße, Fotos und Export in derselben Leiste wie der Bereich Rahmen (Fotos, Aussuchen, Auf den Rahmen); die Seitenleiste zeigt nur, was zum Schritt gehört, jede Änderung wirkt sofort und die Fotos gleiten an ihre Plätze
 - Leiste am gewählten Foto (Größe, drehen, Ebene, Ausschnitt, tauschen, abnehmen, ⋯), bei mehreren Fotos Ausrichten und Verteilen
 - Ergebnis unten links mit Warnungen (unscharf, fast ganz verdeckt, im Weg); ein Klick springt zum Foto
@@ -79,15 +79,15 @@ steht ein Ordner, der direkt auf Stick oder SD-Karte kopiert werden kann.
 - Fotos frei verschieben: von Hand angeordnet bleibt alles, wo es ist, bis „Neu anordnen“; Ebenen mit Strg+↑/↓, Größe an der Ecke ziehen (springt auf die nächste Druckgröße), Pins nur auf Wunsch (im Menü einschalten), Abnehmen ohne Lücke, Rückgängig und Wiederholen (Strg+Z, Strg+Y); Zoom mit Strg + Mausrad, zwei Fingern oder Strg + / −
 - Menü oben links (Zurück, Rückgängig, Wiederholen, Hindernis, Fotos, Festpinnen), „+“ im Band, Seitenleiste mit Tab einklappbar
 - Feinjustieren: mehrere Fotos wählen (Umschalt-Klick, Rechteck, Strg+A), ausrichten und gleichmäßig verteilen, Hilfslinien mit Abständen in cm beim Ziehen
-- Hauptbild groß in der Mitte, Größen-Mix in der Collage, Bildausschnitt direkt an der Wand verschieben, weißer Rand für alle oder einzelne Fotos, Warnung bei zu geringer Auflösung (unter 200 dpi)
+- Hauptbild groß in der Mitte, Größen-Mix in der Collage, Bildausschnitt direkt in der Collage verschieben, weißer Rand für alle oder einzelne Fotos, Warnung bei zu geringer Auflösung (unter 200 dpi)
 - Unten: Maße und was zu drucken ist
-- Für die Wand sortieren: eigenes Profil mit Ordner, Zuschnitt im Format des Abzugs, Ziel = Plätze an der Wand; neue Bilder füllen freie Plätze
+- Für die Collage aussuchen: eigenes Format mit Ordner, Zuschnitt im Format des Abzugs, Ziel = Plätze in der Collage; neue Bilder füllen freie Plätze
 - Fotos aus den behaltenen Bildern oder einem Ordner; verschieben mit Einrasten, tauschen, Größe und Ausrichtung pro Foto, Pfeiltasten, mehrere Wände, Rückgängig
 
 **Bedienung**
 - Alle Tasten frei belegbar; die aktuell belegte Taste steht klein auf jedem Knopf, Übersicht der Kürzel mit ? oder F1
 - Farbthemen wie Windows, Hell, Dunkel, Sand, Salbei und Nachtblau mit vollflächigem Hintergrund
-- Alle Einstellungen in der Leiste unter dem Start-Knopf als kleine Popups: Zeitraum, Ablauf, Text, Profil (Format und Größe) und Zahnrad (Zielordner, Farben, Schrift, Tasten, Hilfe)
+- Alle Einstellungen in der Leiste unter dem Start-Knopf als kleine Popups: Zeitraum, Ablauf, Text, Format (Seitenverhältnis und Größe) und Zahnrad (Zielordner, Farben, Schrift, Tasten, Hilfe)
 - Schriftgröße mit Strg + und Strg −
 - Kurze Einführung beim ersten Start
 - Hinweis auf neue Versionen; unter Windows Aktualisierung mit einem Klick (Download, Prüfung der SHA-256-Prüfsumme, Austausch der .exe, Neustart)

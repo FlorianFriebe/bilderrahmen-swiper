@@ -18,7 +18,7 @@ pub(super) fn bar_menu(
 ) -> bool {
     use crate::daterange::DateRange;
     let pad = sp::S;
-    let w = 300.0;
+    let w = crate::ui::popups::BAR_POPUP_W;
     // (Beschriftung, Untertitel, gewählt, Aktion)
     let mut rows: Vec<(String, &str, bool, u8)> = vec![];
     let cur = app.cfg.date_filter;
@@ -251,11 +251,15 @@ pub(super) fn range_picker(app: &mut SwiperApp, ui: &mut Ui, area: Rect) -> bool
 
 // ------------------------------------------------------------------ Einstellungen im Überblick
 
-/// Kurzname des aktiven Profils für die Leiste: bei mehreren Profilen der Name, sonst das Format.
+/// Kurzname des aktiven Formats für die Leiste: bei mehreren Formaten der Name, sonst „Format“.
+/// Formate der Collagen zählen hier nicht mit.
 pub(super) fn profile_label(app: &SwiperApp) -> String {
+    let own = (0..app.cfg.profiles.len())
+        .filter(|i| !app.is_wall_profile(*i))
+        .count();
     match app.cfg.profiles.get(app.cfg.profile) {
-        Some(p) if app.cfg.profiles.len() > 1 => p.name.clone(),
-        _ => app.ratio_label(crate::imaging::Orient::Quer),
+        Some(p) if own > 1 || app.is_wall_profile(app.cfg.profile) => p.name.clone(),
+        _ => "Format".into(),
     }
 }
 
@@ -285,12 +289,7 @@ pub(super) fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egu
         (icons::CALENDAR, range, 0, "Zeitraum"),
         (mode_glyph, mode.to_string(), 1, "Ablauf"),
         (icons::TEXT, text_lbl, 2, "Text aufs Bild"),
-        (
-            icons::FRAME,
-            profile_label(app),
-            3,
-            "Profil: Format und Größe",
-        ),
+        (icons::FRAME, profile_label(app), 3, "Format und Größe"),
     ];
     let f = font(ts::SMALL, W::Medium);
     let h = 44.0;
@@ -420,9 +419,9 @@ pub(super) fn settings_summary(app: &mut SwiperApp, ui: &mut Ui, top_center: egu
     if let Some(which) = menu {
         let keep = match which {
             0 | 1 => bar_menu(app, ui, which, bar, menu_item),
-            2 => crate::ui::popups::text_popup(app, ui, menu_item, true),
-            3 => crate::ui::popups::profile_popup(app, ui, menu_item, true),
-            _ => crate::ui::popups::app_popup(app, ui, menu_item, true),
+            2 => crate::ui::popups::text_popup(app, ui, menu_item, true, Some(bar)),
+            3 => crate::ui::popups::profile_popup(app, ui, menu_item, true, Some(bar)),
+            _ => crate::ui::popups::app_popup(app, ui, menu_item, true, Some(bar)),
         };
         if !keep {
             menu = None;

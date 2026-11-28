@@ -13,8 +13,8 @@ use crate::session::{Session, SessionProgress};
 use crate::system;
 use crate::util::{fmt_int, open_folder};
 
-const TILE: egui::Vec2 = egui::vec2(368.0, 104.0);
-const THUMB: egui::Vec2 = egui::vec2(96.0, 72.0);
+/// Ordner-Kachel: gleich groß wie die Kacheln der Collagen.
+const TILE: egui::Vec2 = kit::CARD;
 
 fn fotos(n: usize) -> String {
     if n == 1 {
@@ -96,7 +96,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let start_screen = app.finished.is_none();
     let cols = ((ws.width() + sp::L) / (TILE.x + sp::L))
         .floor()
-        .clamp(1.0, 3.0) as usize;
+        .clamp(1.0, 4.0) as usize;
     let n = app.folders.len() + 1;
     let rows = n.div_ceil(cols);
 

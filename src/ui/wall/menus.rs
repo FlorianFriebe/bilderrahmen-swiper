@@ -40,7 +40,7 @@ fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         if menu_row(ui, "Zur Startseite", "", false).clicked() {
             act = 1;
         }
-        if menu_row(ui, "Alle Wände", "", false).clicked() {
+        if menu_row(ui, "Alle Collagen", "", false).clicked() {
             act = 10;
         }
         let sub = if undo {
@@ -56,16 +56,16 @@ fn main_menu(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         }
         divider_line(ui);
         let sub = if n == 1 {
-            "1 Wand".to_string()
+            "1 Collage".to_string()
         } else {
-            format!("{n} Wände")
+            format!("{n} Collagen")
         };
-        if menu_row(ui, "Wände …", &sub, false).clicked() {
+        if menu_row(ui, "Collagen …", &sub, false).clicked() {
             act = 8;
         }
         if menu_row(
             ui,
-            "Fotos für die Wand …",
+            "Fotos für die Collage …",
             "Schon sortiert, Ordner oder aussuchen",
             false,
         )
@@ -149,7 +149,7 @@ fn photos(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
     // aus dem Band unten öffnet es nach oben, sonst wäre die letzte Zeile abgeschnitten
     let above = anchor.center().y > ui.ctx().content_rect().center().y;
     let keep = form_popup(ui, "wall_photos", anchor, 340.0, above, |ui| {
-        caption(ui, "Fotos für die Wand");
+        caption(ui, "Fotos für die Collage");
         let sub = if kept == 0 {
             "Noch keine – erst sortieren".to_string()
         } else {
@@ -174,7 +174,8 @@ fn photos(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         {
             act = 2;
         }
-        if menu_row(ui, "Für diese Wand aussuchen", &sort_sub, sorting).clicked() && places > 0 {
+        if menu_row(ui, "Für diese Collage aussuchen", &sort_sub, sorting).clicked() && places > 0
+        {
             act = 3;
         }
         act == 0
@@ -206,13 +207,13 @@ fn walls(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
     let mut new = false;
     let mut delete = false;
     let keep = form_popup(ui, "wall_list", anchor, 300.0, false, |ui| {
-        caption(ui, "Deine Wände");
+        caption(ui, "Deine Collagen");
         for (i, (n, hung)) in list.iter().enumerate() {
             if menu_row(ui, n, &bilder(*hung), i == cur).clicked() {
                 act = Some(i);
             }
         }
-        if menu_row(ui, "Neue Wand", "", false).clicked() {
+        if menu_row(ui, "Neue Collage", "", false).clicked() {
             new = true;
         }
         divider_line(ui);
@@ -223,7 +224,7 @@ fn walls(app: &mut SwiperApp, ui: &Ui, anchor: Rect) -> bool {
         let label = if confirm {
             "Wirklich entfernen?"
         } else {
-            "Diese Wand entfernen"
+            "Diese Collage entfernen"
         };
         if menu_row(ui, label, "", false).clicked() {
             delete = true;

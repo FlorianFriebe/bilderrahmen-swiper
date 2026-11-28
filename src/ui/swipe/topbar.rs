@@ -122,7 +122,7 @@ pub(super) fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) -> bool {
     {
         app.gear_popup = !app.gear_popup;
     }
-    if app.gear_popup && !crate::ui::popups::app_popup(app, ui, gear, false) {
+    if app.gear_popup && !crate::ui::popups::app_popup(app, ui, gear, false, None) {
         app.gear_popup = false;
     }
     x += h + sp::M;

@@ -180,7 +180,7 @@ impl SwiperApp {
             .iter()
             .any(|p| p.photo.as_deref() == Some(photo))
         {
-            self.toast("Kein Platz mehr frei. Zieh das Foto an eine Stelle der Wand.".into());
+            self.toast("Kein Platz mehr frei. Zieh das Foto an eine Stelle der Collage.".into());
         }
     }
 

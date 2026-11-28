@@ -22,9 +22,9 @@ pub(super) fn show(
     let all = w.photos.len();
     caption(ui, "Fotos");
     let sub = if all == 0 {
-        "Schon sortiert, ein Ordner oder für diese Wand aussuchen".to_string()
+        "Schon sortiert, ein Ordner oder für diese Collage aussuchen".to_string()
     } else {
-        format!("{hung} von {all} an der Wand")
+        format!("{hung} von {all} in der Collage")
     };
     let label = if all == 0 {
         "Fotos holen"
@@ -347,7 +347,7 @@ fn real_sizes(ui: &mut Ui, sizes: &mut [PrintSize], cmds: &mut Vec<Cmd>) {
     caption(ui, "Echte Druckmaße");
     hint(
         ui,
-        "Abzüge sind oft etwas anders als ihr Name. Miss nach, wenn du es genau willst. Gilt für alle Wände.",
+        "Abzüge sind oft etwas anders als ihr Name. Miss nach, wenn du es genau willst. Gilt für alle Collagen.",
         sp::M,
     );
     for s in sizes.iter_mut() {

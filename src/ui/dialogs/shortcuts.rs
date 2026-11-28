@@ -34,13 +34,13 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
         let wall: [(&str, &str); 11] = [
             ("Pfeiltasten", "Foto um 1 cm schieben (Umschalt: 10 cm)"),
             ("P", "Foto festpinnen oder lösen"),
-            ("Entf", "Foto von der Wand nehmen"),
+            ("Entf", "Foto aus der Collage nehmen"),
             ("Umschalt + Klick", "Mehrere Fotos wählen"),
-            ("Auf freier Wand ziehen", "Fotos im Rechteck wählen"),
+            ("Auf freier Fläche ziehen", "Fotos im Rechteck wählen"),
             ("Strg + A", "Alle Fotos wählen"),
             ("Doppelklick", "Bildausschnitt verschieben (Enter: fertig)"),
-            ("Strg + / −", "Wand zoomen"),
-            ("Strg + 0", "Ganze Wand zeigen"),
+            ("Strg + / −", "Collage zoomen"),
+            ("Strg + 0", "Ganze Collage zeigen"),
             (
                 "Leertaste + ziehen",
                 "Ansicht verschieben (auch mittlere Maustaste)",
@@ -100,7 +100,7 @@ pub fn shortcuts(app: &mut SwiperApp, ui: &mut Ui) {
                         }
                     });
                 ui.add_space(sp::M);
-                kit::section(ui, "Fotowand");
+                kit::section(ui, "Collage");
                 egui::Grid::new("wall_keys_grid")
                     .num_columns(2)
                     .spacing(vec2(sp::L, sp::S))

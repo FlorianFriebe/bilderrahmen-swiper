@@ -272,7 +272,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let back = Rect::from_min_size(ws.min, vec2(size::BAR, size::BAR));
     let open = matches!(app.wall_ui.popup, Some((Popup::Menu, _)));
     let resp = kit::secondary(ui, back, icons::LIST, "", true)
-        .on_hover_text("Menü: Zurück, Rückgängig, Wände, Hindernis, Festpinnen");
+        .on_hover_text("Menü: Zurück, Rückgängig, Collagen, Hindernis, Festpinnen");
     if open {
         let p = ui.painter();
         p.rect_filled(back, radius::M, panel().to_opaque());
@@ -308,7 +308,7 @@ fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
         let resp = ui
             .interact(title, ui.make_persistent_id("wall_title"), Sense::click())
             .on_hover_cursor(egui::CursorIcon::PointingHand)
-            .on_hover_text("Wände wechseln, neu anlegen, umbenennen");
+            .on_hover_text("Collagen wechseln, neu anlegen, umbenennen");
         let open = matches!(app.wall_ui.popup, Some((Popup::Walls, _)));
         let t = kit::anim(ui, resp.id, resp.hovered() || open);
         let p = ui.painter();
@@ -361,7 +361,7 @@ fn step_bar(app: &mut SwiperApp, ui: &mut Ui, center: Pos2) -> Rect {
                 "Fotos: aussuchen und anordnen",
                 "Export: Druckdateien, Aufhängeplan, Einkaufsliste",
             ],
-            area_tip: "Alle deine Wände",
+            area_tip: "Alle deine Collagen",
             counter: None,
         },
     );
@@ -387,7 +387,7 @@ fn status_line(app: &mut SwiperApp, ui: &mut Ui, top: Pos2) {
         )
     } else if u.draw {
         (
-            "Hindernis zeichnen: Fläche auf der Wand aufziehen".to_string(),
+            "Hindernis zeichnen: Fläche in der Collage aufziehen".to_string(),
             Some("Fertig"),
         )
     } else if u.swap_from.is_some() {

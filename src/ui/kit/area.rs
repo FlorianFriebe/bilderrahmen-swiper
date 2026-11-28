@@ -6,23 +6,23 @@ use super::*;
 /// Die zwei Bereiche der App.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Area {
-    /// Bilderrahmen füllen (digital)
+    /// Sortieren und zuschneiden (digital)
     Rahmen,
-    /// Fotowand planen (gedruckt)
+    /// Collage planen (gedruckt)
     Wand,
 }
 
 impl Area {
     pub fn label(self) -> &'static str {
         match self {
-            Area::Rahmen => "Rahmen",
-            Area::Wand => "Wand",
+            Area::Rahmen => "Sortieren",
+            Area::Wand => "Collage",
         }
     }
     pub fn title(self) -> &'static str {
         match self {
-            Area::Rahmen => "Bilderrahmen füllen",
-            Area::Wand => "Fotowand planen",
+            Area::Rahmen => "Sortieren und zuschneiden",
+            Area::Wand => "Collage planen",
         }
     }
     pub fn glyph(self) -> &'static str {
@@ -76,6 +76,11 @@ pub struct Pill<'a> {
     pub counter: Option<(&'a str, &'a str)>,
 }
 
+/// Größe einer Kachel in den Übersichten (Ordner beim Sortieren, Collagen): überall gleich.
+pub const CARD: Vec2 = vec2(320.0, 272.0);
+/// Höhe des Vorschaubilds oben in einer Kachel.
+pub const CARD_THUMB_H: f32 = 140.0;
+
 const DOT: f32 = 20.0;
 
 fn step_w(ui: &Ui, label: &str) -> f32 {
@@ -116,7 +121,7 @@ pub fn area_pill(ui: &Ui, center: Pos2, h: f32, pill: &Pill) -> (Rect, Option<Pi
     // Haus
     let r = row(x, item_h);
     if icon_button(ui, r, icons::HOME, true)
-        .on_hover_text("Zur Startseite: Rahmen oder Wand wählen")
+        .on_hover_text("Zur Startseite: Sortieren oder Collage wählen")
         .clicked()
     {
         act = Some(PillAct::Home);

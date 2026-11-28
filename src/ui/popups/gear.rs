@@ -5,8 +5,14 @@ use super::*;
 // ------------------------------------------------------------------ App (Zahnrad)
 
 /// Zahnrad-Popup: was man einmal einstellt.
-pub fn app_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool {
-    form_popup(ui, "app", item, 340.0, above, |ui| {
+pub fn app_popup(
+    app: &mut SwiperApp,
+    ui: &Ui,
+    item: Rect,
+    above: bool,
+    bounds: Option<Rect>,
+) -> bool {
+    form_popup_in(ui, "app", item, BAR_POPUP_W, above, bounds, |ui| {
         let mut close = false;
         caption(ui, "Zielordner");
         let path = app.cfg.target.display().to_string();

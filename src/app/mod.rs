@@ -279,14 +279,14 @@ impl Default for Config {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum View {
-    /// Startseite: zwei Türen, Bilderrahmen füllen oder Fotowand planen
+    /// Startseite: zwei Türen, Sortieren und zuschneiden oder Collage planen
     Start,
     /// Bereich Rahmen, Schritt 1: Ordner wählen (auch fürs Aussuchen für eine Wand)
     Home,
     Swipe,
     Gallery,
     Burst,
-    /// Fotowand planen
+    /// Collage planen
     Wall,
     /// Bereich Wand: alle Wände als Kacheln
     Walls,
@@ -595,10 +595,16 @@ impl SwiperApp {
         };
         app.custom_frame =
             !app.cfg.frame.is_empty() && !FRAMES.iter().any(|f| f.1 == app.cfg.frame);
-        // „Rahmen“ heißt jetzt „Profil“
+        // früher „Mein Rahmen“ und „Mein Profil“, heute „Format“
         for p in &mut app.cfg.profiles {
-            if p.name == "Mein Rahmen" {
-                p.name = "Mein Profil".into();
+            if p.name == "Mein Rahmen" || p.name == "Mein Profil" {
+                p.name = "Format".into();
+            }
+        }
+        // frühere Standardnamen „Meine Fotowand“, „Fotowand 2“ heißen jetzt „… Collage …“
+        for w in &mut app.cfg.walls {
+            if let Some(n) = crate::wall::renamed_default(&w.name) {
+                w.name = n;
             }
         }
         system::log(&format!("Start Version {}", system::VERSION));

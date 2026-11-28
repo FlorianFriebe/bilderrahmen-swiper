@@ -9,8 +9,8 @@ use super::{icons, image_cover};
 use crate::app::{SwiperApp, WallStage};
 use crate::wall::{fmt_cm, Wall};
 
-const TILE: egui::Vec2 = egui::vec2(320.0, 272.0);
-const MINI_H: f32 = 140.0;
+const TILE: egui::Vec2 = kit::CARD;
+const MINI_H: f32 = kit::CARD_THUMB_H;
 
 pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let top = ws.top() + size::TOPBAR / 2.0;
@@ -22,11 +22,11 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
             area: Area::Wand,
             step: None,
             tips: [
-                "Wand öffnen: Breite, Höhe, Hindernisse",
-                "Wand öffnen: Fotos anordnen",
-                "Wand öffnen: Druckdateien und Aufhängeplan",
+                "Collage öffnen: Breite, Höhe, Hindernisse",
+                "Collage öffnen: Fotos anordnen",
+                "Collage öffnen: Druckdateien und Aufhängeplan",
             ],
-            area_tip: "Alle deine Wände",
+            area_tip: "Alle deine Collagen",
             counter: None,
         },
     );
@@ -50,7 +50,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     p.text(
         pos2(ws.center().x, y + 20.0),
         Align2::CENTER_CENTER,
-        "Deine Fotowände",
+        "Deine Collagen",
         font(ts::DISPLAY, W::Bold),
         text(),
     );
@@ -58,7 +58,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     p.text(
         pos2(ws.center().x, y + 10.0),
         Align2::CENTER_CENTER,
-        "Wand ausmessen, Fotos anordnen, drucken und aufhängen.",
+        "Fläche ausmessen, Fotos anordnen, drucken und aufhängen.",
         font(ts::LABEL, W::Regular),
         text_soft(),
     );
@@ -132,7 +132,7 @@ fn wall_tile(app: &SwiperApp, ui: &Ui, r: Rect, i: usize) -> bool {
     let resp = ui
         .interact(r, ui.make_persistent_id(("wall_tile", i)), Sense::click())
         .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Klick: an dieser Wand weitermachen");
+        .on_hover_text("Klick: an dieser Collage weitermachen");
     let t = kit::anim(ui, resp.id, resp.hovered());
     let p = ui.painter();
     kit::glass_with(p, r, radius::XL, kit::mix(glass(), glass_hover(), t));
@@ -211,7 +211,7 @@ fn new_tile(ui: &Ui, r: Rect) -> bool {
     let resp = ui
         .interact(r, ui.make_persistent_id("wall_new"), Sense::click())
         .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Neue Wand anlegen und ausmessen");
+        .on_hover_text("Neue Collage anlegen und ausmessen");
     let t = kit::anim(ui, resp.id, resp.hovered());
     let p = ui.painter();
     if t > 0.0 {
@@ -234,7 +234,7 @@ fn new_tile(ui: &Ui, r: Rect) -> bool {
     p.text(
         c + vec2(0.0, 16.0),
         Align2::CENTER_CENTER,
-        "Neue Wand",
+        "Neue Collage",
         font(ts::BODY, W::Semibold),
         text_soft(),
     );

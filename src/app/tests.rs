@@ -164,7 +164,7 @@ fn sorting_for_a_wall_fills_it() {
     let places = app.wall().pieces.len();
     assert!(places > 0);
     app.sort_for_wall();
-    let target = base.join("Meine Fotowand");
+    let target = base.join("Meine Collage");
     assert_eq!(app.cfg.target, target, "eigener Ordner für die Wand");
     assert_eq!(app.cfg.goal as usize, places, "Ziel = Plätze an der Wand");
     assert_eq!(app.cfg.ratio_quer, "15,2:10,2", "Zuschnitt wie der Abzug");
@@ -408,7 +408,7 @@ fn wall_export_writes_prints_and_keeps_originals() {
     app.wall_export();
     wait(&mut app);
     let dir = app.wall_export_dir();
-    assert!(dir.ends_with("Fotowand – Flur_ oben"));
+    assert!(dir.ends_with("Collage – Flur_ oben"));
     let prints = dir.join("Druck");
     let mut names: Vec<String> = fs::read_dir(&prints)
         .unwrap()

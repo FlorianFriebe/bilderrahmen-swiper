@@ -14,7 +14,13 @@ pub(super) fn profile_sub(p: &crate::app::FrameProfile) -> String {
 
 /// Profil-Popup: Profile wechseln und anlegen, darunter Format und Größe des aktiven Profils.
 /// Beim ersten Öffnen steht nur die Auflösung da, der Rest liegt unter „Mehr Einstellungen“.
-pub fn profile_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool {
+pub fn profile_popup(
+    app: &mut SwiperApp,
+    ui: &Ui,
+    item: Rect,
+    above: bool,
+    bounds: Option<Rect>,
+) -> bool {
     app.store_profile();
     // Kopf „Welchen Bilderrahmen hast du?“ bleibt stehen, solange das erste Popup offen ist
     let first_id = egui::Id::unique("profile_first");
@@ -29,7 +35,7 @@ pub fn profile_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> b
     let more: bool = ui.ctx().data(|d| d.get_temp(more_id)).unwrap_or(true);
     app.cfg.profile_asked = true;
     let before = settings_hash(app);
-    let keep = form_popup(ui, "profile", item, 380.0, above, |ui| {
+    let keep = form_popup_in(ui, "profile", item, BAR_POPUP_W, above, bounds, |ui| {
         if first {
             ui.horizontal(|ui| {
                 ui.add_space(sp::M);
@@ -171,15 +177,19 @@ fn saved_hint(ui: &mut Ui) {
 
 /// Liste der Profile mit „Neues Profil“ und dem Namen des aktiven Profils.
 fn profiles_ui(app: &mut SwiperApp, ui: &mut Ui) {
-    caption(ui, "Profile");
+    caption(ui, "Formate");
     let mut switch = None;
     let mut remove = None;
     let n = app.cfg.profiles.len();
     for (i, p) in app.cfg.profiles.iter().enumerate() {
+        // Formate der Collagen gehören zur Collage, nicht in diese Liste
+        if app.is_wall_profile(i) && i != app.cfg.profile {
+            continue;
+        }
         let r =
             menu_row(ui, &p.name, &profile_sub(p), i == app.cfg.profile).on_hover_text(if n > 1 {
                 format!(
-                    "Zielordner: {}\nRechtsklick: Profil entfernen",
+                    "Zielordner: {}\nRechtsklick: Format entfernen",
                     p.target.display()
                 )
             } else {
@@ -190,7 +200,7 @@ fn profiles_ui(app: &mut SwiperApp, ui: &mut Ui) {
         }
         if n > 1 {
             r.context_menu(|ui| {
-                if ui.button("Profil entfernen (Bilder bleiben)").clicked() {
+                if ui.button("Format entfernen (Bilder bleiben)").clicked() {
                     remove = Some(i);
                     ui.close();
                 }
@@ -201,7 +211,7 @@ fn profiles_ui(app: &mut SwiperApp, ui: &mut Ui) {
     let mut naming: Option<String> = ui.data(|d| d.get_temp(id));
     match naming.as_mut() {
         None => {
-            if menu_row(ui, "+  Neues Profil", "", false)
+            if menu_row(ui, "+  Neues Format", "", false)
                 .on_hover_text("Eigenes Format, eigene Größe und eigener Zielordner, z. B. für einen zweiten Bilderrahmen")
                 .clicked()
             {

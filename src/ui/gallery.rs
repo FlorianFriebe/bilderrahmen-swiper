@@ -206,7 +206,7 @@ fn header(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, n: usize) -> bool {
             "Weiter aussuchen",
             "Behaltene Bilder ansehen und auf Stick oder SD-Karte bringen",
         ],
-        area_tip: "Bilderrahmen füllen: Ordner wählen",
+        area_tip: "Sortieren und zuschneiden: Ordner wählen",
         counter: Some((&count, "So viele Bilder hast du behalten")),
     };
     // rechts sitzen vier Knöpfe, links „Zurück“

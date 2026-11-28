@@ -12,7 +12,7 @@ pub(super) fn show(app: &SwiperApp, ui: &mut Ui, w: &mut Wall, cmds: &mut Vec<Cm
     caption(ui, "Druckliste");
     let list = wl::print_list(w, sizes);
     if list.is_empty() {
-        hint(ui, "Noch kein Foto an der Wand.", sp::M);
+        hint(ui, "Noch kein Foto in der Collage.", sp::M);
     }
     for (name, c) in &list {
         field_row(ui, name, |ui| {

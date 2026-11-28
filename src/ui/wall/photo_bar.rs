@@ -197,7 +197,7 @@ fn single(app: &SwiperApp, ui: &mut Ui, area: Rect, target: Rect, i: usize, cmds
         }
     }
     let (glyph, tip, c) = if photo {
-        (icons::X, "Von der Wand nehmen (Entf)", Cmd::TakeOff(i))
+        (icons::X, "Aus der Collage nehmen (Entf)", Cmd::TakeOff(i))
     } else {
         (icons::TRASH, "Platz entfernen (Entf)", Cmd::Remove(i))
     };
@@ -255,7 +255,7 @@ fn multi(app: &SwiperApp, ui: &mut Ui, area: Rect, target: Rect, n: usize, cmds:
     let last = s[8].translate(vec2(sp::S, 0.0));
     kit::vsep(ui.painter(), last.left() - sp::XS, last.center().y);
     if kit::icon_button(ui, last, icons::X, true)
-        .on_hover_text(format!("Alle {n} von der Wand nehmen (Entf)"))
+        .on_hover_text(format!("Alle {n} aus der Collage nehmen (Entf)"))
         .clicked()
     {
         cmds.push(Cmd::TakeOffMany);
@@ -375,7 +375,7 @@ pub(super) fn more(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool
             divider_line(ui);
             caption(ui, "Weißer Rand");
             let cur = usize::from(border.is_some());
-            if let Some(k) = seg(ui, &["Wie die Wand", "Eigener"], cur) {
+            if let Some(k) = seg(ui, &["Wie die Collage", "Eigener"], cur) {
                 border = (k == 1).then_some(wall_border);
             }
             if let Some(b) = border.as_mut() {
@@ -402,7 +402,7 @@ pub(super) fn more(app: &mut SwiperApp, ui: &Ui, i: usize, anchor: Rect) -> bool
         }
         divider_line(ui);
         let (label, c) = if photo.is_some() {
-            ("Von der Wand nehmen", Cmd::TakeOff(i))
+            ("Aus der Collage nehmen", Cmd::TakeOff(i))
         } else {
             ("Platz entfernen", Cmd::Remove(i))
         };

@@ -29,8 +29,8 @@ impl Cut {
     }
     pub fn hint(self) -> &'static str {
         match self {
-            Cut::Ganz => "Das ganze Bild bis zum Rand, wie es an der Wand liegt.",
-            Cut::Weiss => "Was an der Wand verdeckt ist, bleibt weißes Papier.",
+            Cut::Ganz => "Das ganze Bild bis zum Rand, wie es in der Collage liegt.",
+            Cut::Weiss => "Was in der Collage verdeckt ist, bleibt weißes Papier.",
             Cut::WeissLinie => {
                 "Verdecktes bleibt weiß. An der Linie schneidest du es vor dem Kleben weg."
             }
@@ -264,7 +264,7 @@ pub fn file_name(n: usize, total: usize, p: &Piece, sizes: &[PrintSize]) -> Stri
 /// Text für „Einkaufsliste.txt“: was zu drucken ist und wo jedes Foto hinkommt.
 pub fn shopping_list(wall: &Wall, sizes: &[PrintSize], nums: &[Option<usize>]) -> String {
     let mut s = format!(
-        "Fotowand „{}“, {} × {} cm\r\n\r\nDRUCKEN\r\n",
+        "Collage „{}“, {} × {} cm\r\n\r\nDRUCKEN\r\n",
         wall.name,
         fmt_cm(wall.w),
         fmt_cm(wall.h)

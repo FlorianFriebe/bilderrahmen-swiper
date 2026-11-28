@@ -183,7 +183,7 @@ impl SwiperApp {
     pub fn new_wall(&mut self) {
         let n = self.cfg.walls.len() + 1;
         let w = Wall {
-            name: format!("Fotowand {n}"),
+            name: format!("Collage {n}"),
             ..Default::default()
         };
         self.cfg.walls.push(w);
@@ -229,7 +229,7 @@ impl SwiperApp {
             .clone()
             .unwrap_or_else(|| self.cfg.target.clone());
         if let Some(dir) = rfd::FileDialog::new()
-            .set_title("Ordner mit Fotos für die Wand")
+            .set_title("Ordner mit Fotos für die Collage")
             .set_directory(start)
             .pick_folder()
         {
@@ -368,11 +368,11 @@ impl SwiperApp {
             self.wall_fill_empty();
         }
         let msg = if first || added == 0 {
-            format!("{} für die Wand", crate::ui::bilder(n))
+            format!("{} für die Collage", crate::ui::bilder(n))
         } else if added == 1 {
-            "1 neues Bild für die Wand".to_string()
+            "1 neues Bild für die Collage".to_string()
         } else {
-            format!("{added} neue Bilder für die Wand")
+            format!("{added} neue Bilder für die Collage")
         };
         self.toast_with_undo(msg);
     }

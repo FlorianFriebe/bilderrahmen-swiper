@@ -1,4 +1,4 @@
-//! Startseite: zwei Türen, „Bilderrahmen füllen“ (digital) und „Fotowand planen“ (gedruckt).
+//! Startseite: zwei Türen, „Sortieren und zuschneiden“ (digital) und „Collage planen“ (gedruckt).
 //! Jede Tür zeigt ihre drei Schritte, „Weitermachen“ mit einem Klick und den großen Knopf.
 
 use egui::{pos2, vec2, Align2, Color32, Rect, Sense, Stroke, StrokeKind, Ui};
@@ -39,7 +39,7 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     {
         app.gear_popup = !app.gear_popup;
     }
-    if app.gear_popup && !super::popups::app_popup(app, ui, gear, false) {
+    if app.gear_popup && !super::popups::app_popup(app, ui, gear, false, None) {
         app.gear_popup = false;
     }
     super::home::update_corner(app, ui, ws, gear.left() - sp::L);
@@ -119,22 +119,22 @@ pub fn show(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
     let n = app.cfg.walls.len();
     let foot = (n > 0).then(|| {
         if n == 1 {
-            "1 Wand".to_string()
+            "1 Collage".to_string()
         } else {
-            format!("{n} Wände")
+            format!("{n} Collagen")
         }
     });
     let cta = if n == 0 {
-        "Wand anlegen"
+        "Collage anlegen"
     } else {
-        "Alle Wände"
+        "Alle Collagen"
     };
     match door(
         app,
         ui,
         right,
         Area::Wand,
-        "Für gedruckte Fotos an deiner Wand: Wand ausmessen, Fotos anordnen, Druckdateien und Aufhängeplan bekommen.",
+        "Für gedruckte Fotos: Fläche ausmessen, Fotos anordnen, Druckdateien und Aufhängeplan bekommen.",
         resume,
         cta,
         foot.as_deref(),
@@ -184,11 +184,17 @@ fn door(
     p.rect_filled(ic, radius::M, area.soft());
     kit::icon(&p, ic.center(), area.glyph(), 26.0, area.tone());
     let mut y = ic.bottom() + sp::L;
+    // Titel passt immer in die Karte: bei Bedarf etwas kleiner
+    let mut ts_title = ts::DISPLAY * 0.78;
+    let tw = kit::text_size(ui, area.title(), font(ts_title, W::Bold)).x;
+    if tw > inner.width() {
+        ts_title *= inner.width() / tw;
+    }
     p.text(
         pos2(inner.left(), y),
         Align2::LEFT_TOP,
         area.title(),
-        font(ts::DISPLAY * 0.78, W::Bold),
+        font(ts_title, W::Bold),
         text(),
     );
     y += 34.0 + sp::S;
@@ -252,7 +258,7 @@ fn door(
     if kit::cta_in(ui, main, "", cta, true, area.is_wall())
         .on_hover_text(match area {
             kit::Area::Rahmen => "Ordner wählen und Fotos für den Rahmen aussuchen",
-            kit::Area::Wand => "Deine Wände ansehen oder eine neue anlegen",
+            kit::Area::Wand => "Deine Collagen ansehen oder eine neue anlegen",
         })
         .clicked()
     {

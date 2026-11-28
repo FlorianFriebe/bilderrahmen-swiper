@@ -15,7 +15,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
         p.text(
             r.center(),
             Align2::CENTER_CENTER,
-            "Hier loslassen, um das Foto von der Wand zu nehmen",
+            "Hier loslassen, um das Foto aus der Collage zu nehmen",
             font(ts::BODY, W::Medium),
             text(),
         );
@@ -35,13 +35,13 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
         )
     } else if free.is_empty() {
         (
-            "Alle an der Wand".to_string(),
+            "Alle in der Collage".to_string(),
             bilder(app.wall().photos.len()),
         )
     } else {
         (
             format!("{} frei", bilder(free.len())),
-            "Auf die Wand ziehen".to_string(),
+            "In die Collage ziehen".to_string(),
         )
     };
     p.text(
@@ -118,7 +118,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, r: Rect) {
                     let resp = resp
                         .on_hover_cursor(egui::CursorIcon::Grab)
                         .on_hover_text(format!(
-                            "{}\nAuf die Wand ziehen · Doppelklick: zurück an die Wand",
+                            "{}\nIn die Collage ziehen · Doppelklick: zurück in die Collage",
                             crate::folders::file_name(path)
                         ));
                     if resp.drag_started() {
@@ -154,7 +154,7 @@ fn add_tile(app: &mut SwiperApp, ui: &mut Ui, th: f32) {
     let (tr, resp) = ui.allocate_exact_size(vec2((th * 0.75).round(), th), Sense::click());
     let resp = resp
         .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text("Fotos hinzufügen: schon sortiert, Ordner oder für diese Wand aussuchen");
+        .on_hover_text("Fotos hinzufügen: schon sortiert, Ordner oder für diese Collage aussuchen");
     let t = kit::anim(ui, resp.id, resp.hovered());
     let p = ui.painter();
     p.rect_filled(tr, radius::S / 2, control());

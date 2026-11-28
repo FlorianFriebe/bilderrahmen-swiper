@@ -16,15 +16,15 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    die Datei an einen festen Ort kopiert (`%LOCALAPPDATA%\Programs\Bilderrahmen-Swiper`), die Datei
    im Download-Ordner brauchst du danach nicht mehr. Später geht das auch über das **Zahnrad** → *Verknüpfung …* (Startmenü, Desktop oder beides).
 4. Beim ersten Klick auf Start fragt das Programm, **welchen Bilderrahmen du hast**, und öffnet
-   dazu das Profil. Danach zeigt eine kurze Einführung die wichtigsten Handgriffe.
+   dazu das Format. Danach zeigt eine kurze Einführung die wichtigsten Handgriffe.
 
-## Startseite: Rahmen oder Wand
+## Startseite: Sortieren oder Collage
 
 Die Startseite fragt **„Was möchtest du machen?“** und zeigt zwei große Karten:
 
-- **Bilderrahmen füllen** (blau): für deinen **digitalen** Bilderrahmen. Fotos aussuchen,
+- **Sortieren und zuschneiden** (blau): für deinen **digitalen** Bilderrahmen. Fotos aussuchen,
   zuschneiden und auf Stick oder SD-Karte bringen. Schritte: *1 Fotos · 2 Aussuchen · 3 Auf den Rahmen*.
-- **Fotowand planen** (violett): für **gedruckte** Fotos an der Wand. Wand ausmessen, Fotos
+- **Collage planen** (violett): für **gedruckte** Fotos. Fläche ausmessen, Fotos
   anordnen, Druckdateien und Aufhängeplan. Schritte: *1 Maße · 2 Fotos · 3 Export*.
 
 In jeder Karte steht **„Weitermachen“**, wenn du dort schon etwas angefangen hast: ein Klick, und
@@ -32,14 +32,14 @@ du bist genau da, wo du aufgehört hast. Darunter der große Knopf für etwas Ne
 oben rechts enthält, was man einmal einstellt (Zielordner, Farben, Schrift, Tasten, Hilfe).
 
 In beiden Bereichen sitzt oben in der Mitte dieselbe **Leiste**: das **Haus** (zurück zur
-Startseite), der Name des Bereichs (*Rahmen* oder *Wand*) und die drei nummerierten Schritte.
+Startseite), der Name des Bereichs (*Sortieren* oder *Collage*) und die drei nummerierten Schritte.
 Erledigte Schritte bekommen einen Haken, jeder Schritt ist anklickbar. Die Farbe zeigt dir immer,
 wo du bist.
 
 ## In 4 Schritten zu fertigen Bildern
 
-1. **Profil einstellen:** In der Leiste unter dem Start-Knopf öffnet das **Format-Symbol** ein
-   kleines Popup mit deinen **Profilen**. Zu jedem Profil gehören Format und Größe: Unter
+1. **Format einstellen:** In der Leiste unter dem Start-Knopf öffnet das **Format-Symbol** ein
+   kleines Popup mit deinen **Formaten**. Zu jedem Format gehören Seitenverhältnis und Größe: Unter
    *Auflösung* wählst du dein Gerät (z. B. *10 Zoll · 1280 × 800*) oder *Eigene Auflösung …*,
    dann passen Format und Größe automatisch. Mit *Keine Vorgabe* stellst du *Quer* und
    *Hochkant* selbst ein. Beim ersten Öffnen steht nur die Auflösung da, alles andere liegt unter
@@ -238,32 +238,32 @@ Bild neu und ersetzt das alte (gleicher Dateiname), **Weg** nimmt es aus den Beh
 bricht ab. **Rückgängig** wirkt hier nur auf das, was du beim Nachbearbeiten getan hast.
 Löschst du Bilder direkt im Zielordner, verschwinden sie auch hier und gelten als aussortiert.
 
-## Mehrere Profile
+## Mehrere Formate
 
-Im Format-Popup legt **+ Neues Profil** ein weiteres an, z. B. für ein zweites Gerät bei den
-Großeltern. Jedes Profil hat sein eigenes Format, seine eigene Größe und seinen eigenen
-Zielordner (`Bilderrahmen <Name>`), und dasselbe Foto kann für jedes Profil behalten werden.
-Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Profil.
+Im Format-Popup legt **+ Neues Format** ein weiteres an, z. B. für ein zweites Gerät bei den
+Großeltern. Jedes Format hat sein eigenes Seitenverhältnis, seine eigene Größe und seinen eigenen
+Zielordner (`Bilderrahmen <Name>`), und dasselbe Foto kann für jedes Format behalten werden.
+Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Format.
 
-## Fotowand planen
+## Collage planen
 
-Die Karte **Fotowand planen** auf der Startseite öffnet **Deine Fotowände**: jede Wand als Kachel
+Die Karte **Collage planen** auf der Startseite öffnet **Deine Collagen**: jede Collage als Kachel
 mit Miniatur, Maßen, wie viele Plätze schon ein Foto haben, und dem Schritt, in dem sie steht. Ein
-Klick auf eine Kachel macht dort weiter, **Neue Wand** legt eine an. Dort planst du eine Wand voller
+Klick auf eine Kachel macht dort weiter, **Neue Collage** legt eine an. Dort planst du eine Collage voller
 gedruckter Fotos:
 
 Oben in der Mitte führen dich drei **Schritte**: **Maße**, **Fotos** und **Export**. Ein Klick auf
-**Wand** in derselben Leiste zeigt wieder alle Wände. Ein Klick
+**Collage** in derselben Leiste zeigt wieder alle Collagen. Ein Klick
 auf einen Schritt springt hin, der große Knopf unten in der Seitenleiste führt zum nächsten. Die
 Seitenleiste zeigt nur, was zum Schritt gehört. Ein Klick auf ihren Rand (oder die **Tab**-Taste)
 klappt sie ein. Jede Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
 
-Oben links öffnet das **Menü**: zur Startseite, alle Wände, Rückgängig und Wiederholen, Fotos für die
-Wand, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
+Oben links öffnet das **Menü**: zur Startseite, alle Collagen, Rückgängig und Wiederholen, Fotos für die
+Collage, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 
 ### 1. Maße
 
-- **Fläche**: Breite und Höhe in cm und der **Rand** zur Wandkante.
+- **Fläche**: Breite und Höhe in cm und der **Rand** zur Kante.
 - **Hindernisse** (hier oder im Menü „Hindernis einzeichnen“): Fläche aufziehen, die frei
   bleiben soll, z. B. Lichtschalter oder Sofa. In der Liste änderst du Name, Lage, Maße, wie
   viel **Rand** frei bleibt, oder ob Fotos **dahinter** verschwinden dürfen (z. B. hinter dem Sofa).
@@ -271,7 +271,7 @@ Wand, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 ### 2. Fotos
 
 - **Fotos wählen** (das **+** vorn im Band unten oder im Menü): **Schon sortiert** (deine
-  behaltenen Bilder vom Rahmen), **Ordner mit fertigen Fotos** oder **Für diese Wand aussuchen**
+  behaltenen Bilder vom Rahmen), **Ordner mit fertigen Fotos** oder **Für diese Collage aussuchen**
   (siehe unten).
 - **Art**: **Raster** (gleich große Felder), **Reihen** (quer und hochkant gemischt),
   **Lückenlos** (die ganze Fläche voller Fotos, die sich überlappen, siehe unten) oder
@@ -285,7 +285,7 @@ Wand, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 hinten, Bildausschnitt, tauschen, abnehmen und **⋯** für den Rest (Hauptbild, Zuschnitt ändern,
 genaue Lage, eigener Rand). Der Rechtsklick zeigt dasselbe Menü.
 
-- **Von Hand**: Zieh ein Foto, wohin du willst. Ab dann ist die Wand **von Hand angeordnet**:
+- **Von Hand**: Zieh ein Foto, wohin du willst. Ab dann ist die Collage **von Hand angeordnet**:
   Nichts ordnet sich mehr von selbst um. Erst **Neu anordnen** (oben unter den Schritten oder im
   Menü) oder eine Einstellung der Anordnung ordnet alles neu; Strg+Z holt deine Anordnung zurück.
 - Auf ein anderes Foto ziehen tauscht die beiden. Wo sich Fotos überlappen, tauscht das nur mit
@@ -297,16 +297,16 @@ genaue Lage, eigener Rand). Der Rechtsklick zeigt dasselbe Menü.
 - **Mehrere Fotos**: Umschalt-Klick, Rechteck auf einer freien Stelle aufziehen oder Strg+A. Die
   Leiste zeigt dann Ausrichten (links, mittig, rechts, oben, mittig, unten) und **Verteilen**.
 - **Hilfslinien**: Beim Ziehen zeigen blaue Linien, was bündig liegt, und Maße in cm den Abstand
-  zu den Nachbarn und zur Wandkante.
+  zu den Nachbarn und zur Kante.
 - **Bildausschnitt**: Doppelklick auf ein Foto, dann verschiebst du das Bild im Rahmen. Klick
   daneben oder Enter: fertig.
 - **Festpinnen** gibt es nur, wenn du es im Menü einschaltest. Dann bleibt ein Foto mit **P**
   auch beim Neu anordnen, wo es ist.
 
-Unten links steht das Ergebnis, z. B. *72 Bilder an der Wand · 2 unscharf*. Ein Klick darauf
+Unten links steht das Ergebnis, z. B. *72 Bilder in der Collage · 2 unscharf*. Ein Klick darauf
 springt zum nächsten betroffenen Foto. **Unscharf** heißt: zu wenige Pixel für diese Größe
 (unter 200 dpi). **Fast ganz verdeckt** heißt: von einem Foto ist kaum noch etwas zu sehen.
-**Im Weg** heißt: Das Foto liegt auf einem Hindernis oder ragt über die Wand.
+**Im Weg** heißt: Das Foto liegt auf einem Hindernis oder ragt über den Rand.
 
 ### 3. Export
 
@@ -323,10 +323,10 @@ springt zum nächsten betroffenen Foto. **Unscharf** heißt: zu wenige Pixel fü
   bei „Ganz“**.
 - **Nummer auf dem Abzug**: winzig oben links, dieselbe wie im Aufhängeplan.
 
-**Druckdateien speichern** legt neben deinem Zielordner einen Ordner *Fotowand – <Name>* an:
+**Druckdateien speichern** legt neben deinem Zielordner einen Ordner *Collage – <Name>* an:
 - `Druck/` mit einer Datei je Abzug in 300 dpi, mit Nummer und Größe im Namen
   (z. B. `07_10x15_Strand.jpg`).
-- `Aufhängeplan.png`: die Wand mit allen Nummern.
+- `Aufhängeplan.png`: die Collage mit allen Nummern.
 - `Einkaufsliste.txt`: was du bestellen musst und wo jedes Foto hängt (cm ab links oben).
 
 Speicherst du noch einmal, wandern die alten Dateien in den `.papierkorb` in diesem Ordner. Die
@@ -335,17 +335,17 @@ Originale bleiben, wie sie sind.
 ### Ansicht und Tasten
 
 - **Zoom**: Strg + Mausrad, zwei Finger auf dem Touchpad, Strg + / − oder die Knöpfe unten
-  rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Wand. Verschieben
+  rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Collage. Verschieben
   mit gedrückter Leertaste oder mittlerer Maustaste.
 - **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **Strg+↑/↓**
   ändert die Ebene, **Entf** nimmt sie ab, **Strg+A** wählt alle, **Esc** hebt die Auswahl auf,
   **Tab** klappt die Seitenleiste ein und aus, **Strg+Z** nimmt jeden Schritt zurück, **Strg+Y**
-  holt ihn wieder. Alles wird automatisch gespeichert, auch mehrere Wände (Klick auf den Namen
-  der Wand).
+  holt ihn wieder. Alles wird automatisch gespeichert, auch mehrere Collagen (Klick auf den Namen
+  der Collage).
 
 ### Lückenlose Collage
 
-Wie die Wände aus vielen sich überlappenden Abzügen: Die Fläche innerhalb des Rands wird ganz mit
+Wie die Collagen aus vielen sich überlappenden Abzügen: Die Fläche innerhalb des Rands wird ganz mit
 Fotos gefüllt, ohne Lücken. Unter Anordnung stellst du ein:
 
 - **Größen**: wie oft jede Druckgröße vorkommt, z. B. 70 % 10x15, 25 % 13x18 und 5 % 20x30.
@@ -358,24 +358,24 @@ Fotos gefüllt, ohne Lücken. Unter Anordnung stellst du ein:
 - **Obenauf**: zufällig, große unten oder neue oben.
 - **Würfeln**: eine neue zufällige Collage mit denselben Einstellungen.
 
-Die Wand nimmt so viele Fotos, wie sie zum Füllen braucht; fehlen welche, bleiben leere Plätze.
+Die Collage nimmt so viele Fotos, wie sie zum Füllen braucht; fehlen welche, bleiben leere Plätze.
 
-### Für diese Wand aussuchen
+### Für diese Collage aussuchen
 
-Hast du die Fotos noch nicht ausgesucht, plane erst die Wand und wähle dann im Bilder-Menü
-**Für diese Wand aussuchen**. Die App legt ein Profil mit dem Namen der Wand und einem eigenen
+Hast du die Fotos noch nicht ausgesucht, plane erst die Collage und wähle dann im Bilder-Menü
+**Für diese Collage aussuchen**. Die App legt ein Format mit dem Namen der Collage und einem eigenen
 Ordner an (neben deinem bisherigen Zielordner) und zeigt dir die Ordner. Ein **violetter Streifen**
-oben sagt die ganze Zeit, für welche Wand du aussuchst. Dort wischst du wie gewohnt:
+oben sagt die ganze Zeit, für welche Collage du aussuchst. Dort wischst du wie gewohnt:
 
 - Behaltene Fotos werden gleich im Format des Abzugs zugeschnitten (z. B. 10x15).
 - Der Streifen zeigt, wie viele du schon hast: *12 von 28 · noch 16 · Zuschnitt 10x15*.
-  **Zurück zur Wand** bringt dich zur Wand, **✕** beendet das Aussuchen für die Wand.
-- An der Wand füllen neue Bilder von selbst die freien Plätze. **Zuschnitt ändern** (Rechtsklick
-  aufs Foto) öffnet den Zuschnitt, danach bist du wieder an der Wand.
-- Änderst du die Wand, passen sich Ziel und Zuschnitt an. Gehst du über die Startseite zu
-  **Bilderrahmen füllen**, gilt wieder dein Bilderrahmen.
+  **Zurück zur Collage** bringt dich zur Collage, **✕** beendet das Aussuchen für die Collage.
+- In der Collage füllen neue Bilder von selbst die freien Plätze. **Zuschnitt ändern** (Rechtsklick
+  aufs Foto) öffnet den Zuschnitt, danach bist du wieder in der Collage.
+- Änderst du die Collage, passen sich Ziel und Zuschnitt an. Gehst du über die Startseite zu
+  **Sortieren und zuschneiden**, gilt wieder dein Bilderrahmen.
 
-Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über die Wand. Gelbe Umrandung mit
+Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über den Rand. Gelbe Umrandung mit
 Prozentzahl: mehr als die Hälfte vom Foto ist verdeckt (bei Lückenlos: weniger sichtbar als
 eingestellt). Die App rechnet mit den echten Maßen der Abzüge
 (10x15 ist meist 10,2 × 15,2 cm); weichen deine ab, änderst du sie unter *Echte Druckmaße*.

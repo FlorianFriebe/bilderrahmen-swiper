@@ -321,7 +321,7 @@ fn crop_ratio_follows_the_real_print() {
 #[test]
 fn folder_names_are_safe() {
     assert_eq!(safe_name("Flur: oben/links"), "Flur_ oben_links");
-    assert_eq!(safe_name("  "), "Fotowand");
+    assert_eq!(safe_name("  "), "Collage");
     assert_eq!(safe_name("Wand."), "Wand");
 }
 
@@ -475,4 +475,16 @@ fn lueckenlos_keeps_obstacles_free() {
     for q in arrange(&w, &s) {
         assert!(q.area(&s).overlap(&keep) <= 0.0);
     }
+}
+
+#[test]
+fn old_default_names_become_collage() {
+    use super::renamed_default;
+    assert_eq!(
+        renamed_default("Meine Fotowand").as_deref(),
+        Some("Meine Collage")
+    );
+    assert_eq!(renamed_default("Fotowand 3").as_deref(), Some("Collage 3"));
+    assert_eq!(renamed_default("Fotowand Flur"), None);
+    assert_eq!(renamed_default("Wohnzimmer"), None);
 }

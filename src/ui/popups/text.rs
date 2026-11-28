@@ -5,8 +5,14 @@ use super::*;
 // ------------------------------------------------------------------ Text
 
 /// Text-Popup: Aus, Datum, Datum + Ort; darunter Stil und Datumsformat.
-pub fn text_popup(app: &mut SwiperApp, ui: &Ui, item: Rect, above: bool) -> bool {
-    form_popup(ui, "text", item, 320.0, above, |ui| {
+pub fn text_popup(
+    app: &mut SwiperApp,
+    ui: &Ui,
+    item: Rect,
+    above: bool,
+    bounds: Option<Rect>,
+) -> bool {
+    form_popup_in(ui, "text", item, BAR_POPUP_W, above, bounds, |ui| {
         let mut close = false;
         let t = &app.cfg.text;
         let sample = DATE_FORMATS.get(t.date_fmt).copied().unwrap_or("Datum");
