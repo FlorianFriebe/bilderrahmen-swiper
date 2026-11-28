@@ -196,13 +196,54 @@ fn header(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, n: usize) -> bool {
         };
         return false;
     }
-    ui.painter().text(
-        pos2(ws.center().x, back.center().y),
-        Align2::CENTER_CENTER,
-        format!("Behaltene Bilder ({})", fmt_int(n)),
-        font(ts::TITLE, W::Semibold),
-        text(),
-    );
+    // im Bereich Rahmen: dieselbe Pille wie auf der Startseite des Rahmens, Schritt 3
+    let count = fmt_int(n);
+    let pill = kit::Pill {
+        area: kit::Area::Rahmen,
+        step: Some(2),
+        tips: [
+            "Ordner wählen: welche Fotos kommen dran?",
+            "Weiter aussuchen",
+            "Behaltene Bilder ansehen und auf Stick oder SD-Karte bringen",
+        ],
+        area_tip: "Sortieren und zuschneiden: Ordner wählen",
+        counter: Some((&count, "So viele Bilder hast du behalten")),
+    };
+    // rechts sitzen vier Knöpfe, links „Zurück“
+    let room = ws.width() - 2.0 * (size::BAR * 4.0 + sp::XS * 4.0 + sp::L);
+    if app.sorting_wall().is_none() && kit::area_pill_width(ui, size::BAR, &pill) <= room {
+        let (_, act) = kit::area_pill(ui, pos2(ws.center().x, back.center().y), size::BAR, &pill);
+        match act {
+            Some(kit::PillAct::Home) => {
+                app.go_start();
+                return false;
+            }
+            Some(kit::PillAct::Area | kit::PillAct::Step(0)) => {
+                app.view = View::Home;
+                return false;
+            }
+            Some(kit::PillAct::Step(1)) => {
+                app.view = if app.folder.is_some() && app.current().is_some() {
+                    View::Swipe
+                } else {
+                    View::Home
+                };
+                if app.view == View::Home {
+                    crate::ui::home::start(app);
+                }
+                return false;
+            }
+            _ => {}
+        }
+    } else {
+        ui.painter().text(
+            pos2(ws.center().x, back.center().y),
+            Align2::CENTER_CENTER,
+            format!("Behaltene Bilder ({})", fmt_int(n)),
+            font(ts::TITLE, W::Semibold),
+            text(),
+        );
+    }
     let mut right = ws.right();
     // Diashow-Einstellungen (kleiner Knopf ganz rechts)
     let gear = Rect::from_min_size(

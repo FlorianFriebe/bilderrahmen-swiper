@@ -45,6 +45,8 @@ pub enum Cmd {
     OpenSize(usize, Rect),
     /// „Mehr“ an einem Foto
     OpenMore(usize, Rect),
+    /// Lage in cm an einem Foto
+    OpenPos(usize, Rect),
 }
 
 pub(super) fn run(app: &mut SwiperApp, c: Cmd) {
@@ -129,5 +131,6 @@ pub(super) fn run(app: &mut SwiperApp, c: Cmd) {
         Cmd::OpenPhotos(r) => app.wall_ui.popup = Some((Popup::Photos, r)),
         Cmd::OpenSize(i, r) => app.wall_ui.popup = Some((Popup::Size(i), r)),
         Cmd::OpenMore(i, r) => app.wall_ui.popup = Some((Popup::More(i), r)),
+        Cmd::OpenPos(i, r) => app.wall_ui.popup = Some((Popup::Pos(i), r)),
     }
 }

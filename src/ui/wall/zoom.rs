@@ -1,5 +1,5 @@
 //! Zoom und Verschieben der Wand: Strg + Mausrad, zwei Finger, Strg + / − / 0, Mausrad schiebt,
-//! Leertaste oder mittlere Maustaste ziehen die Ansicht.
+//! Leertaste oder mittlere Maustaste ziehen die Ansicht, Z zoomt auf die Auswahl.
 
 use super::*;
 
@@ -12,6 +12,36 @@ pub fn step(app: &mut SwiperApp, f: f32) {
     let nz = (z * f).clamp(MIN, MAX);
     app.wall_ui.pan *= nz / z;
     app.wall_ui.zoom = nz;
+}
+
+/// Auf die ausgewählten Fotos zoomen (ohne Auswahl: ganze Collage).
+pub fn to_selection(app: &mut SwiperApp) {
+    let idx = app.wall_selected();
+    let (Some(avail), false) = (app.wall_ui.avail, idx.is_empty()) else {
+        return fit(app);
+    };
+    let sizes = app.sizes();
+    let w = app.wall();
+    let (ww, wh) = (w.w.max(1.0), w.h.max(1.0));
+    let mut a = w.pieces[idx[0]].area(sizes);
+    for &i in &idx[1..] {
+        let b = w.pieces[i].area(sizes);
+        let (x0, y0) = (a.x.min(b.x), a.y.min(b.y));
+        let (x1, y1) = (a.right().max(b.right()), a.bottom().max(b.bottom()));
+        a = crate::wall::Area {
+            x: x0,
+            y: y0,
+            w: x1 - x0,
+            h: y1 - y0,
+        };
+    }
+    let fit_s = (avail.width() / ww).min(avail.height() / wh).max(0.01);
+    let z = (avail.width() / (a.w * fit_s)).min(avail.height() / (a.h * fit_s)) * 0.7;
+    let z = z.clamp(MIN, MAX);
+    let s = fit_s * z;
+    let (cx, cy) = (a.x + a.w / 2.0, a.y + a.h / 2.0);
+    app.wall_ui.zoom = z;
+    app.wall_ui.pan = vec2((ww / 2.0 - cx) * s, (wh / 2.0 - cy) * s);
 }
 
 /// Ganze Wand einpassen.

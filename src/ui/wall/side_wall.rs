@@ -17,7 +17,7 @@ pub(super) fn show(app: &SwiperApp, ui: &mut Ui, w: &mut Wall, cmds: &mut Vec<Cm
     });
     field_row(ui, "Rand zur Kante", |ui| {
         ui.add(cm(&mut w.margin, 0.0..=100.0, 0.5))
-            .on_hover_text("So viel bleibt zur Wandkante frei");
+            .on_hover_text("So viel bleibt zur Kante frei");
     });
     divider_line(ui);
     caption(ui, "Hindernisse");
@@ -51,7 +51,7 @@ pub(super) fn show(app: &SwiperApp, ui: &mut Ui, w: &mut Wall, cmds: &mut Vec<Cm
     }
     let drawing = app.wall_ui.draw;
     let sub = if drawing {
-        "Zieh jetzt auf der Wand eine Fläche auf"
+        "Zieh jetzt in der Collage eine Fläche auf"
     } else {
         "Fläche, die frei bleiben soll"
     };

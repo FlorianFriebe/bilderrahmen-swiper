@@ -41,6 +41,8 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     view_ui.multiply_opacity(fade);
     app.spots.chips_bottom = None;
     match app.view {
+        View::Start => super::start::show(app, &mut view_ui, ws),
+        View::Walls => super::walls::show(app, &mut view_ui, ws),
         View::Home => home::show(app, &mut view_ui, ws),
         View::Swipe => swipe::show(app, &mut view_ui, full, ws, now),
         View::Gallery => gallery::show(app, &mut view_ui, ws),
@@ -61,7 +63,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
     if app.intro_step.is_some() {
         dialogs::intro(app, ui, full);
     }
-    if app.view == View::Home && app.dialog.is_none() {
+    if matches!(app.view, View::Home | View::Start) && app.dialog.is_none() {
         dialogs::start_notes(app, ui);
     }
     match app.dialog {
@@ -94,7 +96,7 @@ pub fn frame(app: &mut SwiperApp, ui: &mut Ui) {
         let age = now - t0;
         let alpha = (age / 0.2).min((TOAST_SECS - age) / 0.4).clamp(0.0, 1.0) as f32;
         // Startseite: unten einblenden, damit die Überschrift lesbar bleibt
-        let anchor = if app.view == View::Home {
+        let anchor = if matches!(app.view, View::Home | View::Start | View::Walls) {
             pos2(ws.center().x, ws.bottom() - 40.0 - sp::XL)
         } else {
             pos2(
@@ -309,6 +311,8 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
         } else if app.view == View::Wall {
             // Esc hebt in der Fotowand nur auf, Zurück geht über das Menü
             app.wall_ui.close_one();
+        } else if app.view == View::Walls {
+            app.go_start();
         } else if matches!(app.view, View::Gallery | View::Burst) {
             app.view = if app.view == View::Burst || app.folder.is_some() && app.current().is_some()
             {
@@ -362,6 +366,7 @@ fn handle_keys(app: &mut SwiperApp, ui: &Ui, now: f64, width: f32) {
             }
             wall::keys(app, &ctx);
         }
+        View::Start | View::Walls => {}
     }
 }
 

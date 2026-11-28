@@ -175,6 +175,9 @@ palette! {
     /// Auswahl, Links, aktive Werkzeuge
     accent = hex(0x60a5fa), hex(0x2563eb);
     accent_soft = hexa(0x60a5fa, 46), hexa(0x2563eb, 30);
+    /// Bereich Fotowand (violett), der Bereich Rahmen nutzt `accent`
+    wall_tone = hex(0xc4b5fd), hex(0x6d28d9);
+    wall_soft = hexa(0xa78bfa, 46), hexa(0x7c3aed, 30);
     keep = hex(0x4ade80), hex(0x16a34a);
     keep_soft = hexa(0x22c55e, 36), hexa(0x22c55e, 40);
     skip = hex(0xfca5a5), hex(0xdc2626);
@@ -191,6 +194,9 @@ pub const RED: Color32 = hex(0xef4444);
 pub const BLUE: Color32 = hex(0x3b82f6);
 pub const BLUE_DARK: Color32 = hex(0x2563eb);
 pub const AMBER: Color32 = hex(0xf59e0b);
+/// Hauptknopf im Bereich Fotowand
+pub const VIOLET: Color32 = hex(0x8b5cf6);
+pub const VIOLET_DARK: Color32 = hex(0x7c3aed);
 /// Schrift auf weißen Flächen (gewähltes Segment, heller Knopf)
 pub const INK: Color32 = hex(0x111318);
 /// heller Knopf: gedrückt / Schrift

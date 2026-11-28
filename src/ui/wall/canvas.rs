@@ -10,7 +10,7 @@ use super::{drag, piece, resize, zoom};
 use crate::wall::Area;
 
 /// Platz für das Lineal oben und links.
-const RULER: f32 = 22.0;
+pub(super) const RULER: f32 = 22.0;
 /// Wand-Rechteck auf dem Bildschirm und Umrechnungen.
 #[derive(Clone, Copy)]
 pub(super) struct View2 {
@@ -37,6 +37,13 @@ pub(super) fn view_of(app: &SwiperApp) -> Option<View2> {
     app.wall_ui.wall_rect.map(|(wr, s)| View2 { wr, s })
 }
 
+/// Reihenfolge beim Zeichnen: leere Plätze immer unten, Fotos darüber in ihrer Ebene.
+pub(super) fn draw_order(pieces: &[crate::wall::Piece]) -> Vec<usize> {
+    let (empty, photos): (Vec<usize>, Vec<usize>) =
+        (0..pieces.len()).partition(|&i| pieces[i].photo.is_none());
+    empty.into_iter().chain(photos).collect()
+}
+
 /// Was unter dem Punkt (cm) liegt: im Schritt Wand Hindernisse, sonst der oberste Platz;
 /// danach die freie Wand.
 pub(super) fn hit_test(app: &SwiperApp, x: f32, y: f32, skip: Option<usize>) -> Option<Hit> {
@@ -46,7 +53,8 @@ pub(super) fn hit_test(app: &SwiperApp, x: f32, y: f32, skip: Option<usize>) -> 
         if let Some(i) = w.obstacles.iter().rposition(|o| o.area.contains(x, y)) {
             return Some(Hit::Obstacle(i));
         }
-    } else if let Some(i) = (0..w.pieces.len())
+    } else if let Some(i) = draw_order(&w.pieces)
+        .into_iter()
         .rev()
         .filter(|i| Some(*i) != skip)
         .find(|i| w.pieces[*i].area(sizes).contains(x, y))
@@ -65,6 +73,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         Sense::click_and_drag(),
     );
     zoom::input(app, ui, area, avail.center());
+    app.wall_ui.avail = Some(avail);
     let fit = (avail.width() / ww).min(avail.height() / wh).max(0.01);
     let s = fit * app.wall_ui.zoom();
     zoom::clamp(app, area, vec2(ww * s, wh * s));
@@ -109,6 +118,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
     let middle = ui.input(|i| i.pointer.middle_down());
     let shift = ui.input(|i| i.modifiers.shift);
     app.wall_ui.alt = ui.input(|i| i.modifiers.alt);
+    app.wall_ui.ctrl = ui.input(|i| i.modifiers.command);
     let corner = hover.and_then(|h| resize::corner_at(app, v, h));
     if (resp.drag_started() || (middle && resp.hovered())) && app.wall_ui.drag.is_none() {
         if let Some(o) = ui.input(|i| i.pointer.press_origin()) {
@@ -116,6 +126,11 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
             app.wall_ui.menu = None;
             app.wall_ui.drag = if space || middle || step == Step::Export {
                 Some(Drag::Pan)
+            } else if let Some(up) = rulers::on_ruler(v, o).filter(|_| !app.wall_ui.draw) {
+                Some(Drag::Guide(up, None))
+            } else if let Some((up, k)) = rulers::guide_at(app, v, o).filter(|_| !app.wall_ui.draw)
+            {
+                Some(Drag::Guide(up, Some(k)))
             } else if app.wall_ui.draw {
                 Some(Drag::NewObstacle((x.clamp(0.0, ww), y.clamp(0.0, wh))))
             } else if let Some((idx, right, bottom)) = resize::corner_at(app, v, o) {
@@ -167,8 +182,15 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         vec![]
     };
     let moving = drag::moving(app);
-    let pointer = ui.input(|i| i.pointer.latest_pos());
-    let swap = drag::swap_hint(app, v, pointer);
+    let jump = std::mem::take(&mut app.wall_ui.jump);
+    let (pointer, now) = ui.input(|i| (i.pointer.latest_pos(), i.time));
+    drag::update_hold(app, v, pointer, now);
+    if app.wall_ui.hold.is_some() {
+        // Tauschen durch Halten: auch ohne Mausbewegung neu zeichnen
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_millis(100));
+    }
+    let swap = drag::swap_hint(app, v, pointer, now);
     let behind: Vec<Area> = app
         .wall()
         .obstacles
@@ -184,11 +206,16 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         Some(t) => p.with_clip_rect(t.intersect(area)),
         None => p,
     };
-    for i in 0..n {
+    let order = if n == 0 {
+        vec![]
+    } else {
+        draw_order(&app.wall().pieces)
+    };
+    for i in order {
         let w = app.wall();
         let pc = w.pieces[i].clone();
         let target = pc.area(&sizes);
-        let a = glide(ui, &pc, i, target);
+        let a = glide(ui, &pc, i, target, jump);
         let r = v.px(a);
         let cov = wl::covered(&w.pieces, &sizes, i);
         let blocked = wl::blocked(w, &sizes, &pc);
@@ -240,6 +267,7 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
                 &app.wall().pieces[i],
                 i,
                 app.wall().pieces[i].area(&sizes),
+                jump,
             );
             resize::handles(&p, v.px(a));
         }
@@ -262,12 +290,26 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         p.rect_stroke(r, 2, Stroke::new(2.0, accent()), StrokeKind::Outside);
     }
 
+    let moving_guide = match app.wall_ui.drag {
+        Some(Drag::Guide(up, Some(k))) => Some((up, k)),
+        _ => None,
+    };
+    rulers::draw(app, &p, v, moving_guide);
     drag::preview(app, &p, v, pointer, swap);
 
     // Klicks, Menü, Mauszeiger
     if app.wall_ui.drag.is_none() {
+        let ruler = hover.and_then(|h| {
+            rulers::on_ruler(v, h).or_else(|| rulers::guide_at(app, v, h).map(|g| g.0))
+        });
         if (space || step == Step::Export) && resp.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::Grab);
+        } else if let Some(up) = ruler.filter(|_| !app.wall_ui.draw) {
+            ui.ctx().set_cursor_icon(if up {
+                CursorIcon::ResizeHorizontal
+            } else {
+                CursorIcon::ResizeVertical
+            });
         } else if let Some((_, right, bottom)) = corner {
             ui.ctx().set_cursor_icon(resize_cursor(right, bottom));
         } else if hit.is_some() && hit == app.wall_ui.focus.map(Hit::Piece) {
@@ -286,6 +328,12 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
         }
     } else if let Some(Drag::Resize { right, bottom, .. }) = app.wall_ui.drag {
         ui.ctx().set_cursor_icon(resize_cursor(right, bottom));
+    } else if let Some(Drag::Guide(up, _)) = app.wall_ui.drag {
+        ui.ctx().set_cursor_icon(if up {
+            CursorIcon::ResizeHorizontal
+        } else {
+            CursorIcon::ResizeVertical
+        });
     } else {
         ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
     }
@@ -321,10 +369,13 @@ pub(super) fn show(app: &mut SwiperApp, ui: &mut Ui, area: Rect) {
             } else {
                 drag::fill_empty(app, i);
             }
+        } else if let Some(Hit::Wall(x, y)) = hit {
+            // Doppelklick auf eine freie Stelle: das nächste Foto genau dorthin
+            app.wall_place_next(x, y);
         }
     }
     if resp.secondary_clicked() && step != Step::Export {
-        if let (Some(h @ (Hit::Piece(_) | Hit::Obstacle(_))), Some(at)) = (hit, hover) {
+        if let (Some(h), Some(at)) = (hit, hover) {
             app.wall_ui.menu = Some((h, at));
             match h {
                 Hit::Piece(i) if app.wall_ui.multi.contains(&i) => {}

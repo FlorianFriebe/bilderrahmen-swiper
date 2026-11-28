@@ -5,56 +5,75 @@ use super::*;
 // ------------------------------------------------------------------ obere Leiste
 
 pub(super) fn top_bar(app: &mut SwiperApp, ui: &mut Ui, ws: Rect) {
-    let p = ui.painter().clone();
-    let pad = sp::S;
-    let h = size::CONTROL;
     let cy = ws.top() + size::TOPBAR / 2.0;
-    // oben: Fotowand und der Behalten-Zähler; Einstellungen sitzen unten in der Leiste
-    let kept = (app.total_kept > 0).then(|| format!("{} behalten", fmt_int(app.total_kept)));
-    let kept_w = kept
-        .as_ref()
-        .map(|k| kit::pill_width(ui, k) + sp::XS)
-        .unwrap_or(0.0);
-    let bar = Rect::from_center_size(
-        pos2(ws.center().x, cy),
-        vec2(pad * 2.0 + h + kept_w, size::TOPBAR),
-    );
-    kit::glass(&p, bar, radius::XL - 2);
-    let wall = Rect::from_min_size(pos2(bar.left() + pad, cy - h / 2.0), vec2(h, h));
-    if kit::icon_button(ui, wall, icons::WALL, true)
-        .on_hover_text(
-            "Fotowand planen: wie viele Fotos passen an deine Wand, und wie sieht es aus?",
-        )
-        .clicked()
-    {
-        app.open_wall();
-    }
-    if let Some(kept) = kept {
-        let r = Rect::from_min_size(
-            pos2(wall.right() + sp::XS, cy - h / 2.0),
-            vec2(kept_w - sp::XS, h),
-        );
-        if kit::pill(ui, r, icons::HEART, &kept, Tone::Keep)
-            .on_hover_text(format!(
-                "Behaltene Bilder ansehen ({})",
-                app.key_label("gallery")
-            ))
-            .clicked()
-        {
-            app.open_gallery();
+    // Aussuchen für eine Wand gehört zum Bereich Wand, Schritt 2
+    let for_wall = app.sorting_wall().is_some();
+    let kept = (app.total_kept > 0 && !for_wall).then(|| fmt_int(app.total_kept));
+    let tip = format!("Behaltene Bilder ansehen ({})", app.key_label("gallery"));
+    let pill = if for_wall {
+        kit::Pill {
+            area: kit::Area::Wand,
+            step: Some(1),
+            tips: [
+                "Zurück zur Collage: Maße und Hindernisse",
+                "Zurück zur Collage: Fotos anordnen",
+                "Zurück zur Collage: Druckdateien und Aufhängeplan",
+            ],
+            area_tip: "Aussuchen beenden und alle Collagen zeigen",
+            counter: None,
         }
-    }
+    } else {
+        kit::Pill {
+            area: kit::Area::Rahmen,
+            step: Some(0),
+            tips: [
+                "Ordner wählen: welche Fotos kommen dran?",
+                "Mit den gewählten Ordnern loslegen (Enter)",
+                "Galerie: behaltene Bilder ansehen und auf Stick oder SD-Karte bringen",
+            ],
+            area_tip: "Sortieren und zuschneiden: Ordner wählen",
+            counter: kept.as_deref().map(|k| (k, tip.as_str())),
+        }
+    };
+    let (bar, act) = kit::area_pill(ui, pos2(ws.center().x, cy), size::TOPBAR, &pill);
     app.spots.menu = Some(bar);
+    match (for_wall, act) {
+        (_, Some(kit::PillAct::Home)) => app.go_start(),
+        (false, Some(kit::PillAct::Step(1))) => start(app),
+        (false, Some(kit::PillAct::Step(2) | kit::PillAct::Counter)) => app.open_gallery(),
+        (true, Some(kit::PillAct::Area)) => {
+            app.leave_wall_sort();
+            app.open_walls();
+        }
+        (true, Some(kit::PillAct::Step(i))) => {
+            app.open_sorting_wall();
+            app.wall_ui.go(crate::ui::wall::Step::ALL[i]);
+        }
+        _ => {}
+    }
+    update_corner(app, ui, ws, bar.right() + sp::L);
+}
 
+/// Hinweis auf eine neue Version oben rechts (Startseite und Bereich Rahmen).
+pub fn update_corner(app: &mut SwiperApp, ui: &mut Ui, ws: Rect, limit: f32) {
+    let cy = ws.top() + size::TOPBAR / 2.0;
     let update = app.update.lock().unwrap().clone();
     if let Some(v) = update {
         let (label, tip, tone) = update_chip(app, &v);
         let w = kit::chip_width(ui, icons::DOWNLOAD, &label);
-        let r = Rect::from_min_size(
-            pos2(ws.right() - w, cy - size::BAR / 2.0),
-            vec2(w, size::BAR),
-        );
-        if r.left() > bar.right() + sp::L
+        // rechts von `limit` (Startseite: links vom Zahnrad, dann wird rechtsbündig dorthin gerückt)
+        let right = if limit > ws.center().x {
+            ws.right()
+        } else {
+            limit
+        };
+        let r = Rect::from_min_size(pos2(right - w, cy - size::BAR / 2.0), vec2(w, size::BAR));
+        let fits = if limit > ws.center().x {
+            r.left() > limit
+        } else {
+            r.left() > ws.left()
+        };
+        if fits
             && kit::chip(ui, r, icons::DOWNLOAD, false, &label, tone)
                 .on_hover_text(tip)
                 .clicked()

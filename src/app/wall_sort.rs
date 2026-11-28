@@ -56,7 +56,7 @@ impl SwiperApp {
         }
         let w = self.wall();
         let msg = format!(
-            "Sortieren für „{}“: Ziel {}, Zuschnitt {}",
+            "Aussuchen für „{}“: Ziel {}, Zuschnitt {}",
             w.name,
             crate::ui::bilder(w.pieces.len()),
             w.size
@@ -80,11 +80,12 @@ impl SwiperApp {
             self.cfg.profiles.iter().any(|p| &p.target == t)
                 || self.cfg.walls.iter().any(|w| w.target.as_ref() == Some(t))
         };
-        // „Flur“ → „Fotowand Flur“, „Meine Fotowand“ bleibt, wie es ist
-        let stem = if clean.to_lowercase().contains("wand") {
+        // „Flur“ → „Collage Flur“, „Meine Collage“ bleibt, wie es ist
+        let l = clean.to_lowercase();
+        let stem = if l.contains("wand") || l.contains("collage") {
             clean
         } else {
-            format!("Fotowand {clean}")
+            format!("Collage {clean}")
         };
         let mut t = base.join(&stem);
         let mut n = 2;

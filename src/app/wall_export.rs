@@ -43,7 +43,7 @@ impl SwiperApp {
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
             .unwrap_or(t);
-        base.join(format!("Fotowand – {}", wl::safe_name(&self.wall().name)))
+        base.join(format!("Collage – {}", wl::safe_name(&self.wall().name)))
     }
 
     /// Alles für Schritt 3 speichern. Läuft im Hintergrund; `poll_wall_export` meldet.
@@ -56,7 +56,7 @@ impl SwiperApp {
         let nums = wl::numbers(&w, &sizes);
         let total = nums.iter().flatten().count();
         if total == 0 {
-            self.toast("Noch kein Foto an der Wand.".into());
+            self.toast("Noch kein Foto in der Collage.".into());
             return;
         }
         let e = w.export.clone();
@@ -81,7 +81,7 @@ impl SwiperApp {
         let dir = self.wall_export_dir();
         trash_old(&dir);
         let list = wl::shopping_list(&w, &sizes, &nums);
-        let title = format!("Fotowand „{}“", w.name);
+        let title = format!("Collage „{}“", w.name);
         let (ww, wh) = (w.w, w.h);
         let clip = w.trims().then(|| {
             let a = w.inner();

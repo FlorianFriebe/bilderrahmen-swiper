@@ -16,12 +16,30 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
    die Datei an einen festen Ort kopiert (`%LOCALAPPDATA%\Programs\Bilderrahmen-Swiper`), die Datei
    im Download-Ordner brauchst du danach nicht mehr. Später geht das auch über das **Zahnrad** → *Verknüpfung …* (Startmenü, Desktop oder beides).
 4. Beim ersten Klick auf Start fragt das Programm, **welchen Bilderrahmen du hast**, und öffnet
-   dazu das Profil. Danach zeigt eine kurze Einführung die wichtigsten Handgriffe.
+   dazu das Format. Danach zeigt eine kurze Einführung die wichtigsten Handgriffe.
+
+## Startseite: Sortieren oder Collage
+
+Die Startseite fragt **„Was möchtest du machen?“** und zeigt zwei große Karten:
+
+- **Sortieren und zuschneiden** (blau): für deinen **digitalen** Bilderrahmen. Fotos aussuchen,
+  zuschneiden und auf Stick oder SD-Karte bringen. Schritte: *1 Fotos · 2 Aussuchen · 3 Auf den Rahmen*.
+- **Collage planen** (violett): für **gedruckte** Fotos. Fläche ausmessen, Fotos
+  anordnen, Druckdateien und Aufhängeplan. Schritte: *1 Maße · 2 Fotos · 3 Export*.
+
+In jeder Karte steht **„Weitermachen“**, wenn du dort schon etwas angefangen hast: ein Klick, und
+du bist genau da, wo du aufgehört hast. Darunter der große Knopf für etwas Neues. Das **Zahnrad**
+oben rechts enthält, was man einmal einstellt (Zielordner, Farben, Schrift, Tasten, Hilfe).
+
+In beiden Bereichen sitzt oben in der Mitte dieselbe **Leiste**: das **Haus** (zurück zur
+Startseite), der Name des Bereichs (*Sortieren* oder *Collage*) und die drei nummerierten Schritte.
+Erledigte Schritte bekommen einen Haken, jeder Schritt ist anklickbar. Die Farbe zeigt dir immer,
+wo du bist.
 
 ## In 4 Schritten zu fertigen Bildern
 
-1. **Profil einstellen:** In der Leiste unter dem Start-Knopf öffnet das **Format-Symbol** ein
-   kleines Popup mit deinen **Profilen**. Zu jedem Profil gehören Format und Größe: Unter
+1. **Format einstellen:** In der Leiste unter dem Start-Knopf öffnet das **Format-Symbol** ein
+   kleines Popup mit deinen **Formaten**. Zu jedem Format gehören Seitenverhältnis und Größe: Unter
    *Auflösung* wählst du dein Gerät (z. B. *10 Zoll · 1280 × 800*) oder *Eigene Auflösung …*,
    dann passen Format und Größe automatisch. Mit *Keine Vorgabe* stellst du *Quer* und
    *Hochkant* selbst ein. Beim ersten Öffnen steht nur die Auflösung da, alles andere liegt unter
@@ -44,9 +62,9 @@ sortiert in einen neuen Ordner kopiert. **Deine Originale werden nie verändert.
 3. **Loslegen:** Daneben wählst du den **Ablauf**: **1 Durchgang** (alles auf einmal) oder
    **2 Durchgänge** (erst sortieren, dann Feinschliff, siehe unten). Die Fotos kommen nach Aufnahmedatum
    sortiert. Ist ein Ordner durch, zeigt eine Abschlussseite, wie viele Fotos du behalten und
-   aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit zum
-   Startbildschirm; dein Stand steht dann unter **„Weitermachen“**.
-4. **Auf den Rahmen bringen:** In der Galerie (grünes ♥ oben) öffnet das **USB-Symbol** ein
+   aussortiert hast und wie lange es gedauert hat, und schlägt den nächsten Ordner vor. Das **Haus** oben links bringt dich jederzeit
+   zurück zu den Ordnern; dein Stand steht dann unter **„Weitermachen“**.
+4. **Auf den Rahmen bringen:** In der Galerie (Schritt *3 Auf den Rahmen* oder grüner Zähler oben) öffnet das **USB-Symbol** ein
    kleines Popup. Ein Klick auf den Stick oder die SD-Karte gleicht ab: Neues wird kopiert,
    was schon drauf ist, bleibt. Das Popup zeigt vorher, wie viel Platz nötig und frei ist, und
    wartet, bis alle Bilder gespeichert sind. Ist **„Nicht mehr behaltene Bilder vom Stick nehmen“**
@@ -59,7 +77,7 @@ Die Bilder liegen im Zielordner (Standard: `Bilder\Bilderrahmen`) in **`Quer`** 
 
 ## Bedienung
 
-Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zum Startbildschirm, speichert
+Oben in der Mitte sitzt eine kompakte Leiste: das **Haus** (zurück zu den Ordnern, speichert
 deinen Stand), das Zahnrad (Zielordner, Farben, Schrift, Tasten, Hilfe), die beiden Symbole **Quer / Hochkant**
 (nicht beim schnellen Sortieren; das Format steht im Tooltip), ein kleiner Hinweis auf den Schritt
 (*Schnell sortieren*, *Feinschliff 3 / 12*), Ordner und Fortschritt und die Zahl der behaltenen
@@ -67,8 +85,9 @@ Bilder. Hast du mehrere Ordner zusammen ausgewählt, öffnet ein Klick auf den O
 die Liste aller Ordner der Auswahl; ein Klick springt zum ersten offenen Foto dieses Ordners.
 Dein Stand in den anderen Ordnern bleibt erhalten. Alle Tastenkürzel zeigt **?** (oder **F1**).
 
-Auf dem Startbildschirm steht oben nur der grüne Zähler der behaltenen Bilder; ein Klick
-öffnet die Galerie. Alle Einstellungen sitzen in der Leiste unter dem Start-Knopf.
+Bei den Ordnern (Schritt 1) steht oben die Leiste des Bereichs mit dem grünen Zähler der behaltenen
+Bilder; ein Klick öffnet die Galerie. Die Einstellungen fürs Aussuchen sitzen in der Leiste unter dem
+großen Knopf.
 
 Unten schwebt die Leiste fürs Bild, sortiert nach Wichtigkeit: in der Mitte die beiden großen
 Knöpfe **Weg** (rot, ✕) und **Behalten** (grün, ♥), links **Zurück**, rechts die Werkzeuge
@@ -94,7 +113,7 @@ die gerade dafür eingestellt ist, auch wenn du sie geändert hast.
 | Hilfslinien wechseln | – | **O**, drehen mit **Umschalt+O** |
 | Text aufs Bild an / aus | **Text** | **T** |
 | Textfeld (Ort, Notiz, Stil) | kleiner Pfeil an **Text** | – |
-| Zum Startbildschirm, später weitermachen | **Haus** oben links | – |
+| Zurück zu den Ordnern, später weitermachen | **Haus** oben links | – |
 | Ausschnitt verschieben | den hellen Rahmen mit der Maus ziehen | – |
 | Ausschnitt größer / kleiner | an einer **Ecke** des Rahmens ziehen | – |
 | Hinein-/Herauszoomen | **Mausrad** oder zwei Finger am Touchpad | + / − |
@@ -128,7 +147,7 @@ Format-Popup unter der Leiste.
 
 ## Erst sortieren, dann Feinschliff
 
-Wählst du auf dem Startbildschirm unter *Ablauf* **2 Durchgänge**, zeigt der erste
+Wählst du bei den Ordnern unter *Ablauf* **2 Durchgänge**, zeigt der erste
 Durchgang nur das Foto mit **Zurück**, **Weg**, **Behalten** und **Drehen**. So gehst du große
 Ordner schnell durch. Ist der Ordner fertig, startet **„Feinschliff: … zuschneiden“** einen
 zweiten Durchgang nur über die gerade behaltenen Fotos, mit allen Werkzeugen. Hier gibt es
@@ -219,37 +238,45 @@ Bild neu und ersetzt das alte (gleicher Dateiname), **Weg** nimmt es aus den Beh
 bricht ab. **Rückgängig** wirkt hier nur auf das, was du beim Nachbearbeiten getan hast.
 Löschst du Bilder direkt im Zielordner, verschwinden sie auch hier und gelten als aussortiert.
 
-## Mehrere Profile
+## Mehrere Formate
 
-Im Format-Popup legt **+ Neues Profil** ein weiteres an, z. B. für ein zweites Gerät bei den
-Großeltern. Jedes Profil hat sein eigenes Format, seine eigene Größe und seinen eigenen
-Zielordner (`Bilderrahmen <Name>`), und dasselbe Foto kann für jedes Profil behalten werden.
-Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Profil.
+Im Format-Popup legt **+ Neues Format** ein weiteres an, z. B. für ein zweites Gerät bei den
+Großeltern. Jedes Format hat sein eigenes Seitenverhältnis, seine eigene Größe und seinen eigenen
+Zielordner (`Bilderrahmen <Name>`), und dasselbe Foto kann für jedes Format behalten werden.
+Umschalten per Klick auf den Namen, Rechtsklick entfernt ein Format.
 
-## Fotowand planen
+## Collage planen
 
-Der **Wand-Knopf** oben auf der Startseite öffnet die Fotowand. Dort planst du eine Wand voller
+Die Karte **Collage planen** auf der Startseite öffnet **Deine Collagen**: jede Collage als Kachel
+mit Miniatur, Maßen, wie viele Plätze schon ein Foto haben, und dem Schritt, in dem sie steht. Ein
+Klick auf eine Kachel macht dort weiter, **Neue Collage** legt eine an. Dort planst du eine Collage voller
 gedruckter Fotos:
 
-Oben in der Mitte führen dich drei **Schritte**: **Wand**, **Fotos** und **Export**. Ein Klick
+Oben in der Mitte führen dich drei **Schritte**: **Maße**, **Fotos** und **Export**. Ein Klick auf
+**Collage** in derselben Leiste zeigt wieder alle Collagen. Ein Klick
 auf einen Schritt springt hin, der große Knopf unten in der Seitenleiste führt zum nächsten. Die
 Seitenleiste zeigt nur, was zum Schritt gehört. Ein Klick auf ihren Rand (oder die **Tab**-Taste)
 klappt sie ein. Jede Änderung wirkt sofort, die Fotos gleiten an ihre neuen Plätze.
 
-Oben links öffnet das **Menü**: zurück zur Startseite, Rückgängig und Wiederholen, Fotos für die
-Wand, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
+Links neben der Collage steht eine schmale **Symbolleiste**: Rückgängig, Wiederholen, Hindernis
+zeichnen, Neu anordnen, ganze Collage zeigen, auf die Auswahl zoomen, Hilfslinien entfernen und
+Einstellungen ein- oder ausklappen. Der Name und die Taste stehen im Tooltip.
 
-### 1. Wand
+Oben links öffnet das **Menü**: zur Startseite, alle Collagen, Collagen wechseln, Fotos für die
+Collage und „Fotos festpinnen“.
 
-- **Fläche**: Breite und Höhe in cm und der **Rand** zur Wandkante.
+### 1. Maße
+
+- **Fläche**: Breite und Höhe in cm und der **Rand** zur Kante.
 - **Hindernisse** (hier oder im Menü „Hindernis einzeichnen“): Fläche aufziehen, die frei
   bleiben soll, z. B. Lichtschalter oder Sofa. In der Liste änderst du Name, Lage, Maße, wie
   viel **Rand** frei bleibt, oder ob Fotos **dahinter** verschwinden dürfen (z. B. hinter dem Sofa).
 
 ### 2. Fotos
 
-- **Fotos wählen** (das **+** vorn im Band unten oder im Menü): deine behaltenen Bilder, ein
-  Ordner mit fertigen Fotos oder **Dafür sortieren** (siehe unten).
+- **Fotos wählen** (das **+** vorn im Band unten oder im Menü): **Schon sortiert** (deine
+  behaltenen Bilder vom Rahmen), **Ordner mit fertigen Fotos** oder **Für diese Collage aussuchen**
+  (siehe unten).
 - **Art**: **Raster** (gleich große Felder), **Reihen** (quer und hochkant gemischt),
   **Lückenlos** (die ganze Fläche voller Fotos, die sich überlappen, siehe unten) oder
   **Lücken erlaubt** (dicht gepackt wie eine Collage).
@@ -258,15 +285,25 @@ Wand, Hindernis einzeichnen, Neu anordnen und „Fotos festpinnen“.
 - Unter **Mehr**: Ausrichtung (wie das Foto, alle quer, alle hochkant), **Hauptbild** groß in der
   Mitte, **weißer Rand** für alle Fotos und die *Echten Druckmaße*.
 
-**Ein Foto anklicken** zeigt darüber eine kleine **Leiste**: Größe, drehen, nach vorn, nach
-hinten, Bildausschnitt, tauschen, abnehmen und **⋯** für den Rest (Hauptbild, Zuschnitt ändern,
-genaue Lage, eigener Rand). Der Rechtsklick zeigt dasselbe Menü.
+**Ein Foto anklicken** zeigt darüber eine kleine **Leiste**: Größe, **Lage in cm** (Links und
+Oben zum Eintippen, dazu Breite und Höhe), drehen, nach vorn, nach hinten, Bildausschnitt,
+tauschen, abnehmen und **⋯** für den Rest (Hauptbild, Zuschnitt ändern, eigener Rand).
+Der **Rechtsklick** zeigt alle Aktionen mit ihren Tasten: an einem Foto, an mehreren gewählten
+(ausrichten, verteilen) und an einer freien Stelle (nächstes Foto hierher, Hilfslinie hier).
 
-- **Von Hand**: Zieh ein Foto, wohin du willst. Ab dann ist die Wand **von Hand angeordnet**:
-  Nichts ordnet sich mehr von selbst um. Erst **Neu anordnen** (oben unter den Schritten oder im
-  Menü) oder eine Einstellung der Anordnung ordnet alles neu; Strg+Z holt deine Anordnung zurück.
-- Auf ein anderes Foto ziehen tauscht die beiden. Wo sich Fotos überlappen, tauscht das nur mit
-  gedrückter **Alt**-Taste, sonst wird verschoben.
+- **Von Hand**: Zieh ein Foto, wohin du willst. Es liegt sofort genau da, wo du es loslässt, die
+  anderen Fotos bleiben stehen, und leere Plätze darunter verschwinden. Ab dann ist die Collage **von Hand angeordnet**:
+  Nichts ordnet sich mehr von selbst um. Erst **Neu anordnen** (oben unter den Schritten oder in der
+  Symbolleiste links) oder eine Einstellung der Anordnung ordnet alles neu; Strg+Z holt deine Anordnung zurück.
+- **Tauschen**: Zieh ein Foto auf ein anderes und halte kurz still (oder halte **Alt** gedrückt),
+  dann tauschen die beiden. Ohne Halten wird nur verschoben.
+- **Einrasten**: Beim Ziehen rastet das Foto sanft an Kanten, Nachbarn und Hilfslinien ein. Mit
+  gedrückter **Strg**-Taste liegt es frei, ohne Einrasten.
+- **Aus dem Band**: Strg-Klick wählt mehrere Fotos im Band unten, die du zusammen auf die
+  Collage ziehst. Das erste liegt, wo du loslässt, die anderen füllen freie Plätze daneben.
+- **Doppelklick auf eine freie Stelle** legt das nächste Foto aus dem Band genau dorthin.
+- **Strg+C** merkt sich Größe und Rand des gewählten Fotos, **Strg+V** überträgt sie auf die
+  gewählten Fotos.
 - **Größe**: An den Ecken eines gewählten Fotos ziehen, es springt auf die nächste Druckgröße.
 - **Ebene**: Strg+↑ und Strg+↓ legen das Foto nach vorn oder hinten, mit Umschalt ganz.
 - **Abnehmen** (Entf oder ins Band unten ziehen): Das nächste Foto rückt nach, es bleibt keine
@@ -274,16 +311,18 @@ genaue Lage, eigener Rand). Der Rechtsklick zeigt dasselbe Menü.
 - **Mehrere Fotos**: Umschalt-Klick, Rechteck auf einer freien Stelle aufziehen oder Strg+A. Die
   Leiste zeigt dann Ausrichten (links, mittig, rechts, oben, mittig, unten) und **Verteilen**.
 - **Hilfslinien**: Beim Ziehen zeigen blaue Linien, was bündig liegt, und Maße in cm den Abstand
-  zu den Nachbarn und zur Wandkante.
+  zu den Nachbarn und zur Kante. **Eigene Hilfslinien** ziehst du aus dem Lineal oben oder links
+  (oder Rechtsklick auf eine freie Stelle). Fotos rasten daran ein. Eine Linie zurück ins Lineal
+  ziehen entfernt sie, die Symbolleiste entfernt alle.
 - **Bildausschnitt**: Doppelklick auf ein Foto, dann verschiebst du das Bild im Rahmen. Klick
   daneben oder Enter: fertig.
 - **Festpinnen** gibt es nur, wenn du es im Menü einschaltest. Dann bleibt ein Foto mit **P**
   auch beim Neu anordnen, wo es ist.
 
-Unten links steht das Ergebnis, z. B. *72 Bilder an der Wand · 2 unscharf*. Ein Klick darauf
+Unten links steht das Ergebnis, z. B. *72 Bilder in der Collage · 2 unscharf*. Ein Klick darauf
 springt zum nächsten betroffenen Foto. **Unscharf** heißt: zu wenige Pixel für diese Größe
 (unter 200 dpi). **Fast ganz verdeckt** heißt: von einem Foto ist kaum noch etwas zu sehen.
-**Im Weg** heißt: Das Foto liegt auf einem Hindernis oder ragt über die Wand.
+**Im Weg** heißt: Das Foto liegt auf einem Hindernis oder ragt über den Rand.
 
 ### 3. Export
 
@@ -300,10 +339,10 @@ springt zum nächsten betroffenen Foto. **Unscharf** heißt: zu wenige Pixel fü
   bei „Ganz“**.
 - **Nummer auf dem Abzug**: winzig oben links, dieselbe wie im Aufhängeplan.
 
-**Druckdateien speichern** legt neben deinem Zielordner einen Ordner *Fotowand – <Name>* an:
+**Druckdateien speichern** legt neben deinem Zielordner einen Ordner *Collage – <Name>* an:
 - `Druck/` mit einer Datei je Abzug in 300 dpi, mit Nummer und Größe im Namen
   (z. B. `07_10x15_Strand.jpg`).
-- `Aufhängeplan.png`: die Wand mit allen Nummern.
+- `Aufhängeplan.png`: die Collage mit allen Nummern.
 - `Einkaufsliste.txt`: was du bestellen musst und wo jedes Foto hängt (cm ab links oben).
 
 Speicherst du noch einmal, wandern die alten Dateien in den `.papierkorb` in diesem Ordner. Die
@@ -312,17 +351,18 @@ Originale bleiben, wie sie sind.
 ### Ansicht und Tasten
 
 - **Zoom**: Strg + Mausrad, zwei Finger auf dem Touchpad, Strg + / − oder die Knöpfe unten
-  rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Wand. Verschieben
+  rechts; ein Klick auf die Prozentzahl (oder Strg 0) zeigt wieder die ganze Collage. Verschieben
   mit gedrückter Leertaste oder mittlerer Maustaste.
-- **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 10 cm), **Strg+↑/↓**
+- **Z** zoomt auf die gewählten Fotos.
+- **Tasten**: Pfeile schieben die gewählten Fotos um 1 cm (mit Umschalt 5 cm, mit Alt 1 mm), **Strg+↑/↓**
   ändert die Ebene, **Entf** nimmt sie ab, **Strg+A** wählt alle, **Esc** hebt die Auswahl auf,
   **Tab** klappt die Seitenleiste ein und aus, **Strg+Z** nimmt jeden Schritt zurück, **Strg+Y**
-  holt ihn wieder. Alles wird automatisch gespeichert, auch mehrere Wände (Klick auf den Namen
-  der Wand).
+  holt ihn wieder. Alles wird automatisch gespeichert, auch mehrere Collagen (Klick auf den Namen
+  der Collage).
 
 ### Lückenlose Collage
 
-Wie die Wände aus vielen sich überlappenden Abzügen: Die Fläche innerhalb des Rands wird ganz mit
+Wie die Collagen aus vielen sich überlappenden Abzügen: Die Fläche innerhalb des Rands wird ganz mit
 Fotos gefüllt, ohne Lücken. Unter Anordnung stellst du ein:
 
 - **Größen**: wie oft jede Druckgröße vorkommt, z. B. 70 % 10x15, 25 % 13x18 und 5 % 20x30.
@@ -335,23 +375,24 @@ Fotos gefüllt, ohne Lücken. Unter Anordnung stellst du ein:
 - **Obenauf**: zufällig, große unten oder neue oben.
 - **Würfeln**: eine neue zufällige Collage mit denselben Einstellungen.
 
-Die Wand nimmt so viele Fotos, wie sie zum Füllen braucht; fehlen welche, bleiben leere Plätze.
+Die Collage nimmt so viele Fotos, wie sie zum Füllen braucht; fehlen welche, bleiben leere Plätze.
 
-### Für die Wand sortieren
+### Für diese Collage aussuchen
 
-Hast du die Fotos noch nicht ausgesucht, plane erst die Wand und wähle dann im Bilder-Menü
-**Dafür sortieren**. Die App legt ein Profil mit dem Namen der Wand und einem eigenen Ordner an
-(neben deinem bisherigen Zielordner) und bringt dich zur Startseite. Dort wischst du wie gewohnt:
+Hast du die Fotos noch nicht ausgesucht, plane erst die Collage und wähle dann im Bilder-Menü
+**Für diese Collage aussuchen**. Die App legt ein Format mit dem Namen der Collage und einem eigenen
+Ordner an (neben deinem bisherigen Zielordner) und zeigt dir die Ordner. Ein **violetter Streifen**
+oben sagt die ganze Zeit, für welche Collage du aussuchst. Dort wischst du wie gewohnt:
 
 - Behaltene Fotos werden gleich im Format des Abzugs zugeschnitten (z. B. 10x15).
-- Oben steht, wie viele du schon hast: *Für die Wand „Flur“: 12 von 28 Bildern, noch 16*.
-  Ein Klick auf diese Zeile bringt dich zur Wand.
-- An der Wand füllen neue Bilder von selbst die freien Plätze. **Zuschnitt ändern** (Rechtsklick
-  aufs Foto) öffnet den Zuschnitt, danach bist du wieder an der Wand.
-- Änderst du die Wand, passen sich Ziel und Zuschnitt an. Zurück zu deinem Bilderrahmen geht es
-  über das Profil in der Leiste.
+- Der Streifen zeigt, wie viele du schon hast: *12 von 28 · noch 16 · Zuschnitt 10x15*.
+  **Zurück zur Collage** bringt dich zur Collage, **✕** beendet das Aussuchen für die Collage.
+- In der Collage füllen neue Bilder von selbst die freien Plätze. **Zuschnitt ändern** (Rechtsklick
+  aufs Foto) öffnet den Zuschnitt, danach bist du wieder in der Collage.
+- Änderst du die Collage, passen sich Ziel und Zuschnitt an. Gehst du über die Startseite zu
+  **Sortieren und zuschneiden**, gilt wieder dein Bilderrahmen.
 
-Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über die Wand. Gelbe Umrandung mit
+Rote Umrandung: das Foto liegt auf einem Hindernis oder ragt über den Rand. Gelbe Umrandung mit
 Prozentzahl: mehr als die Hälfte vom Foto ist verdeckt (bei Lückenlos: weniger sichtbar als
 eingestellt). Die App rechnet mit den echten Maßen der Abzüge
 (10x15 ist meist 10,2 × 15,2 cm); weichen deine ab, änderst du sie unter *Echte Druckmaße*.
@@ -384,7 +425,7 @@ aktuellen Fotos; alle anderen Ordner behalten den allgemeinen Stil.
 
 ## Programm aktualisieren
 
-Gibt es eine neue Version, erscheint oben rechts auf dem Startbildschirm
+Gibt es eine neue Version, erscheint oben rechts auf der Startseite
 **„Version X installieren“**. Ein Klick lädt sie herunter, danach startet
 **„Neu starten mit X“** das Programm neu. Dein Stand bleibt erhalten. Vorher prüft das Programm, ob die Datei unbeschädigt angekommen ist. Klappt das nicht (etwa
 weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Download-Seite.
@@ -402,7 +443,7 @@ weil die .exe in einem geschützten Ordner liegt), öffnet derselbe Knopf die Do
   Datei an die Person, von der du das Programm hast.
 
 - **Weitermachen:** Das **Haus** oben links merkt sich Ordner, Bild, Zeitraum und
-  Einstellungen der laufenden Auswahl. Auf dem Startbildschirm steht sie unter
+  Einstellungen der laufenden Auswahl. Bei den Ordnern steht sie unter
   **„Weitermachen“**: Ein Klick auf die Karte macht genau dort weiter, der Stift benennt sie
   um, der Papierkorb (erscheint beim Drüberfahren) entfernt sie aus dem Verlauf (behaltene
   Bilder bleiben). Ist eine Auswahl ganz

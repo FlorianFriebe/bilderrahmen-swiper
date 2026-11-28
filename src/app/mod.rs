@@ -15,6 +15,7 @@ use crate::system::{self, CopyProgress, Stats};
 use crate::util::{debug, fmt_int, rotate_color_image, strip_unc};
 use crate::workers::{DateScan, Loader, Preview, Saver, ThumbLoader};
 
+mod areas;
 mod burst;
 mod decide;
 mod edit;
@@ -30,8 +31,11 @@ mod wall;
 mod wall_edit;
 mod wall_export;
 mod wall_fine;
+mod wall_hand;
 mod wall_sort;
+pub use areas::WallStage;
 pub use wall::WallScan;
+pub use wall_hand::StyleClip;
 
 pub const QUER_FORMATS: &[&str] = &["16:9", "16:10", "4:3", "3:2", "5:4", "1:1"];
 pub const HOCH_FORMATS: &[&str] = &["9:16", "10:16", "3:4", "2:3", "4:5", "1:1"];
@@ -277,12 +281,17 @@ impl Default for Config {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum View {
+    /// Startseite: zwei Türen, Sortieren und zuschneiden oder Collage planen
+    Start,
+    /// Bereich Rahmen, Schritt 1: Ordner wählen (auch fürs Aussuchen für eine Wand)
     Home,
     Swipe,
     Gallery,
     Burst,
-    /// Fotowand planen
+    /// Collage planen
     Wall,
+    /// Bereich Wand: alle Wände als Kacheln
+    Walls,
 }
 
 pub struct FolderInfo {
@@ -509,7 +518,7 @@ impl SwiperApp {
             cfg,
             tree: vec![],
             folders: vec![],
-            view: View::Home,
+            view: View::Start,
             active_session: None,
             gear_popup: false,
             ask_profile: false,
@@ -588,10 +597,16 @@ impl SwiperApp {
         };
         app.custom_frame =
             !app.cfg.frame.is_empty() && !FRAMES.iter().any(|f| f.1 == app.cfg.frame);
-        // „Rahmen“ heißt jetzt „Profil“
+        // früher „Mein Rahmen“ und „Mein Profil“, heute „Format“
         for p in &mut app.cfg.profiles {
-            if p.name == "Mein Rahmen" {
-                p.name = "Mein Profil".into();
+            if p.name == "Mein Rahmen" || p.name == "Mein Profil" {
+                p.name = "Format".into();
+            }
+        }
+        // frühere Standardnamen „Meine Fotowand“, „Fotowand 2“ heißen jetzt „… Collage …“
+        for w in &mut app.cfg.walls {
+            if let Some(n) = crate::wall::renamed_default(&w.name) {
+                w.name = n;
             }
         }
         system::log(&format!("Start Version {}", system::VERSION));

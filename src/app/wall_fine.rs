@@ -92,7 +92,9 @@ impl SwiperApp {
             }
         }
         self.wall_freeze();
-        self.wall_relayout_keep(idx);
+        let sizes = self.sizes().to_vec();
+        let now = wl::clear_empty_under(&mut self.wall_mut().pieces, &sizes, idx);
+        self.wall_relayout_keep(&now);
     }
 
     /// Ausgewählte Plätze ausrichten.

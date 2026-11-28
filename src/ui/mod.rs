@@ -9,11 +9,13 @@ pub mod home;
 pub mod icons;
 pub mod kit;
 pub mod popups;
+mod start;
 pub mod style;
 mod swipe;
 pub mod textstyles;
 pub mod viewer;
 pub mod wall;
+mod walls;
 
 pub use frame::frame;
 

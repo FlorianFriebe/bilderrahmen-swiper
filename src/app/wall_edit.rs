@@ -6,14 +6,25 @@ use super::*;
 use crate::wall::{self as wl, Piece, Sequence};
 
 impl SwiperApp {
-    /// Foto an eine Stelle legen. Es bleibt auf seiner Ebene; der Rest bleibt, wo er ist.
+    /// Foto genau dorthin legen, wo es losgelassen wurde. Es bleibt auf seiner Ebene, alle
+    /// anderen Fotos bleiben, wo sie sind; leere Plätze darunter fallen weg.
     pub fn wall_move(&mut self, i: usize, x: f32, y: f32) {
         let Some(mut p) = self.wall().pieces.get(i).cloned() else {
             return;
         };
+        if (p.x - x).abs() < 0.01 && (p.y - y).abs() < 0.01 {
+            return;
+        }
+        self.wall_checkpoint();
         p.x = x;
         p.y = y;
-        self.wall_set_piece(i, p);
+        self.wall_mut().pieces[i] = p;
+        self.wall_freeze();
+        let sizes = self.sizes().to_vec();
+        let now = wl::clear_empty_under(&mut self.wall_mut().pieces, &sizes, &[i]);
+        self.wall_ui.multi.clear();
+        self.wall_ui.sel = now.first().copied();
+        self.wall_relayout();
     }
 
     /// Fotos festpinnen ein- oder ausschalten (Menü). Aus: alle Pins lösen.
@@ -101,29 +112,6 @@ impl SwiperApp {
         }
     }
 
-    /// Foto aus dem Band an eine freie Stelle legen (mittig um `x`, `y`, ganz oben).
-    pub fn wall_place(&mut self, photo: &Path, x: f32, y: f32) {
-        self.wall_checkpoint();
-        let hoch = self.photo_hoch(photo);
-        let w = self.wall_mut();
-        w.pieces.retain(|p| p.photo.as_deref() != Some(photo));
-        let mut p = Piece {
-            photo: Some(photo.to_path_buf()),
-            size: w.size.clone(),
-            hoch,
-            ..Default::default()
-        };
-        let (pw, ph) = p.dims(&self.cfg.print_sizes);
-        p.x = x - pw / 2.0;
-        p.y = y - ph / 2.0;
-        self.set_off(photo, false);
-        let w = self.wall_mut();
-        w.pieces.push(p);
-        self.wall_freeze();
-        self.wall_ui.sel = Some(self.wall().pieces.len() - 1);
-        self.wall_relayout();
-    }
-
     /// Foto aus dem Band auf einen Platz legen.
     pub fn wall_put_on(&mut self, j: usize, photo: &Path) {
         if j >= self.wall().pieces.len() {
@@ -180,7 +168,7 @@ impl SwiperApp {
             .iter()
             .any(|p| p.photo.as_deref() == Some(photo))
         {
-            self.toast("Kein Platz mehr frei. Zieh das Foto an eine Stelle der Wand.".into());
+            self.toast("Kein Platz mehr frei. Zieh das Foto an eine Stelle der Collage.".into());
         }
     }
 
@@ -270,7 +258,7 @@ impl SwiperApp {
         self.wall_move(i, x, y);
     }
 
-    fn photo_hoch(&self, photo: &Path) -> bool {
+    pub(super) fn photo_hoch(&self, photo: &Path) -> bool {
         let w = self.wall();
         match w.facing {
             wl::Facing::Quer => false,
@@ -283,7 +271,7 @@ impl SwiperApp {
         }
     }
 
-    fn set_off(&mut self, photo: &Path, off: bool) {
+    pub(super) fn set_off(&mut self, photo: &Path, off: bool) {
         if let Some(p) = self.wall_mut().photos.iter_mut().find(|p| p.path == photo) {
             p.off = off;
         }

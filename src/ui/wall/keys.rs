@@ -1,5 +1,6 @@
-//! Tasten der Fotowand: Entf nimmt ab, P pinnt (nur wenn Festpinnen an ist), Pfeile schieben
-//! (Umschalt: 10 cm), Strg+↑/↓ ändert die Ebene (mit Umschalt: ganz), Strg+A wählt alle Fotos,
+//! Tasten der Collage: Entf nimmt ab, P pinnt (nur wenn Festpinnen an ist), Pfeile schieben
+//! 1 cm (Umschalt: 5 cm, Alt: 1 mm), Strg+↑/↓ ändert die Ebene (mit Umschalt: ganz), Strg+A
+//! wählt alle Fotos, Strg+C/Strg+V übertragen Größe und Rand, Z zoomt auf die Auswahl,
 //! Strg+Y wiederholt, Tab klappt die Seitenleiste ein. Bei Mehrfachauswahl für alle.
 
 use super::cmd::{run, Cmd};
@@ -21,11 +22,20 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
             Key::ArrowDown,
             Key::Enter,
             Key::Tab,
+            Key::Z,
         ]
         .into_iter()
         .filter(|k| i.key_pressed(*k))
         .collect();
         (pressed, i.modifiers.shift, i.modifiers.command)
+    });
+    let alt = ctx.input(|i| i.modifiers.alt);
+    // Strg+C / Strg+V kommen als Kopieren und Einfügen an, nicht als Tasten
+    let (copy, paste) = ctx.input(|i| {
+        (
+            i.events.iter().any(|e| matches!(e, egui::Event::Copy)),
+            i.events.iter().any(|e| matches!(e, egui::Event::Paste(_))),
+        )
     });
     if typing {
         return;
@@ -51,6 +61,15 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
         Step::Export => return,
         Step::Fotos => {}
     }
+    if copy {
+        app.wall_copy_style();
+    }
+    if paste {
+        app.wall_paste_style();
+    }
+    if !cmd && k.contains(&Key::Z) {
+        super::zoom::to_selection(app);
+    }
     if cmd && k.contains(&Key::A) {
         let n = app.wall().pieces.len();
         app.wall_ui.sel = n.checked_sub(1);
@@ -62,7 +81,13 @@ pub fn keys(app: &mut SwiperApp, ctx: &egui::Context) {
         return;
     }
     let pins = app.wall().pins;
-    let step = if shift { 10.0 } else { 1.0 };
+    let step = if alt {
+        0.1
+    } else if shift {
+        5.0
+    } else {
+        1.0
+    };
     if many.len() >= 2 {
         if cmd {
             return;

@@ -164,7 +164,7 @@ fn sorting_for_a_wall_fills_it() {
     let places = app.wall().pieces.len();
     assert!(places > 0);
     app.sort_for_wall();
-    let target = base.join("Meine Fotowand");
+    let target = base.join("Meine Collage");
     assert_eq!(app.cfg.target, target, "eigener Ordner für die Wand");
     assert_eq!(app.cfg.goal as usize, places, "Ziel = Plätze an der Wand");
     assert_eq!(app.cfg.ratio_quer, "15,2:10,2", "Zuschnitt wie der Abzug");
@@ -408,7 +408,7 @@ fn wall_export_writes_prints_and_keeps_originals() {
     app.wall_export();
     wait(&mut app);
     let dir = app.wall_export_dir();
-    assert!(dir.ends_with("Fotowand – Flur_ oben"));
+    assert!(dir.ends_with("Collage – Flur_ oben"));
     let prints = dir.join("Druck");
     let mut names: Vec<String> = fs::read_dir(&prints)
         .unwrap()
@@ -444,5 +444,39 @@ fn wall_export_writes_prints_and_keeps_originals() {
     wait(&mut app);
     assert_eq!(jpgs(&prints), 3);
     assert!(jpgs(&dir.join(crate::history::TRASH_DIR)) >= 5);
+    let _ = fs::remove_dir_all(&base);
+}
+
+#[test]
+fn start_page_keeps_frame_and_wall_apart() {
+    let (mut app, base, _) = setup("areas");
+    let frame = app.cfg.target.clone();
+    app.go_start();
+    assert_eq!(app.view, View::Start);
+
+    // Bereich Wand: neue Wand steht bei Schritt 1
+    app.open_walls();
+    assert_eq!(app.view, View::Walls);
+    app.create_wall();
+    assert_eq!(app.view, View::Wall);
+    assert_eq!(SwiperApp::wall_stage(app.wall()), WallStage::Masse);
+
+    // Aussuchen für die Wand: eigener Ordner, danach zurück zum Rahmen
+    app.sort_for_wall();
+    assert!(app.sorting_wall().is_some());
+    assert_ne!(app.cfg.target, frame);
+    app.go_start();
+    app.enter_frame();
+    assert_eq!(app.view, View::Home);
+    assert!(
+        app.sorting_wall().is_none(),
+        "der Rahmen ist wieder das Ziel"
+    );
+    assert_eq!(app.cfg.target, frame);
+
+    // „Weitermachen“ der Wand öffnet sie wieder
+    assert_eq!(app.last_wall(), Some(app.cfg.wall));
+    app.open_wall_at(app.cfg.wall);
+    assert_eq!(app.view, View::Wall);
     let _ = fs::remove_dir_all(&base);
 }

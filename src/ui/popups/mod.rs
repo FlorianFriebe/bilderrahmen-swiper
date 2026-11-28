@@ -19,6 +19,9 @@ pub use gear::*;
 pub use profile::*;
 pub use text::*;
 
+/// Breite aller Popups an der Einstellungsleiste (Zeitraum, Ablauf, Text, Format, Zahnrad).
+pub const BAR_POPUP_W: f32 = 380.0;
+
 /// Popup über (oder unter) einem Knopf einer Leiste. `add` gibt `false` zurück, wenn es
 /// zugehen soll. Gibt `false` zurück, wenn es geschlossen werden soll.
 pub fn form_popup(
@@ -29,17 +32,33 @@ pub fn form_popup(
     above: bool,
     add: impl FnOnce(&mut Ui) -> bool,
 ) -> bool {
+    form_popup_in(ui, id, item, w, above, None, add)
+}
+
+/// Wie `form_popup`, aber links und rechts nicht über `bounds` hinaus (z. B. die Leiste).
+pub fn form_popup_in(
+    ui: &Ui,
+    id: &str,
+    item: Rect,
+    w: f32,
+    above: bool,
+    bounds: Option<Rect>,
+    add: impl FnOnce(&mut Ui) -> bool,
+) -> bool {
     let screen = ui.ctx().content_rect();
-    let left = (item.center().x - w / 2.0)
-        .min(screen.right() - w - sp::L)
-        .max(screen.left() + sp::L);
+    let (lo, hi) = match bounds {
+        Some(b) => (b.left(), b.right()),
+        None => (screen.left() + sp::L, screen.right() - sp::L),
+    };
+    let left = (item.center().x - w / 2.0).min(hi - w).max(lo);
     let (pivot, at) = if above {
         (Align2::LEFT_BOTTOM, pos2(left, item.top() - sp::M))
     } else {
         (Align2::LEFT_TOP, pos2(left, item.bottom() + sp::M))
     };
+    // nach oben nie über die Leiste oben in der Mitte (Pille)
     let max_h = if above {
-        item.top() - sp::M - screen.top() - sp::L
+        item.top() - sp::M - screen.top() - size::TOPBAR - sp::L
     } else {
         screen.bottom() - item.bottom() - sp::M - sp::L
     };

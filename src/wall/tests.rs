@@ -321,7 +321,7 @@ fn crop_ratio_follows_the_real_print() {
 #[test]
 fn folder_names_are_safe() {
     assert_eq!(safe_name("Flur: oben/links"), "Flur_ oben_links");
-    assert_eq!(safe_name("  "), "Fotowand");
+    assert_eq!(safe_name("  "), "Collage");
     assert_eq!(safe_name("Wand."), "Wand");
 }
 
@@ -475,4 +475,88 @@ fn lueckenlos_keeps_obstacles_free() {
     for q in arrange(&w, &s) {
         assert!(q.area(&s).overlap(&keep) <= 0.0);
     }
+}
+
+#[test]
+fn old_default_names_become_collage() {
+    use super::renamed_default;
+    assert_eq!(
+        renamed_default("Meine Fotowand").as_deref(),
+        Some("Meine Collage")
+    );
+    assert_eq!(renamed_default("Fotowand 3").as_deref(), Some("Collage 3"));
+    assert_eq!(renamed_default("Fotowand Flur"), None);
+    assert_eq!(renamed_default("Wohnzimmer"), None);
+}
+
+#[test]
+fn moved_photo_clears_empty_places_below_only() {
+    let sizes = default_sizes();
+    let at = |x: f32, y: f32, photo: bool| Piece {
+        photo: photo.then(|| std::path::PathBuf::from(format!("{x}.jpg"))),
+        size: "10x15".into(),
+        x,
+        y,
+        ..Default::default()
+    };
+    // 0 = verschobenes Foto, liegt genau auf dem leeren Platz 1; 2 = Foto daneben, 3 = leer weit weg
+    let mut pieces = vec![
+        at(50.0, 50.0, true),
+        at(50.0, 50.0, false),
+        at(51.0, 51.0, true),
+        at(0.0, 0.0, false),
+    ];
+    let now = clear_empty_under(&mut pieces, &sizes, &[0]);
+    assert_eq!(pieces.len(), 3, "nur der leere Platz darunter fällt weg");
+    assert_eq!(now, vec![0]);
+    assert!(pieces.iter().any(|p| p.x == 51.0), "andere Fotos bleiben");
+    assert!(
+        pieces.iter().any(|p| p.x == 0.0 && p.photo.is_none()),
+        "freie Plätze woanders bleiben"
+    );
+}
+
+#[test]
+fn nearest_empty_and_next_spot() {
+    let sizes = default_sizes();
+    let at = |x: f32, photo: bool| Piece {
+        photo: photo.then(|| std::path::PathBuf::from(format!("{x}.jpg"))),
+        size: "10x15".into(),
+        x,
+        y: 10.0,
+        ..Default::default()
+    };
+    let pieces = vec![at(0.0, false), at(40.0, true), at(80.0, false)];
+    assert_eq!(nearest_empty(&pieces, &sizes, (75.0, 15.0), &[]), Some(2));
+    assert_eq!(nearest_empty(&pieces, &sizes, (75.0, 15.0), &[2]), Some(0));
+    assert_eq!(nearest_empty(&pieces, &sizes, (75.0, 15.0), &[0, 2]), None);
+    let w = Wall {
+        w: 100.0,
+        gap: 2.0,
+        margin: 0.0,
+        ..Default::default()
+    };
+    let a = pieces[1].area(&sizes);
+    assert_eq!(next_spot(&w, a, 0.0, 15.0), (a.right() + 2.0, 10.0));
+    let far = pieces[2].area(&sizes);
+    assert_eq!(next_spot(&w, far, 0.0, 15.0), (0.0, far.bottom() + 2.0));
+}
+
+#[test]
+fn photos_snap_to_own_guides() {
+    let sizes = default_sizes();
+    let mut w = Wall {
+        w: 200.0,
+        h: 100.0,
+        ..Default::default()
+    };
+    w.pieces = vec![Piece {
+        size: "10x15".into(),
+        x: 50.0,
+        y: 50.0,
+        ..Default::default()
+    }];
+    w.guides.x = vec![100.0];
+    let (x, _) = snap(&w, &sizes, 0, 99.0, 50.0, 2.0);
+    assert_eq!(x, 100.0, "linke Kante rastet an der Linie ein");
 }

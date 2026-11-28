@@ -20,7 +20,7 @@ impl SwiperApp {
     /// Aktive Einstellungen in die Liste zurückschreiben (legt den ersten Rahmen an).
     pub fn store_profile(&mut self) {
         if self.cfg.profiles.is_empty() {
-            let snap = self.profile_snapshot("Mein Profil".into());
+            let snap = self.profile_snapshot("Format".into());
             self.cfg.profiles.push(snap);
             self.cfg.profile = 0;
             return;
@@ -50,7 +50,7 @@ impl SwiperApp {
         self.custom_frame = false;
         self.stats = None;
         self.set_target(p.target);
-        self.toast(format!("Profil „{}“", p.name));
+        self.toast(format!("Format „{}“", p.name));
     }
 
     /// Neuen Rahmen anlegen (Kopie der aktuellen Einstellungen, eigener Zielordner).
@@ -58,7 +58,7 @@ impl SwiperApp {
         self.store_profile();
         let name = name.trim();
         let name = if name.is_empty() {
-            format!("Profil {}", self.cfg.profiles.len() + 1)
+            format!("Format {}", self.cfg.profiles.len() + 1)
         } else {
             name.to_string()
         };

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 mod align;
 mod collage;
 mod fill;
+mod hand;
 mod issues;
 mod layout;
 mod order;
@@ -17,6 +18,7 @@ mod tests;
 
 pub use align::{align, distribute, dpi, guides, Align, Line, Measure, DPI_WARN};
 pub use fill::{Fill, Stack};
+pub use hand::{clear_empty_under, nearest_empty, next_spot, round_mm, Guides};
 pub use issues::{issue_counts, issues};
 #[cfg(test)]
 pub use layout::capacity;
@@ -252,6 +254,8 @@ pub struct Wall {
     pub pins: bool,
     /// Einstellungen für die Druckdateien (Schritt 3)
     pub export: Export,
+    /// eigene Hilfslinien aus dem Lineal (cm), Fotos rasten daran ein
+    pub guides: Guides,
 }
 
 impl Wall {
@@ -285,7 +289,7 @@ impl Wall {
 impl Default for Wall {
     fn default() -> Self {
         Self {
-            name: "Meine Fotowand".into(),
+            name: "Meine Collage".into(),
             w: 200.0,
             h: 120.0,
             gap: 3.0,
@@ -310,6 +314,7 @@ impl Default for Wall {
             target: None,
             pins: false,
             export: Export::default(),
+            guides: Guides::default(),
         }
     }
 }
@@ -436,6 +441,13 @@ pub fn snap(wall: &Wall, sizes: &[PrintSize], idx: usize, x: f32, y: f32, tol: f
             a.y + (a.h - h) / 2.0,
         ]);
     }
+    // eigene Hilfslinien: Kante oder Mitte des Fotos darauf
+    for g in &wall.guides.x {
+        xs.extend([*g, g - w, g - w / 2.0]);
+    }
+    for g in &wall.guides.y {
+        ys.extend([*g, g - h, g - h / 2.0]);
+    }
     let pick = |v: f32, c: &[f32]| {
         c.iter()
             .copied()
@@ -488,8 +500,18 @@ pub fn safe_name(name: &str) -> String {
         .collect();
     let s = s.trim_end_matches(['.', ' ']).to_string();
     if s.is_empty() {
-        "Fotowand".into()
+        "Collage".into()
     } else {
         s
     }
+}
+
+/// Neuer Name für einen alten Standardnamen: „Meine Fotowand“ → „Meine Collage“,
+/// „Fotowand 3“ → „Collage 3“. Eigene Namen bleiben (`None`).
+pub fn renamed_default(name: &str) -> Option<String> {
+    if name == "Meine Fotowand" {
+        return Some("Meine Collage".into());
+    }
+    let n = name.strip_prefix("Fotowand ")?;
+    (!n.is_empty() && n.chars().all(|c| c.is_ascii_digit())).then(|| format!("Collage {n}"))
 }
